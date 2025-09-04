@@ -35,7 +35,7 @@ class FirebaseService:
                     raise ValueError(f"Firebase service account file not found at: {service_account_path} or {abs_path}")
             
             firebase_admin.initialize_app(cred, {
-                'storageBucket': "product-training-ai-v1.appspot.com"
+                'storageBucket': "product-training-ai-v1.firebasestorage.app"
             })
         
         self._db = firestore.client()

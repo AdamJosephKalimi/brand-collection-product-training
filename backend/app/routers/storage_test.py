@@ -275,7 +275,7 @@ async def test_storage_connection() -> Dict[str, Any]:
             "data": {
                 "service": "Firebase Storage",
                 "status": "connected",
-                "bucket": "product-training-ai-v1.appspot.com",
+                "bucket": "product-training-ai-v1.firebasestorage.app",
                 "test_prefix_used": test_prefix
             }
         }
