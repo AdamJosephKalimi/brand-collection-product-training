@@ -5,6 +5,10 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth, storage
 from google.cloud.firestore_v1.base_query import FieldFilter
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class FirebaseService:
     """Firebase service for authentication and Firestore operations"""
@@ -17,30 +21,21 @@ class FirebaseService:
     def _initialize_firebase(self):
         """Initialize Firebase Admin SDK"""
         if not firebase_admin._apps:
-            # Check if running in development with service account file
-            service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH')
+            # Use service account file path
+            service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH', './firebase-service-account.json')
             
-            if service_account_path and os.path.exists(service_account_path):
-                # Use service account file
+            if os.path.exists(service_account_path):
                 cred = credentials.Certificate(service_account_path)
             else:
-                # Use environment variables
-                service_account_info = {
-                    "type": "service_account",
-                    "project_id": os.getenv('FIREBASE_PROJECT_ID'),
-                    "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                    "private_key": os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n'),
-                    "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
-                    "client_id": os.getenv('FIREBASE_CLIENT_ID'),
-                    "auth_uri": os.getenv('FIREBASE_AUTH_URI', 'https://accounts.google.com/o/oauth2/auth'),
-                    "token_uri": os.getenv('FIREBASE_TOKEN_URI', 'https://oauth2.googleapis.com/token'),
-                    "auth_provider_x509_cert_url": os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL', 'https://www.googleapis.com/oauth2/v1/certs'),
-                    "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL')
-                }
-                cred = credentials.Certificate(service_account_info)
+                # Try absolute path as fallback
+                abs_path = os.path.join(os.getcwd(), 'firebase-service-account.json')
+                if os.path.exists(abs_path):
+                    cred = credentials.Certificate(abs_path)
+                else:
+                    raise ValueError(f"Firebase service account file not found at: {service_account_path} or {abs_path}")
             
             firebase_admin.initialize_app(cred, {
-                'storageBucket': f"{os.getenv('FIREBASE_PROJECT_ID')}.appspot.com"
+                'storageBucket': "product-training-ai-v1.appspot.com"
             })
         
         self._db = firestore.client()
@@ -67,7 +62,6 @@ class FirebaseService:
                 'picture': decoded_token.get('picture')
             }
         except Exception as e:
-            print(f"Token verification failed: {e}")
             return None
     
     async def get_user(self, uid: str) -> Optional[Dict[str, Any]]:
@@ -79,7 +73,6 @@ class FirebaseService:
                 return doc.to_dict()
             return None
         except Exception as e:
-            print(f"Error getting user: {e}")
             return None
     
     async def create_user(self, uid: str, user_data: Dict[str, Any]) -> bool:
@@ -90,7 +83,6 @@ class FirebaseService:
             self._db.collection('users').document(uid).set(user_data)
             return True
         except Exception as e:
-            print(f"Error creating user: {e}")
             return False
     
     async def update_user(self, uid: str, user_data: Dict[str, Any]) -> bool:
@@ -100,7 +92,6 @@ class FirebaseService:
             self._db.collection('users').document(uid).update(user_data)
             return True
         except Exception as e:
-            print(f"Error updating user: {e}")
             return False
     
     async def get_user_brands(self, uid: str) -> List[Dict[str, Any]]:
@@ -111,7 +102,6 @@ class FirebaseService:
             docs = query.stream()
             return [doc.to_dict() for doc in docs]
         except Exception as e:
-            print(f"Error getting user brands: {e}")
             return []
     
     async def get_brand_collections(self, brand_id: str) -> List[Dict[str, Any]]:
@@ -122,7 +112,6 @@ class FirebaseService:
             docs = query.stream()
             return [doc.to_dict() for doc in docs]
         except Exception as e:
-            print(f"Error getting brand collections: {e}")
             return []
 
 # Global Firebase service instance
