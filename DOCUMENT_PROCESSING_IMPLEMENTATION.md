@@ -52,19 +52,19 @@ backend/
 ```python
 # backend/app/models/document.py
 ```
-- [ ] Document model with status enum
-- [ ] Chunk model with text and metadata
-- [ ] Image model with storage paths
-- [ ] Processing status tracking
+- [x] Document model with status enum
+- [x] Chunk model with text and metadata
+- [x] Image model with storage paths
+- [x] Processing status tracking
 
 #### Step 1.2: Update Collection & Brand Models
 ```python
 # backend/app/models/collection.py
 # backend/app/models/brand.py
 ```
-- [ ] Collection model with document references
-- [ ] Brand model with collection references
-- [ ] Permission models
+- [x] Collection model with document references
+- [x] Brand model with collection references
+- [x] Permission models
 
 ### Phase 2: Storage Service (Day 1-2)
 **Goal**: Handle Firebase Storage operations
@@ -73,11 +73,11 @@ backend/
 ```python
 # backend/app/services/storage_service.py
 ```
-- [ ] Upload file to Firebase Storage
-- [ ] Download file from Firebase Storage
-- [ ] Delete file from Firebase Storage
-- [ ] Generate signed URLs
-- [ ] Handle file paths and organization
+- [x] Upload file to Firebase Storage
+- [x] Download file from Firebase Storage
+- [x] Delete file from Firebase Storage
+- [x] Generate signed URLs
+- [x] Handle file paths and organization
 
 ### Phase 3: Parser Service (Day 2-3)
 **Goal**: Extract text and images from documents

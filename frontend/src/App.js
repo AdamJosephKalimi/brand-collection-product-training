@@ -109,8 +109,47 @@ function App() {
                       <small className="text-muted">
                         User ID: {user.uid}<br/>
                         Email: {user.email}<br/>
-                        Token: {idToken ? 'Available' : 'Not available'}
                       </small>
+                      
+                      {idToken && (
+                        <div className="mt-3">
+                          <h6>Authentication Token for API Testing:</h6>
+                          <div className="card bg-light">
+                            <div className="card-body p-2">
+                              <div className="d-flex justify-content-between align-items-start">
+                                <div className="flex-grow-1 me-2">
+                                  <small className="font-monospace text-break" style={{fontSize: '0.75rem'}}>
+                                    {idToken}
+                                  </small>
+                                </div>
+                                <button 
+                                  className="btn btn-sm btn-outline-primary"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(idToken);
+                                    // Show temporary feedback
+                                    const btn = document.activeElement;
+                                    const originalText = btn.textContent;
+                                    btn.textContent = 'Copied!';
+                                    btn.classList.remove('btn-outline-primary');
+                                    btn.classList.add('btn-success');
+                                    setTimeout(() => {
+                                      btn.textContent = originalText;
+                                      btn.classList.remove('btn-success');
+                                      btn.classList.add('btn-outline-primary');
+                                    }, 2000);
+                                  }}
+                                  title="Copy token to clipboard"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                              <small className="text-muted d-block mt-2">
+                                Use this token in SwaggerUI: Click "Authorize" → Enter "Bearer [your-token]" in the Authorization field
+                              </small>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
