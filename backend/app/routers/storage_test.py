@@ -201,12 +201,19 @@ async def list_files(
     use_delimiter: bool = Query(default=True, description="Use '/' delimiter to show virtual folders")
 ) -> Dict[str, Any]:
     """
-    List files in Firebase Storage with a given prefix.
+    List files in Firebase Storage with hierarchical navigation.
     
-    Use prefix to navigate the storage structure:
-    - Empty prefix: List everything
-    - 'brands/': List all brand folders
-    - 'brands/test-brand-001/': List contents of specific brand
+    **How it works:**
+    - Returns 'files' at the current level and 'prefixes' (virtual folders) for deeper navigation
+    - With delimiter enabled, navigates level-by-level like a folder structure
+    
+    **Navigation examples:**
+    - `brands/` → Lists all brand folders
+    - `brands/test-brand-001/collections/` → Lists collections in that brand  
+    - `brands/test-brand-001/collections/test-collection-001/documents/` → Lists document folders
+    - `brands/.../documents/16dea456.../` → Lists actual files in that document
+    
+    **Purpose:** Enables organized browsing of brand → collection → document → files hierarchy
     """
     try:
         delimiter = "/" if use_delimiter else None
@@ -230,9 +237,20 @@ async def move_file(
     destination_path: str = Query(..., description="New path for the file")
 ) -> Dict[str, Any]:
     """
-    Move a file from one location to another in Firebase Storage.
+    Move a single file from one location to another in Firebase Storage.
     
-    This copies the file to the new location and deletes the original.
+    **Important:** This moves individual files only, not entire directories.
+    
+    **Example - Moving a document between collections:**
+    - Source: `brands/test-brand-001/collections/test-collection-002/documents/6801cace.../file.pdf`
+    - Destination: `brands/test-brand-001/collections/test-collection-001/documents/6801cace.../file.pdf`
+    
+    **For moving entire document folders:**
+    1. Use list-files to get all files in the document folder
+    2. Move each file individually with this API, OR
+    3. Re-upload files to new location + use delete-folder on old location
+    
+    **Process:** Copies file to new location, then deletes original (atomic operation).
     """
     try:
         success = await storage_service.move_file(
