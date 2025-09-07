@@ -4,6 +4,7 @@ Test router for Parser Service - allows testing document parsing operations via 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from typing import Optional, Dict, Any
 from ..services.parser_service import parser_service
+from ..services.storage_service import storage_service
 
 router = APIRouter(
     prefix="/api/parser-test",
@@ -57,6 +58,50 @@ async def parse_pdf_document(
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to parse PDF: {str(e)}")
+
+@router.post("/test-pdf-images-pymupdf")
+async def test_pdf_images_pymupdf(file: UploadFile = File(...)):
+    """
+    Test PyMuPDF-based PDF image extraction with Firebase Storage upload.
+    
+    This endpoint:
+    1. Extracts images from PDF using PyMuPDF
+    2. Generates SHA256 hashes for deduplication
+    3. Uploads images to Firebase Storage
+    4. Returns metadata with signed URLs (no raw bytes)
+    """
+    try:
+        # Validate file type
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="File must be a PDF")
+        
+        # Read file content
+        content = await file.read()
+        
+        # Extract images using PyMuPDF (includes raw bytes temporarily)
+        images = parser_service._extract_images_with_pymupdf(content)
+        
+        # Process and upload images to Firebase Storage
+        processed_images = await storage_service.process_and_upload_images(images)
+        
+        # Create summary
+        summary = {
+            "total_images": len(processed_images),
+            "images_uploaded": sum(1 for img in processed_images if img.get("signed_url")),
+            "images_deduplicated": sum(1 for img in processed_images if img.get("deduplicated", False)),
+            "formats_found": list(set(img.get("format", "unknown") for img in processed_images)),
+            "pages_with_images": list(set(img.get("page", 0) for img in processed_images))
+        }
+        
+        return {
+            "status": "success",
+            "filename": file.filename,
+            "summary": summary,
+            "images": processed_images  # Now contains metadata + URLs, no raw bytes
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PyMuPDF image extraction failed: {str(e)}")
 
 @router.post("/parse-docx")
 async def parse_docx_document(
@@ -258,35 +303,40 @@ async def get_supported_formats() -> Dict[str, Any]:
                 "extensions": [".pdf"],
                 "parser": "pdfplumber",
                 "capabilities": [
-                    "Text extraction",
+                    "Text extraction from all pages",
                     "Table detection and extraction", 
                     "Image metadata extraction",
                     "Page-by-page analysis",
-                    "Document statistics"
+                    "Document statistics and metadata"
                 ],
-                "status": "implemented"
+                "status": "implemented",
+                "endpoint": "/api/parser-test/parse-pdf"
             },
             "docx": {
                 "extensions": [".docx"],
                 "parser": "python-docx",
                 "capabilities": [
-                    "Text extraction",
-                    "Image extraction",
-                    "Table extraction",
-                    "Style preservation"
+                    "Text extraction with style information",
+                    "Embedded image extraction (base64)",
+                    "Table extraction and conversion",
+                    "Paragraph structure preservation",
+                    "Document metadata analysis"
                 ],
-                "status": "planned"
+                "status": "implemented",
+                "endpoint": "/api/parser-test/parse-docx"
             },
             "excel": {
                 "extensions": [".xlsx", ".xls"],
                 "parser": "pandas/openpyxl",
                 "capabilities": [
-                    "Sheet data extraction",
-                    "Multi-sheet support",
-                    "Formula evaluation",
-                    "Data type detection"
+                    "Multi-sheet data extraction",
+                    "Column name and data type detection",
+                    "Sample data preview",
+                    "Sheet statistics and metadata",
+                    "Structured text conversion"
                 ],
-                "status": "planned"
+                "status": "implemented",
+                "endpoint": "/api/parser-test/parse-excel"
             }
         }
         

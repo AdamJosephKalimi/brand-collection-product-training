@@ -4,7 +4,8 @@ Firebase Storage Service for handling document file operations.
 import os
 import io
 import uuid
-from typing import Optional, BinaryIO, Tuple, Dict, Any
+import hashlib
+from typing import Optional, BinaryIO, Tuple, Dict, Any, List
 from datetime import timedelta
 from fastapi import UploadFile, HTTPException
 import mimetypes
@@ -421,6 +422,108 @@ class StorageService:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to move file: {str(e)}")
+    
+    async def upload_image_bytes(
+        self,
+        image_bytes: bytes,
+        storage_key: str,
+        content_type: str = "image/jpeg"
+    ) -> Dict[str, Any]:
+        """
+        Upload raw image bytes to Firebase Storage with content-hashed key.
+        
+        Args:
+            image_bytes: Raw image bytes
+            storage_key: Storage path (e.g., "pdf-images/{sha256}.{ext}")
+            content_type: MIME type of the image
+            
+        Returns:
+            Dictionary with storage_url and signed_url
+        """
+        try:
+            blob = self._bucket.blob(storage_key)
+            
+            # Check if image already exists (deduplication)
+            if blob.exists():
+                # Image already uploaded, just return URLs
+                signed_url = blob.generate_signed_url(
+                    expiration=timedelta(hours=24),
+                    method='GET'
+                )
+                return {
+                    "storage_url": f"gs://{self._bucket.name}/{storage_key}",
+                    "signed_url": signed_url,
+                    "deduplicated": True
+                }
+            
+            # Upload new image
+            blob.upload_from_string(
+                image_bytes,
+                content_type=content_type
+            )
+            
+            # Set cache control for CDN optimization
+            blob.cache_control = "public, max-age=31536000"  # 1 year
+            blob.patch()
+            
+            # Generate signed URL for access
+            signed_url = blob.generate_signed_url(
+                expiration=timedelta(hours=24),
+                method='GET'
+            )
+            
+            return {
+                "storage_url": f"gs://{self._bucket.name}/{storage_key}",
+                "signed_url": signed_url,
+                "deduplicated": False
+            }
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+    
+    async def process_and_upload_images(
+        self,
+        images: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Process extracted images: upload to storage and return metadata with URLs.
+        
+        Args:
+            images: List of image dictionaries with _raw_bytes
+            
+        Returns:
+            List of image metadata with signed URLs (no raw bytes)
+        """
+        processed_images = []
+        
+        for image in images:
+            try:
+                # Extract raw bytes (temporary field)
+                raw_bytes = image.pop("_raw_bytes", None)
+                
+                if raw_bytes:
+                    # Upload to Firebase Storage
+                    upload_result = await self.upload_image_bytes(
+                        image_bytes=raw_bytes,
+                        storage_key=image["storage_key"],
+                        content_type=image["content_type"]
+                    )
+                    
+                    # Add URLs to image metadata
+                    image["storage_url"] = upload_result["storage_url"]
+                    image["signed_url"] = upload_result["signed_url"]
+                    image["deduplicated"] = upload_result["deduplicated"]
+                
+                processed_images.append(image)
+                
+            except Exception as e:
+                print(f"Warning: Failed to upload image {image.get('image_id')}: {str(e)}")
+                # Still include metadata even if upload failed
+                image.pop("_raw_bytes", None)  # Remove raw bytes
+                image["upload_error"] = str(e)
+                processed_images.append(image)
+        
+        return processed_images
 
 # Global storage service instance
 storage_service = StorageService()

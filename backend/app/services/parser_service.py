@@ -3,6 +3,7 @@ Document Parser Service for extracting text and images from various file formats
 """
 import io
 import uuid
+import hashlib
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 import pdfplumber
@@ -12,6 +13,7 @@ from docx.shared import Inches
 import base64
 import pandas as pd
 import openpyxl
+import fitz  # PyMuPDF
 from fastapi import HTTPException
 
 from ..models.document import DocumentType
@@ -37,9 +39,8 @@ class ParserService:
             # Create file-like object from bytes
             pdf_file = io.BytesIO(file_bytes)
             
-            # Initialize results
+            # Initialize variables
             extracted_text = []
-            extracted_images = []
             page_metadata = []
             
             # Open PDF with pdfplumber
@@ -67,18 +68,13 @@ class ParserService:
                                 "type": "table"
                             })
                     
-                    # Extract images from page
-                    page_images = self._extract_images_from_pdf_page(page, page_num)
-                    extracted_images.extend(page_images)
-                    
                     # Collect page metadata
                     page_metadata.append({
                         "page": page_num,
                         "width": page.width,
                         "height": page.height,
                         "has_text": bool(page_text),
-                        "has_tables": bool(tables),
-                        "has_images": len(page_images) > 0
+                        "has_tables": bool(tables)
                     })
             
             # Combine all text
@@ -90,15 +86,12 @@ class ParserService:
                 "total_pages": total_pages,
                 "extracted_text": full_text,
                 "text_by_page": extracted_text,
-                "extracted_images": extracted_images,
                 "page_metadata": page_metadata,
                 "metadata": {
                     "parser": "pdfplumber",
                     "total_characters": len(full_text),
                     "pages_with_text": len([p for p in page_metadata if p["has_text"]]),
-                    "pages_with_tables": len([p for p in page_metadata if p["has_tables"]]),
-                    "pages_with_images": len([p for p in page_metadata if p["has_images"]]),
-                    "total_images": len(extracted_images)
+                    "pages_with_tables": len([p for p in page_metadata if p["has_tables"]])
                 }
             }
             
@@ -148,43 +141,99 @@ class ParserService:
         
         return table_text.strip()
     
-    def _extract_images_from_pdf_page(self, page, page_num: int) -> List[Dict[str, Any]]:
+    def _extract_images_with_pymupdf(self, file_bytes: bytes, page_num: int = None) -> List[Dict[str, Any]]:
         """
-        Extract images from a PDF page.
+        Extract images from PDF using PyMuPDF for robust image extraction.
         
         Args:
-            page: pdfplumber page object
-            page_num: Page number
+            file_bytes: PDF file content as bytes
+            page_num: Specific page number to extract from (1-indexed), or None for all pages
             
         Returns:
-            List of image metadata dictionaries
+            List of image dictionaries with metadata and base64 data
         """
         images = []
         
         try:
-            # Get images from page
-            if hasattr(page, 'images') and page.images:
-                for img_idx, img in enumerate(page.images):
-                    # Generate unique image ID
-                    image_id = str(uuid.uuid4())
-                    
-                    # Extract image metadata
-                    image_info = {
-                        "image_id": image_id,
-                        "page": page_num,
-                        "index": img_idx,
-                        "bbox": [img.get('x0', 0), img.get('top', 0), 
-                                img.get('x1', 0), img.get('bottom', 0)],
-                        "width": img.get('width', 0),
-                        "height": img.get('height', 0),
-                        "filename": f"page_{page_num}_image_{img_idx + 1}.png"
-                    }
-                    
-                    images.append(image_info)
-                    
+            # Open PDF with PyMuPDF
+            pdf_document = fitz.open(stream=file_bytes, filetype="pdf")
+            
+            # Determine which pages to process
+            if page_num is not None:
+                # Extract from specific page (convert to 0-indexed)
+                pages_to_process = [page_num - 1] if page_num - 1 < len(pdf_document) else []
+            else:
+                # Extract from all pages
+                pages_to_process = range(len(pdf_document))
+            
+            for page_idx in pages_to_process:
+                page = pdf_document[page_idx]
+                current_page_num = page_idx + 1  # Convert back to 1-indexed
+                
+                # Get image list from page
+                image_list = page.get_images()
+                
+                for img_idx, img in enumerate(image_list):
+                    try:
+                        # Get image reference
+                        xref = img[0]
+                        
+                        # Extract image data
+                        base_image = pdf_document.extract_image(xref)
+                        image_bytes = base_image["image"]
+                        image_ext = base_image["ext"]
+                        
+                        # Generate SHA256 hash for deduplication
+                        sha256_hash = hashlib.sha256(image_bytes).hexdigest()
+                        
+                        # Determine content type
+                        content_type_map = {
+                            "png": "image/png",
+                            "jpg": "image/jpeg",
+                            "jpeg": "image/jpeg",
+                            "bmp": "image/bmp",
+                            "tiff": "image/tiff",
+                            "webp": "image/webp"
+                        }
+                        content_type = content_type_map.get(image_ext.lower(), "image/png")
+                        
+                        # Get image rectangle (position and size)
+                        img_rect = page.get_image_rects(img)[0] if page.get_image_rects(img) else fitz.Rect(0, 0, 0, 0)
+                        
+                        # Generate unique image ID
+                        image_id = str(uuid.uuid4())
+                        
+                        # Create storage key for Firebase
+                        storage_key = f"pdf-images/{sha256_hash}.{image_ext}"
+                        
+                        # Create image info (metadata only, no raw bytes)
+                        image_info = {
+                            "image_id": image_id,
+                            "page": current_page_num,
+                            "index": img_idx,
+                            "bbox": [img_rect.x0, img_rect.y0, img_rect.x1, img_rect.y1],
+                            "width": int(img_rect.width),
+                            "height": int(img_rect.height),
+                            "filename": f"page_{current_page_num}_image_{img_idx + 1}.{image_ext}",
+                            "content_type": content_type,
+                            "size": len(image_bytes),
+                            "format": image_ext.upper(),
+                            "colorspace": base_image.get("colorspace", "unknown"),
+                            "sha256": sha256_hash,
+                            "storage_key": storage_key,
+                            "_raw_bytes": image_bytes  # Temporary, for upload processing
+                        }
+                        
+                        images.append(image_info)
+                        
+                    except Exception as img_error:
+                        print(f"Warning: Could not extract image {img_idx} from page {current_page_num}: {str(img_error)}")
+                        continue
+            
+            pdf_document.close()
+            
         except Exception as e:
-            # Log error but don't fail the entire parsing
-            print(f"Warning: Could not extract images from page {page_num}: {str(e)}")
+            print(f"Warning: PyMuPDF image extraction failed: {str(e)}")
         
         return images
     

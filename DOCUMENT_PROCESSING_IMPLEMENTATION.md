@@ -93,26 +93,51 @@ backend/
 
 #### Step 3.1: Install Dependencies ✅ COMPLETED
 ```bash
-pip install pdfplumber python-docx openpyxl pandas pillow pytesseract
+pip install pdfplumber python-docx openpyxl pandas pillow pytesseract PyMuPDF
 ```
 
-#### Step 3.2: Implement Parser Service
+#### Step 3.2: Implement Parser Service ✅ COMPLETED
 ```python
 # backend/app/services/parser_service.py
 ```
-- [x] PDF parser using pdfplumber
+- [x] PDF parser using pdfplumber (text/tables)
 - [x] DOCX parser using python-docx
 - [x] Excel parser using pandas/openpyxl
-- [ ] Image extraction from PDFs/DOCX
-- [ ] Error handling for corrupted files
+- [x] Image extraction from PDFs using PyMuPDF
+- [x] Image extraction from DOCX files
+- [x] Error handling for corrupted files
 
-#### Step 3.3: Implement OCR Service
+#### Step 3.2.1: Create Parser Test Endpoints ✅ COMPLETED
+```python
+# backend/app/routers/parser_test.py
+```
+- [x] PDF parsing test endpoint
+- [x] DOCX parsing test endpoint  
+- [x] Excel parsing test endpoint
+- [x] Document info endpoint
+- [x] Connection test endpoint
+- [x] Supported formats endpoint
+
+#### Step 3.3: Upgrade Image Handling to Raw Bytes + Firebase Storage ✅ COMPLETED
+```python
+# backend/app/services/parser_service.py (PyMuPDF enhancement)
+# backend/app/services/storage_service.py (image storage methods)
+```
+- [x] Modify PyMuPDF to return raw bytes instead of base64
+- [x] Implement SHA256 hashing for image deduplication
+- [x] Add Firebase Storage upload for images with content-hashed keys
+- [x] Update API to return metadata + signed URLs instead of base64
+- [x] Add image cleanup and deduplication logic
+- [x] Update test endpoints for new image handling
+
+#### Step 3.4: Implement OCR Service ✅ COMPLETED
 ```python
 # backend/app/services/ocr_service.py
+# backend/app/routers/ocr_test.py
 ```
-- [ ] OCR for images using pytesseract
-- [ ] Image preprocessing for better OCR
-- [ ] Language detection
+- [x] OCR for images using pytesseract
+- [x] Image preprocessing for better OCR
+- [x] Language detection with multi-language support (30+ languages including Chinese, Japanese, Korean, Arabic, etc.)
 
 ### Phase 4: Chunking Service (Day 3)
 **Goal**: Split text into optimized chunks
