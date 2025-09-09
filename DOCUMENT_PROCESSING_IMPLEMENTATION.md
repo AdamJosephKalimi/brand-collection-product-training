@@ -82,18 +82,19 @@ backend/
 - [x] Brand ownership validation and permissions
 - [x] Brand name uniqueness validation per user
 
-#### Step 1.5.2: Implement Collection Management APIs
+#### Step 1.5.2: Implement Collection Management APIs ✅ COMPLETED
 ```python
 # backend/app/routers/collection_management.py
 # backend/app/services/collection_service.py
+# backend/app/routers/brand_collection_test.py
 ```
-- [ ] Create collection endpoint (`POST /api/brands/{brand_id}/collections`)
-- [ ] Get brand collections endpoint (`GET /api/brands/{brand_id}/collections`)
-- [ ] Get specific collection endpoint (`GET /api/collections/{collection_id}`)
-- [ ] Update collection endpoint (`PUT /api/collections/{collection_id}`)
-- [ ] Delete collection endpoint (`DELETE /api/collections/{collection_id}`)
-- [ ] Collection ownership validation through brand hierarchy
-- [ ] Collection name uniqueness validation per brand
+- [x] Create collection endpoint (`POST /api/brands/{brand_id}/collections`)
+- [x] Get brand collections endpoint (`GET /api/brands/{brand_id}/collections`)
+- [x] Get specific collection endpoint (`GET /api/collections/{collection_id}`)
+- [x] Update collection endpoint (`PUT /api/collections/{collection_id}`)
+- [x] Delete collection endpoint (`DELETE /api/collections/{collection_id}`)
+- [x] Collection ownership validation through brand hierarchy
+- [x] Collection name uniqueness validation per brand
 
 #### Step 1.5.3: Enhance Firebase Service for Brand/Collection Operations
 ```python
@@ -234,6 +235,18 @@ pip install pdfplumber python-docx openpyxl pandas pillow pytesseract PyMuPDF
 - [ ] Namespace management
 - [ ] Metadata filtering
 - [ ] Delete operations
+
+#### Step 6.3: Implement RAG Configuration Layer
+```python
+# backend/app/services/rag_config_service.py
+```
+- [ ] Create RAG configuration manager service
+- [ ] Auto-initialize RAG settings on first document upload
+- [ ] Handle collection-specific search parameters (max_context_chunks)
+- [ ] Implement document weight prioritization during search
+- [ ] Update Pinecone service to use proper namespaces vs metadata filtering
+- [ ] Bridge collection RAG settings with embedding/search services
+- [ ] Add RAG settings validation and defaults management
 
 ### Phase 7: Orchestrator (Day 5-6)
 **Goal**: Build the main processing pipeline
