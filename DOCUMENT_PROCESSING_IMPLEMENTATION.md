@@ -66,6 +66,55 @@ backend/
 - [x] Brand model with collection references
 - [x] Permission models
 
+### Phase 1.5: Brand & Collection Management APIs (Day 2)
+**Goal**: Build CRUD APIs for brands and collections to establish the foundational user workflow
+
+#### Step 1.5.1: Implement Brand Management APIs
+```python
+# backend/app/routers/brand_management.py
+# backend/app/services/brand_service.py
+```
+- [ ] Create brand endpoint (`POST /api/brands`)
+- [ ] Get user's brands endpoint (`GET /api/brands`)
+- [ ] Get specific brand endpoint (`GET /api/brands/{brand_id}`)
+- [ ] Update brand endpoint (`PUT /api/brands/{brand_id}`)
+- [ ] Delete brand endpoint (`DELETE /api/brands/{brand_id}`)
+- [ ] Brand ownership validation and permissions
+- [ ] Brand name uniqueness validation per user
+
+#### Step 1.5.2: Implement Collection Management APIs
+```python
+# backend/app/routers/collection_management.py
+# backend/app/services/collection_service.py
+```
+- [ ] Create collection endpoint (`POST /api/brands/{brand_id}/collections`)
+- [ ] Get brand collections endpoint (`GET /api/brands/{brand_id}/collections`)
+- [ ] Get specific collection endpoint (`GET /api/collections/{collection_id}`)
+- [ ] Update collection endpoint (`PUT /api/collections/{collection_id}`)
+- [ ] Delete collection endpoint (`DELETE /api/collections/{collection_id}`)
+- [ ] Collection ownership validation through brand hierarchy
+- [ ] Collection name uniqueness validation per brand
+
+#### Step 1.5.3: Enhance Firebase Service for Brand/Collection Operations
+```python
+# backend/app/services/firebase_service.py (enhancements)
+```
+- [ ] Add brand CRUD operations with proper Firestore structure
+- [ ] Add collection CRUD operations with brand relationship
+- [ ] Implement user-brand-collection hierarchy validation
+- [ ] Add collection statistics initialization (document_count: 0, etc.)
+- [ ] Handle cascade operations (delete brand → delete collections)
+
+#### Step 1.5.4: Create Management Test Endpoints
+```python
+# backend/app/routers/brand_collection_test.py
+```
+- [ ] Test endpoints for complete brand lifecycle
+- [ ] Test endpoints for complete collection lifecycle
+- [ ] Test user workflow: create brand → create collection → verify hierarchy
+- [ ] Test permission validation and error handling
+- [ ] SwaggerUI integration with example workflows
+
 ### Phase 2: Storage Service (Day 1-2)
 **Goal**: Handle Firebase Storage operations
 
