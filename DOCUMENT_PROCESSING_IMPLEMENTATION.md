@@ -116,6 +116,27 @@ backend/
 - [ ] Test permission validation and error handling
 - [ ] SwaggerUI integration with example workflows
 
+### Phase 1.6: Brand Enhancement Service (Day 2-3)
+**Goal**: AI-powered brand analysis and style guideline generation
+
+#### Step 1.6.1: Implement Brand Enhancement Service
+```python
+# backend/app/services/brand_enhancement_service.py
+```
+- [ ] Create LLM service for brand analysis
+- [ ] Generate tone of voice from brand name and description
+- [ ] Generate target audience suggestions
+- [ ] Generate key brand values
+- [ ] Create enhancement prompts and validation
+
+#### Step 1.6.2: Integrate Enhancement with Brand Updates
+```python
+# backend/app/routers/brand_management.py (enhancements)
+```
+- [ ] Add brand enhancement endpoint (`POST /api/brands/{brand_id}/enhance`)
+- [ ] Integrate LLM enhancement into brand update workflow
+- [ ] Add optional auto-enhancement flag for brand updates
+
 ### Phase 2: Storage Service (Day 1-2)
 **Goal**: Handle Firebase Storage operations
 

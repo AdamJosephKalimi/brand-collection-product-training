@@ -114,7 +114,6 @@ class BrandService:
                 "style_guidelines": brand_data.style_guidelines.model_dump() if brand_data.style_guidelines else None,
                 "website_url": str(brand_data.website_url) if brand_data.website_url else None,
                 "social_media": brand_data.social_media.model_dump() if brand_data.social_media else None,
-                "contact_info": brand_data.contact_info.model_dump() if brand_data.contact_info else None,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
                 "last_accessed": None,
@@ -312,8 +311,6 @@ class BrandService:
                     update_doc["style_guidelines"] = value
                 elif field == "social_media" and value:
                     update_doc["social_media"] = value
-                elif field == "contact_info" and value:
-                    update_doc["contact_info"] = value
                 elif field == "website_url" and value:
                     update_doc["website_url"] = str(value)
                 else:

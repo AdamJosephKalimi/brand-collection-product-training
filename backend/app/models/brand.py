@@ -22,25 +22,15 @@ class PresentationStyle(str, Enum):
 
 class BrandColors(BaseModel):
     """Brand color palette"""
-    primary: str = Field(..., description="Primary brand color hex")
+    primary: Optional[str] = Field(None, description="Primary brand color hex")
     secondary: Optional[str] = Field(None, description="Secondary brand color hex")
     accent: Optional[str] = Field(None, description="Accent color hex")
-    text: Optional[str] = Field("#2C3E50", description="Text color hex")
-    background: Optional[str] = Field("#FFFFFF", description="Background color hex")
 
 
 class Typography(BaseModel):
     """Brand typography settings"""
     heading_font: Optional[str] = Field("Playfair Display", description="Heading font family")
     body_font: Optional[str] = Field("Open Sans", description="Body font family")
-    font_sizes: Optional[Dict[str, str]] = Field(
-        default_factory=lambda: {
-            "h1": "48px",
-            "h2": "36px",
-            "h3": "24px",
-            "body": "16px"
-        }
-    )
 
 
 class StyleGuidelines(BaseModel):
@@ -101,7 +91,6 @@ class Brand(BaseModel):
     # Social & Contact
     website_url: Optional[HttpUrl] = None
     social_media: Optional[SocialMedia] = None
-    contact_info: Optional[ContactInfo] = None
     
     # Metadata
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -125,7 +114,6 @@ class BrandCreate(BaseModel):
     style_guidelines: Optional[StyleGuidelines] = None
     website_url: Optional[HttpUrl] = None
     social_media: Optional[SocialMedia] = None
-    contact_info: Optional[ContactInfo] = None
 
 class BrandUpdate(BaseModel):
     """Model for updating a brand"""
@@ -139,7 +127,6 @@ class BrandUpdate(BaseModel):
     style_guidelines: Optional[StyleGuidelines] = None
     website_url: Optional[HttpUrl] = None
     social_media: Optional[SocialMedia] = None
-    contact_info: Optional[ContactInfo] = None
     subscription_tier: Optional[SubscriptionTier] = None
 
 class BrandResponse(BaseModel):
@@ -151,6 +138,8 @@ class BrandResponse(BaseModel):
     description: Optional[str]
     logo_url: Optional[str]
     brand_colors: Optional[BrandColors]
+    typography: Optional[Typography] = None
+    style_guidelines: Optional[StyleGuidelines] = None
     website_url: Optional[str]
     social_media: Optional[SocialMedia]
     subscription_tier: SubscriptionTier
