@@ -44,20 +44,45 @@ class CollectionTheme(BaseModel):
     inspiration: Optional[str] = None
 
 
+class ProductSubcategory(BaseModel):
+    """Product subcategory within a category"""
+    name: str
+    product_count: int = 0
+    display_order: int
+
+
 class CollectionSettings(BaseModel):
     """Collection display and presentation settings"""
-    default_language: str = Field(default="en")
+    selected_language: str = Field(default="en")
     available_languages: List[str] = Field(default_factory=lambda: ["en"])
     products_per_slide: int = Field(default=2, ge=1, le=4)  # 1, 2, or 4
-    show_prices: bool = Field(default=True)
+    
+    # Product display controls
+    show_product_name: bool = Field(default=True)
     show_sku: bool = Field(default=True)
     show_descriptions: bool = Field(default=True)
+    show_color: bool = Field(default=True)
+    show_material: bool = Field(default=True)
+    show_sizes: bool = Field(default=True)
+    show_origin: bool = Field(default=True)
+    show_wholesale_price: bool = Field(default=False)
+    show_rrp: bool = Field(default=True)
+    
     citation_style: CitationStyle = Field(default=CitationStyle.FOOTNOTES)
     
     # Presentation defaults
     presentation_template: str = Field(default="minimal_modern")
-    include_cover_slide: bool = Field(default=True)
-    include_thank_you_slide: bool = Field(default=True)
+    
+    # Slide inclusions
+    include_cover_page_slide: bool = Field(default=True)
+    include_brand_introduction_slide: bool = Field(default=True)
+    include_brand_history_slide: bool = Field(default=True)
+    include_brand_personality_slide: bool = Field(default=True)
+    include_brand_values_slide: bool = Field(default=True)
+    include_core_collection_and_signature_categories_slide: bool = Field(default=True)
+    include_flagship_store_and_experiences_slide: bool = Field(default=True)
+    include_product_categories_slide: bool = Field(default=True)
+    
     auto_generate_index: bool = Field(default=True)
 
 
@@ -66,30 +91,7 @@ class ProductCategory(BaseModel):
     name: str
     product_count: int = 0
     display_order: int
-
-
-class RAGSettings(BaseModel):
-    """RAG (Retrieval Augmented Generation) configuration"""
-    enabled: bool = Field(default=True)
-    pinecone_namespace: str = Field(..., description="Pinecone namespace for this collection")
-    embedding_model: str = Field(default="text-embedding-3-small")
-    chunk_size: int = Field(default=500)
-    chunk_overlap: int = Field(default=100)
-    max_context_chunks: int = Field(default=10)
-    temperature: float = Field(default=0.7, ge=0, le=2)
-    
-    # Custom prompts (simplified for V1)
-    system_prompt: Optional[str] = None
-    description_template: Optional[str] = None
-    
-    # Document priorities
-    document_weights: Dict[str, float] = Field(
-        default_factory=lambda: {
-            "product_catalog": 1.0,
-            "brand_guidelines": 0.8,
-            "technical_specs": 0.6
-        }
-    )
+    subcategories: List['ProductSubcategory'] = Field(default_factory=list)
 
 
 class CollectionWorkflow(BaseModel):
@@ -129,8 +131,8 @@ class Collection(BaseModel):
     # Product Categories
     categories: List[ProductCategory] = Field(default_factory=list)
     
-    # RAG Configuration
-    rag_settings: Optional[RAGSettings] = None
+    # Collection Items
+    items: List[str] = Field(default_factory=list, description="Array of item IDs")
     
     # Metadata
     created_by: str = Field(..., description="User ID who created the collection")
@@ -143,8 +145,8 @@ class Collection(BaseModel):
     # Statistics
     stats: CollectionStatistics = Field(default_factory=CollectionStatistics)
     
-    # Workflow
-    workflow: CollectionWorkflow = Field(default_factory=CollectionWorkflow)
+    # Workflow (optional)
+    workflow: Optional[CollectionWorkflow] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -158,6 +160,7 @@ class CollectionCreate(BaseModel):
     theme: Optional[CollectionTheme] = None
     settings: Optional[CollectionSettings] = None
     categories: Optional[List[ProductCategory]] = None
+    items: Optional[List[str]] = None
 
 class CollectionUpdate(BaseModel):
     """Model for updating a collection"""
@@ -168,7 +171,7 @@ class CollectionUpdate(BaseModel):
     theme: Optional[CollectionTheme] = None
     settings: Optional[CollectionSettings] = None
     categories: Optional[List[ProductCategory]] = None
-    rag_settings: Optional[RAGSettings] = None
+    items: Optional[List[str]] = None
     status: Optional[CollectionStatus] = None
     visibility: Optional[CollectionVisibility] = None
     workflow: Optional[CollectionWorkflow] = None
@@ -184,12 +187,14 @@ class CollectionResponse(BaseModel):
     theme: Optional[CollectionTheme]
     settings: CollectionSettings
     categories: List[ProductCategory]
+    items: List[str]
     status: CollectionStatus
     visibility: CollectionVisibility
     stats: CollectionStatistics
     created_at: datetime
     updated_at: datetime
     published_at: Optional[datetime]
+    workflow: Optional[CollectionWorkflow]
 
 
 class CollectionWithDocuments(Collection):
