@@ -68,7 +68,7 @@ storage/
 # Firebase
 firebase-adminsdk-*.json
 serviceAccountKey.json
-./firebase-service-account.json
+.firebase-service-account.json
 
 # Testing
 .pytest_cache/
