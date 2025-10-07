@@ -65,6 +65,7 @@ class BrandStatistics(BaseModel):
     total_products: int = 0
     total_presentations: int = 0
     total_documents: int = 0
+    total_brand_documents: int = 0
     storage_used_bytes: int = 0
 
 

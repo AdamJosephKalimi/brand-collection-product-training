@@ -51,37 +51,21 @@ class StorageService:
     async def upload_file(
         self,
         file: UploadFile,
-        brand_id: str,
-        collection_id: str,
-        document_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        storage_path: str
+    ) -> str:
         """
         Upload a file to Firebase Storage.
         
         Args:
             file: FastAPI UploadFile object
-            brand_id: Brand identifier
-            collection_id: Collection identifier
-            document_id: Document identifier (auto-generated if not provided)
+            storage_path: Full storage path where file should be uploaded
         
         Returns:
-            Dictionary with storage_path, public_url, and metadata
+            Signed URL for accessing the file
         """
         try:
-            # Generate document ID if not provided
-            if not document_id:
-                document_id = str(uuid.uuid4())
-            
             # Read file content
             content = await file.read()
-            
-            # Generate storage path
-            storage_path = self._generate_storage_path(
-                brand_id=brand_id,
-                collection_id=collection_id,
-                document_id=document_id,
-                filename=file.filename
-            )
             
             # Create blob in Firebase Storage
             blob = self._bucket.blob(storage_path)
@@ -94,25 +78,10 @@ class StorageService:
             # Upload file
             blob.upload_from_string(content, content_type=content_type)
             
-            # Make blob publicly accessible (optional - remove for private files)
-            # blob.make_public()
+            # Generate signed URL for access
+            signed_url = self.generate_signed_url(storage_path)
             
-            # Get public URL (or use signed URL for private files)
-            public_url = blob.public_url if blob.public_url else self.generate_signed_url(storage_path)
-            
-            return {
-                "document_id": document_id,
-                "storage_path": storage_path,
-                "public_url": public_url,
-                "filename": file.filename,
-                "content_type": content_type,
-                "size": len(content),
-                "metadata": {
-                    "brand_id": brand_id,
-                    "collection_id": collection_id,
-                    "uploaded_at": blob.time_created.isoformat() if blob.time_created else None
-                }
-            }
+            return signed_url
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")

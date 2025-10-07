@@ -145,7 +145,7 @@ class CollectionService:
                 "theme": collection_data.theme.model_dump() if collection_data.theme else None,
                 "settings": collection_data.settings.model_dump() if collection_data.settings else CollectionSettings().model_dump(),
                 "categories": [cat.model_dump() for cat in collection_data.categories] if collection_data.categories else [],
-                "rag_settings": None,  # Will be initialized on first document upload
+                "items": collection_data.items if collection_data.items else [],
                 "created_by": user_id,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
@@ -153,7 +153,7 @@ class CollectionService:
                 "status": CollectionStatus.DRAFT.value,
                 "visibility": CollectionVisibility.PRIVATE.value,
                 "stats": CollectionStatistics().model_dump(),
-                "workflow": CollectionWorkflow().model_dump()
+                "workflow": CollectionWorkflow().model_dump() if collection_data.items else None
             }
             
             # Save to Firestore
@@ -222,13 +222,14 @@ class CollectionService:
                     theme=collection_data.get("theme"),
                     settings=collection_data.get("settings", CollectionSettings().model_dump()),
                     categories=collection_data.get("categories", []),
+                    items=collection_data.get("items", []),
                     status=collection_data.get("status", CollectionStatus.DRAFT.value),
                     visibility=collection_data.get("visibility", CollectionVisibility.PRIVATE.value),
                     stats=CollectionStatistics(**collection_data.get("stats", {})) if collection_data.get("stats") else CollectionStatistics(),
-                    created_by=collection_data.get("created_by"),
                     created_at=collection_data.get("created_at", datetime.utcnow()),
                     updated_at=collection_data.get("updated_at", datetime.utcnow()),
-                    published_at=collection_data.get("published_at")
+                    published_at=collection_data.get("published_at"),
+                    workflow=collection_data.get("workflow")
                 ))
             
             return collections
@@ -290,13 +291,14 @@ class CollectionService:
                 theme=collection_data.get("theme"),
                 settings=collection_data.get("settings", CollectionSettings().model_dump()),
                 categories=collection_data.get("categories", []),
+                items=collection_data.get("items", []),
                 status=collection_data.get("status", CollectionStatus.DRAFT.value),
                 visibility=collection_data.get("visibility", CollectionVisibility.PRIVATE.value),
                 stats=CollectionStatistics(**collection_data.get("stats", {})) if collection_data.get("stats") else CollectionStatistics(),
-                created_by=collection_data.get("created_by"),
                 created_at=collection_data.get("created_at", datetime.utcnow()),
                 updated_at=collection_data.get("updated_at", datetime.utcnow()),
-                published_at=collection_data.get("published_at")
+                published_at=collection_data.get("published_at"),
+                workflow=collection_data.get("workflow")
             )
             
         except HTTPException:
