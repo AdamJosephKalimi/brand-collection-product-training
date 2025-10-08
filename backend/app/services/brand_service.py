@@ -376,6 +376,164 @@ class BrandService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to delete brand: {str(e)}"
             )
+    
+    async def upload_logo(self, brand_id: str, user_id: str, file) -> Dict[str, str]:
+        """
+        Upload or replace a brand logo.
+        
+        Args:
+            brand_id: The brand ID
+            user_id: The authenticated user's ID
+            file: The uploaded logo file
+            
+        Returns:
+            Dictionary with logo_url and logo_storage_path
+            
+        Raises:
+            HTTPException: If brand not found, user doesn't have access, or upload fails
+        """
+        try:
+            # Validate ownership
+            if not await self.validate_brand_ownership(brand_id, user_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to update this brand"
+                )
+            
+            # Validate file type
+            allowed_types = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp']
+            if file.content_type not in allowed_types:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid file type. Allowed types: PNG, JPG, JPEG, SVG, WEBP"
+                )
+            
+            # Validate file size (5 MB max)
+            file.file.seek(0, 2)  # Seek to end
+            file_size = file.file.tell()
+            file.file.seek(0)  # Reset to beginning
+            
+            max_size = 5 * 1024 * 1024  # 5 MB
+            if file_size > max_size:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File size exceeds maximum of 5 MB"
+                )
+            
+            # Get current brand data
+            doc_ref = self.db.collection(self.collection_name).document(brand_id)
+            doc = doc_ref.get()
+            
+            if not doc.exists:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Brand with ID {brand_id} not found"
+                )
+            
+            brand_data = doc.to_dict()
+            old_logo_path = brand_data.get('logo_storage_path')
+            
+            # Delete old logo if exists
+            if old_logo_path:
+                from .storage_service import storage_service
+                try:
+                    await storage_service.delete_file(old_logo_path)
+                except Exception as e:
+                    logger.warning(f"Failed to delete old logo: {e}")
+            
+            # Get file extension
+            from pathlib import Path
+            file_extension = Path(file.filename).suffix.lower()
+            
+            # Upload new logo
+            storage_path = f"brands/{brand_id}/assets/logo{file_extension}"
+            from .storage_service import storage_service
+            logo_url = await storage_service.upload_file(file, storage_path)
+            
+            # Update brand document
+            doc_ref.update({
+                "logo_url": logo_url,
+                "logo_storage_path": storage_path,
+                "updated_at": datetime.utcnow()
+            })
+            
+            return {
+                "logo_url": logo_url,
+                "logo_storage_path": storage_path,
+                "message": "Logo uploaded successfully"
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error uploading logo: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload logo: {str(e)}"
+            )
+    
+    async def delete_logo(self, brand_id: str, user_id: str) -> Dict[str, str]:
+        """
+        Delete a brand logo.
+        
+        Args:
+            brand_id: The brand ID
+            user_id: The authenticated user's ID
+            
+        Returns:
+            Success message
+            
+        Raises:
+            HTTPException: If brand not found or user doesn't have access
+        """
+        try:
+            # Validate ownership
+            if not await self.validate_brand_ownership(brand_id, user_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to update this brand"
+                )
+            
+            # Get brand document
+            doc_ref = self.db.collection(self.collection_name).document(brand_id)
+            doc = doc_ref.get()
+            
+            if not doc.exists:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Brand with ID {brand_id} not found"
+                )
+            
+            brand_data = doc.to_dict()
+            logo_storage_path = brand_data.get('logo_storage_path')
+            
+            if not logo_storage_path:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="No logo found for this brand"
+                )
+            
+            # Delete from storage
+            from .storage_service import storage_service
+            await storage_service.delete_file(logo_storage_path)
+            
+            # Update brand document
+            doc_ref.update({
+                "logo_url": None,
+                "logo_storage_path": None,
+                "updated_at": datetime.utcnow()
+            })
+            
+            return {"message": "Logo deleted successfully"}
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting logo: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete logo: {str(e)}"
+            )
 
 
 # Global brand service instance

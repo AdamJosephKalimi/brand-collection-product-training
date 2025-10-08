@@ -106,6 +106,7 @@ class CollectionStatistics(BaseModel):
     """Collection usage statistics"""
     total_products: int = 0
     total_documents: int = 0
+    total_collection_documents: int = 0
     total_chunks: int = 0
     total_vectors: int = 0
     total_presentations: int = 0

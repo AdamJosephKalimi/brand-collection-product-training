@@ -1,7 +1,7 @@
 """
 Brand Management API Router - CRUD operations for brands.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from typing import List, Dict, Any
 from ..models.brand import BrandCreate, BrandUpdate, BrandResponse
 from ..services.brand_service import brand_service
@@ -198,4 +198,95 @@ async def delete_brand(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete brand"
+        )
+
+
+@router.post("/{brand_id}/logo", response_model=Dict[str, str])
+async def upload_brand_logo(
+    brand_id: str,
+    file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, str]:
+    """
+    Upload or replace a brand logo.
+    
+    **Parameters:**
+    - brand_id: Brand identifier
+    - file: Logo image file
+    
+    **File Requirements:**
+    - Max size: 5 MB
+    - Allowed types: PNG, JPG, JPEG, SVG, WEBP
+    - Recommended max dimensions: 2000x2000 pixels
+    
+    **Behavior:**
+    - If logo exists, it will be replaced (old logo deleted automatically)
+    - Logo stored at: brands/{brand_id}/assets/logo.{ext}
+    - Updates brand's logo_url and logo_storage_path
+    
+    **Validations:**
+    - User must own the brand
+    - File type must be valid image format
+    - File size must not exceed 5 MB
+    
+    **Returns:**
+    - logo_url: Signed URL for accessing the logo
+    - logo_storage_path: Storage path in Firebase
+    - message: Success message
+    
+    **Errors:**
+    - 400: Invalid file type or size
+    - 403: User doesn't own the brand
+    - 404: Brand not found
+    """
+    try:
+        user_id = current_user["uid"]
+        return await brand_service.upload_logo(brand_id, user_id, file)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in upload_brand_logo endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload logo"
+        )
+
+
+@router.delete("/{brand_id}/logo", response_model=Dict[str, str])
+async def delete_brand_logo(
+    brand_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, str]:
+    """
+    Delete a brand logo.
+    
+    **Parameters:**
+    - brand_id: Brand identifier
+    
+    **Behavior:**
+    - Permanently deletes the logo file from Firebase Storage
+    - Sets logo_url and logo_storage_path to null in brand document
+    - Logo cannot be recovered after deletion
+    
+    **Validations:**
+    - User must own the brand
+    - Logo must exist
+    
+    **Returns:**
+    - Success message
+    
+    **Errors:**
+    - 403: User doesn't own the brand
+    - 404: Brand or logo not found
+    """
+    try:
+        user_id = current_user["uid"]
+        return await brand_service.delete_logo(brand_id, user_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in delete_brand_logo endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete logo"
         )
