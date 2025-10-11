@@ -52,82 +52,189 @@ backend/
 ```python
 # backend/app/models/document.py
 ```
-- [ ] Document model with status enum
-- [ ] Chunk model with text and metadata
-- [ ] Image model with storage paths
-- [ ] Processing status tracking
+- [x] Document model with status enum
+- [x] Chunk model with text and metadata
+- [x] Image model with storage paths
+- [x] Processing status tracking
 
 #### Step 1.2: Update Collection & Brand Models
 ```python
 # backend/app/models/collection.py
 # backend/app/models/brand.py
 ```
-- [ ] Collection model with document references
-- [ ] Brand model with collection references
-- [ ] Permission models
+- [x] Collection model with document references
+- [x] Brand model with collection references
+- [x] Permission models
+
+### Phase 1.5: Brand & Collection Management APIs (Day 2)
+**Goal**: Build CRUD APIs for brands and collections to establish the foundational user workflow
+
+#### Step 1.5.1: Implement Brand Management APIs ✅ COMPLETED
+```python
+# backend/app/routers/brand_management.py
+# backend/app/services/brand_service.py
+```
+- [x] Create brand endpoint (`POST /api/brands`)
+- [x] Get user's brands endpoint (`GET /api/brands`)
+- [x] Get specific brand endpoint (`GET /api/brands/{brand_id}`)
+- [x] Update brand endpoint (`PUT /api/brands/{brand_id}`)
+- [x] Delete brand endpoint (`DELETE /api/brands/{brand_id}`)
+- [x] Brand ownership validation and permissions
+- [x] Brand name uniqueness validation per user
+
+#### Step 1.5.2: Implement Collection Management APIs ✅ COMPLETED
+```python
+# backend/app/routers/collection_management.py
+# backend/app/services/collection_service.py
+# backend/app/routers/brand_collection_test.py
+```
+- [x] Create collection endpoint (`POST /api/brands/{brand_id}/collections`)
+- [x] Get brand collections endpoint (`GET /api/brands/{brand_id}/collections`)
+- [x] Get specific collection endpoint (`GET /api/collections/{collection_id}`)
+- [x] Update collection endpoint (`PUT /api/collections/{collection_id}`)
+- [x] Delete collection endpoint (`DELETE /api/collections/{collection_id}`)
+- [x] Collection ownership validation through brand hierarchy
+- [x] Collection name uniqueness validation per brand
+
+#### Step 1.5.3: Enhance Firebase Service for Brand/Collection Operations
+```python
+# backend/app/services/firebase_service.py (enhancements)
+```
+- [ ] Add brand CRUD operations with proper Firestore structure
+- [ ] Add collection CRUD operations with brand relationship
+- [ ] Implement user-brand-collection hierarchy validation
+- [ ] Add collection statistics initialization (document_count: 0, etc.)
+- [ ] Handle cascade operations (delete brand → delete collections)
+
+#### Step 1.5.4: Create Management Test Endpoints
+```python
+# backend/app/routers/brand_collection_test.py
+```
+- [ ] Test endpoints for complete brand lifecycle
+- [ ] Test endpoints for complete collection lifecycle
+- [ ] Test user workflow: create brand → create collection → verify hierarchy
+- [ ] Test permission validation and error handling
+- [ ] SwaggerUI integration with example workflows
+
+### Phase 1.6: Brand Enhancement Service (Day 2-3)
+**Goal**: AI-powered brand analysis and style guideline generation
+
+#### Step 1.6.1: Implement Brand Enhancement Service
+```python
+# backend/app/services/brand_enhancement_service.py
+```
+- [ ] Create LLM service for brand analysis
+- [ ] Generate tone of voice from brand name and description
+- [ ] Generate target audience suggestions
+- [ ] Generate key brand values
+- [ ] Create enhancement prompts and validation
+
+#### Step 1.6.2: Integrate Enhancement with Brand Updates
+```python
+# backend/app/routers/brand_management.py (enhancements)
+```
+- [ ] Add brand enhancement endpoint (`POST /api/brands/{brand_id}/enhance`)
+- [ ] Integrate LLM enhancement into brand update workflow
+- [ ] Add optional auto-enhancement flag for brand updates
 
 ### Phase 2: Storage Service (Day 1-2)
 **Goal**: Handle Firebase Storage operations
 
-#### Step 2.1: Implement Storage Service
+#### Step 2.1: Implement Storage Service ✅ COMPLETED
 ```python
 # backend/app/services/storage_service.py
 ```
-- [ ] Upload file to Firebase Storage
-- [ ] Download file from Firebase Storage
-- [ ] Delete file from Firebase Storage
-- [ ] Generate signed URLs
-- [ ] Handle file paths and organization
+- [x] Upload file to Firebase Storage
+- [x] Download file from Firebase Storage
+- [x] Delete file from Firebase Storage
+- [x] Generate signed URLs
+- [x] Handle file paths and organization
+
+#### Step 2.2: Create Storage Test Endpoints ✅ COMPLETED
+```python
+# backend/app/routers/storage_test.py
+```
+- [x] Test endpoints for all storage operations
+- [x] SwaggerUI integration with detailed documentation
+- [x] Firebase Storage connection testing
+- [x] Dummy data support for testing
 
 ### Phase 3: Parser Service (Day 2-3)
 **Goal**: Extract text and images from documents
 
-#### Step 3.1: Install Dependencies
+#### Step 3.1: Install Dependencies ✅ COMPLETED
 ```bash
-pip install PyPDF2 pdfplumber python-docx openpyxl pandas pillow pytesseract
+pip install pdfplumber python-docx openpyxl pandas pillow pytesseract PyMuPDF
 ```
 
-#### Step 3.2: Implement Parser Service
+#### Step 3.2: Implement Parser Service ✅ COMPLETED
 ```python
 # backend/app/services/parser_service.py
 ```
-- [ ] PDF parser using PyPDF2/pdfplumber
-- [ ] DOCX parser using python-docx
-- [ ] Excel parser using pandas/openpyxl
-- [ ] Image extraction from PDFs/DOCX
-- [ ] Error handling for corrupted files
+- [x] PDF parser using pdfplumber (text/tables)
+- [x] DOCX parser using python-docx
+- [x] Excel parser using pandas/openpyxl
+- [x] Image extraction from PDFs using PyMuPDF
+- [x] Image extraction from DOCX files
+- [x] Error handling for corrupted files
 
-#### Step 3.3: Implement OCR Service
+#### Step 3.2.1: Create Parser Test Endpoints ✅ COMPLETED
+```python
+# backend/app/routers/parser_test.py
+```
+- [x] PDF parsing test endpoint
+- [x] DOCX parsing test endpoint  
+- [x] Excel parsing test endpoint
+- [x] Document info endpoint
+- [x] Connection test endpoint
+- [x] Supported formats endpoint
+
+#### Step 3.3: Upgrade Image Handling to Raw Bytes + Firebase Storage ✅ COMPLETED
+```python
+# backend/app/services/parser_service.py (PyMuPDF enhancement)
+# backend/app/services/storage_service.py (image storage methods)
+```
+- [x] Modify PyMuPDF to return raw bytes instead of base64
+- [x] Implement SHA256 hashing for image deduplication
+- [x] Add Firebase Storage upload for images with content-hashed keys
+- [x] Update API to return metadata + signed URLs instead of base64
+- [x] Add image cleanup and deduplication logic
+- [x] Update test endpoints for new image handling
+
+#### Step 3.4: Implement OCR Service ✅ COMPLETED
 ```python
 # backend/app/services/ocr_service.py
+# backend/app/routers/ocr_test.py
 ```
-- [ ] OCR for images using pytesseract
-- [ ] Image preprocessing for better OCR
-- [ ] Language detection
+- [x] OCR for images using pytesseract
+- [x] Image preprocessing for better OCR
+- [x] Language detection with multi-language support (30+ languages including Chinese, Japanese, Korean, Arabic, etc.)
 
 ### Phase 4: Chunking Service (Day 3)
 **Goal**: Split text into optimized chunks
 
-#### Step 4.1: Implement Chunking Logic
+#### Step 4.1: Implement Chunking Logic ✅ COMPLETED
 ```python
 # backend/app/services/chunking_service.py
+# backend/app/routers/chunking_test.py
 ```
-- [ ] Text splitter (500 char chunks, 100 char overlap)
-- [ ] Preserve sentence boundaries
-- [ ] Maintain positional metadata
-- [ ] Handle special characters and formatting
+- [x] Text splitter (500 char chunks, 100 char overlap)
+- [x] Preserve sentence boundaries
+- [x] Maintain positional metadata
+- [x] Handle special characters and formatting
 
 ### Phase 5: Embedding Service (Day 4)
 **Goal**: Generate embeddings using OpenAI
 
-#### Step 5.1: Implement Embedding Service
+#### Step 5.1: Implement Embedding Service ✅ COMPLETED
 ```python
 # backend/app/services/embedding_service.py
+# backend/app/routers/embedding_test.py
 ```
-- [ ] Batch embedding generation (2048 texts per call)
-- [ ] Rate limiting and retry logic
-- [ ] Error handling for API failures
-- [ ] Cost tracking
+- [x] Batch embedding generation (2048 texts per call)
+- [x] Rate limiting and retry logic
+- [x] Error handling for API failures
+- [x] Cost tracking
 
 ### Phase 6: Update Existing Services (Day 4)
 **Goal**: Enhance Firebase and Pinecone services
@@ -149,6 +256,18 @@ pip install PyPDF2 pdfplumber python-docx openpyxl pandas pillow pytesseract
 - [ ] Namespace management
 - [ ] Metadata filtering
 - [ ] Delete operations
+
+#### Step 6.3: Implement RAG Configuration Layer
+```python
+# backend/app/services/rag_config_service.py
+```
+- [ ] Create RAG configuration manager service
+- [ ] Auto-initialize RAG settings on first document upload
+- [ ] Handle collection-specific search parameters (max_context_chunks)
+- [ ] Implement document weight prioritization during search
+- [ ] Update Pinecone service to use proper namespaces vs metadata filtering
+- [ ] Bridge collection RAG settings with embedding/search services
+- [ ] Add RAG settings validation and defaults management
 
 ### Phase 7: Orchestrator (Day 5-6)
 **Goal**: Build the main processing pipeline
