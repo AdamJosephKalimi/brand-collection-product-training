@@ -117,21 +117,11 @@ async def generate_chunk_embeddings(
         # Get cost report
         cost_report = service.get_cost_report()
         
-        # Prepare response (exclude actual embeddings for brevity)
-        chunks_summary = []
-        for chunk in enhanced_chunks:
-            chunks_summary.append({
-                "chunk_id": chunk.get("chunk_id"),
-                "has_embedding": "embedding" in chunk,
-                "embedding_dimensions": chunk.get("embedding_dimensions"),
-                "embedding_model": chunk.get("embedding_model")
-            })
-        
         return {
             "success": True,
             "total_chunks": len(chunks),
             "embeddings_generated": len(enhanced_chunks),
-            "chunks_summary": chunks_summary,
+            "chunks": enhanced_chunks,
             "cost_info": {
                 "total_cost_usd": cost_report["current_session"]["total_cost_usd"],
                 "total_tokens": cost_report["current_session"]["total_tokens"],
