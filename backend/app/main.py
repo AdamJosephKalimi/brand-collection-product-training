@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
-from .routers import auth, pinecone_test, storage_test, parser_test, ocr_test, chunking_test, embedding_test, brand_management, collection_management, brand_collection_test, item_management, brand_document_management, collection_document_management
+from .routers import auth, pinecone_test, storage_test, parser_test, ocr_test, chunking_test, embedding_test, brand_management, collection_management, brand_collection_test, item_management, brand_document_management, collection_document_management, llm_test
 
 # Load environment variables
 load_dotenv()
@@ -36,6 +36,7 @@ app.include_router(parser_test.router)
 app.include_router(ocr_test.router)
 app.include_router(chunking_test.router)
 app.include_router(embedding_test.router)
+app.include_router(llm_test.router)
 
 @app.get("/")
 async def root():
