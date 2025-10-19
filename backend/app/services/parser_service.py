@@ -394,13 +394,14 @@ class ParserService:
         
         return table_text.strip()
     
-    async def parse_excel(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
+    async def parse_excel(self, file_bytes: bytes, filename: str, include_raw_data: bool = False) -> Dict[str, Any]:
         """
         Parse Excel document and extract data from all sheets.
         
         Args:
             file_bytes: Excel file content as bytes
             filename: Original filename
+            include_raw_data: If True, include raw headers and rows as lists
             
         Returns:
             Dictionary containing extracted data from all sheets
@@ -453,6 +454,15 @@ class ParserService:
                             elif hasattr(value, 'item'):  # numpy scalar
                                 record[key] = value.item()
                 
+                # Extract raw data if requested
+                raw_headers = None
+                raw_rows = None
+                
+                if include_raw_data:
+                    raw_headers = [str(col) for col in df.columns.tolist()]
+                    # Convert DataFrame to list of lists, replacing NaN with empty string
+                    raw_rows = df.fillna("").values.tolist()
+                
                 # Extract sheet data
                 sheet_info = {
                     "sheet_name": sheet_name,
@@ -465,6 +475,11 @@ class ParserService:
                     "data_types": {str(k): str(v) for k, v in df.dtypes.to_dict().items()},
                     "sample_data": sample_data
                 }
+                
+                # Add raw data if requested
+                if include_raw_data:
+                    sheet_info["raw_headers"] = raw_headers
+                    sheet_info["raw_rows"] = raw_rows
                 
                 extracted_sheets.append(sheet_info)
             

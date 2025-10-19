@@ -36,8 +36,11 @@ async def create_item(
     - currency: Currency code (USD, EUR, GBP, etc.)
     
     **Optional:**
+    - base_sku: Base SKU without color code
     - subcategory: Product subcategory
     - gender: men, women, unisex, kids, boys, girls
+    - color: Color name
+    - color_code: Color code or identifier
     - description: Product description (max 2000 characters)
     - materials: List of materials
     - care_instructions: List of care instructions
@@ -47,7 +50,7 @@ async def create_item(
     - rrp: Recommended retail price
     - highlighted_item: Whether this is a featured item (default: false)
     - images: List of product images
-    - variants: List of color/size variants
+    - sizes: Size to quantity mapping (e.g., {"S": 10, "M": 20})
     - tags: Product tags
     - source_document_id: Document this was extracted from
     - extraction_confidence: AI extraction confidence (0-1)
@@ -143,7 +146,7 @@ async def get_item(
     - User must own the collection's brand
     
     **Returns:**
-    - Item details including all metadata, images, and variants
+    - Item details including all metadata, images, and sizes
     
     **Errors:**
     - 403: User doesn't own the collection's brand

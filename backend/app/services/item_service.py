@@ -202,9 +202,12 @@ class ItemService:
                 "collection_id": collection_id,
                 "product_name": item_data.product_name,
                 "sku": item_data.sku,
+                "base_sku": item_data.base_sku,
                 "category": item_data.category,
                 "subcategory": item_data.subcategory,
                 "gender": item_data.gender.value if item_data.gender else None,
+                "color": item_data.color,
+                "color_code": item_data.color_code,
                 "description": item_data.description,
                 "materials": item_data.materials or [],
                 "care_instructions": item_data.care_instructions or [],
@@ -215,7 +218,7 @@ class ItemService:
                 "currency": item_data.currency.value,
                 "highlighted_item": item_data.highlighted_item or False,
                 "images": [img.model_dump() for img in (item_data.images or [])],
-                "variants": [var.model_dump() for var in (item_data.variants or [])],
+                "sizes": item_data.sizes or {},
                 "tags": item_data.tags or [],
                 "source_document_id": item_data.source_document_id,
                 "extraction_confidence": item_data.extraction_confidence,
@@ -394,8 +397,6 @@ class ItemService:
                     update_doc["currency"] = value.value
                 elif field == "images" and value:
                     update_doc["images"] = [img.model_dump() for img in value]
-                elif field == "variants" and value:
-                    update_doc["variants"] = [var.model_dump() for var in value]
                 else:
                     update_doc[field] = value
             

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, HttpUrl, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 from enum import Enum
 
@@ -35,24 +35,30 @@ class ItemImage(BaseModel):
     storage_path: str = Field(..., description="Path in Firebase Storage")
 
 
-class ItemVariant(BaseModel):
-    """Product variant (color/size combination)"""
-    color: str = Field(..., description="Color name")
-    sizes: List[str] = Field(default_factory=list, description="Available sizes")
-    sku_suffix: Optional[str] = Field(None, description="SKU suffix for this variant")
+class ItemSizes(BaseModel):
+    """Size to quantity mapping"""
+    # This is a dict where key is size (e.g., 'S', 'M', 'L') and value is quantity
+    # Example: {'S': 10, 'M': 20, 'L': 15}
+    pass  # Used for type hinting, actual implementation uses Dict[str, int]
 
 
 class Item(BaseModel):
-    """Complete item/product data model"""
+    """Complete item/product data model - One item per color variant"""
     item_id: str = Field(..., description="Unique item identifier")
     collection_id: str = Field(..., description="Parent collection ID")
     
     # Product Identity
     product_name: str = Field(..., min_length=1, max_length=200, description="Product name")
-    sku: str = Field(..., description="Stock keeping unit")
+    sku: str = Field(..., description="Full SKU including color code")
+    base_sku: Optional[str] = Field(None, description="Base SKU without color code")
     category: str = Field(..., description="Product category")
     subcategory: Optional[str] = Field(None, description="Product subcategory")
     gender: Optional[Gender] = Field(None, description="Target gender")
+    
+    # Color Information
+    color: Optional[str] = Field(None, description="Color name")
+    color_code: Optional[str] = Field(None, description="Color code or identifier")
+    
     description: Optional[str] = Field(None, max_length=2000, description="Product description")
     
     # Product Details
@@ -72,8 +78,8 @@ class Item(BaseModel):
     # Media
     images: List[ItemImage] = Field(default_factory=list, description="Product images")
     
-    # Variants
-    variants: List[ItemVariant] = Field(default_factory=list, description="Product variants")
+    # Sizes and Quantities
+    sizes: Dict[str, int] = Field(default_factory=dict, description="Size to quantity mapping (e.g., {'S': 10, 'M': 20})")
     
     # Tags
     tags: List[str] = Field(default_factory=list, description="Product tags")
@@ -97,9 +103,12 @@ class ItemCreate(BaseModel):
     collection_id: str = Field(..., description="Parent collection ID")
     product_name: str = Field(..., min_length=1, max_length=200)
     sku: str
+    base_sku: Optional[str] = None
     category: str
     subcategory: Optional[str] = None
     gender: Optional[Gender] = None
+    color: Optional[str] = None
+    color_code: Optional[str] = None
     description: Optional[str] = Field(None, max_length=2000)
     materials: Optional[List[str]] = None
     care_instructions: Optional[List[str]] = None
@@ -110,7 +119,7 @@ class ItemCreate(BaseModel):
     currency: Currency
     highlighted_item: Optional[bool] = False
     images: Optional[List[ItemImage]] = None
-    variants: Optional[List[ItemVariant]] = None
+    sizes: Optional[Dict[str, int]] = None
     tags: Optional[List[str]] = None
     source_document_id: Optional[str] = None
     extraction_confidence: Optional[float] = Field(None, ge=0, le=1)
@@ -120,9 +129,12 @@ class ItemUpdate(BaseModel):
     """Model for updating an item"""
     product_name: Optional[str] = Field(None, min_length=1, max_length=200)
     sku: Optional[str] = None
+    base_sku: Optional[str] = None
     category: Optional[str] = None
     subcategory: Optional[str] = None
     gender: Optional[Gender] = None
+    color: Optional[str] = None
+    color_code: Optional[str] = None
     description: Optional[str] = Field(None, max_length=2000)
     materials: Optional[List[str]] = None
     care_instructions: Optional[List[str]] = None
@@ -133,7 +145,7 @@ class ItemUpdate(BaseModel):
     currency: Optional[Currency] = None
     highlighted_item: Optional[bool] = None
     images: Optional[List[ItemImage]] = None
-    variants: Optional[List[ItemVariant]] = None
+    sizes: Optional[Dict[str, int]] = None
     tags: Optional[List[str]] = None
     manual_review: Optional[bool] = None
     reviewed_by: Optional[str] = None
@@ -146,9 +158,12 @@ class ItemResponse(BaseModel):
     collection_id: str
     product_name: str
     sku: str
+    base_sku: Optional[str]
     category: str
     subcategory: Optional[str]
     gender: Optional[Gender]
+    color: Optional[str]
+    color_code: Optional[str]
     description: Optional[str]
     materials: List[str]
     care_instructions: List[str]
@@ -159,7 +174,7 @@ class ItemResponse(BaseModel):
     currency: Currency
     highlighted_item: bool
     images: List[ItemImage]
-    variants: List[ItemVariant]
+    sizes: Dict[str, int]
     tags: List[str]
     source_document_id: Optional[str]
     extraction_confidence: Optional[float]
