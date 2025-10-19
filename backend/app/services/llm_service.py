@@ -15,7 +15,7 @@ class LLMService:
     
     def __init__(self):
         self.client = None
-        self.model = "gpt-4-turbo-preview"
+        self.model = "gpt-4o-mini"
         self._initialize_client()
     
     def _initialize_client(self):

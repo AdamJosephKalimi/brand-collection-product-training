@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -39,6 +39,9 @@ class CollectionDocument(BaseModel):
     normalized_text: Optional[str] = Field(None, description="Normalized/cleaned text for LLM processing")
     parsed_at: Optional[datetime] = Field(None, description="When document was parsed")
     
+    # Structured Data (for line sheets)
+    structured_products: Optional[List[Dict[str, Any]]] = Field(None, description="Structured product data extracted from line sheet")
+    
     # Metadata
     uploaded_by: str = Field(..., description="User ID who uploaded the document")
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
@@ -75,6 +78,7 @@ class CollectionDocumentResponse(BaseModel):
     parsed_text: Optional[str]
     normalized_text: Optional[str]
     parsed_at: Optional[datetime]
+    structured_products: Optional[List[Dict[str, Any]]]
     uploaded_by: str
     uploaded_at: datetime
     updated_at: datetime

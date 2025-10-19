@@ -13,6 +13,7 @@ from .storage_service import storage_service
 from .collection_service import collection_service
 from .parser_service import parser_service
 from .category_generation_service import category_generation_service
+from .llm_service import llm_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -136,6 +137,10 @@ class CollectionDocumentService:
                 "storage_path": storage_path,
                 "url": file_url,
                 "file_size_bytes": file_size,
+                "parsed_text": None,
+                "normalized_text": None,
+                "parsed_at": None,
+                "structured_products": None,
                 "uploaded_by": user_id,
                 "uploaded_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
@@ -150,7 +155,13 @@ class CollectionDocumentService:
             try:
                 file.file.seek(0)  # Reset file pointer
                 file_bytes = await file.read()
-                await self._parse_and_store_text(collection_id, document_id, file_bytes, file.filename)
+                await self._parse_and_store_text(
+                    collection_id, 
+                    document_id, 
+                    file_bytes, 
+                    file.filename,
+                    document_data.type.value  # Pass document type for structured extraction
+                )
             except Exception as parse_error:
                 logger.error(f"Error parsing document text: {parse_error}")
                 # Don't fail the upload if parsing fails
@@ -211,6 +222,15 @@ class CollectionDocumentService:
             documents = []
             for doc in docs:
                 doc_data = doc.to_dict()
+                # Ensure all required fields exist (for backward compatibility)
+                if 'parsed_text' not in doc_data:
+                    doc_data['parsed_text'] = None
+                if 'normalized_text' not in doc_data:
+                    doc_data['normalized_text'] = None
+                if 'parsed_at' not in doc_data:
+                    doc_data['parsed_at'] = None
+                if 'structured_products' not in doc_data:
+                    doc_data['structured_products'] = None
                 documents.append(CollectionDocumentResponse(**doc_data))
             
             return documents
@@ -259,6 +279,15 @@ class CollectionDocumentService:
                 )
             
             doc_data = doc.to_dict()
+            # Ensure all required fields exist (for backward compatibility)
+            if 'parsed_text' not in doc_data:
+                doc_data['parsed_text'] = None
+            if 'normalized_text' not in doc_data:
+                doc_data['normalized_text'] = None
+            if 'parsed_at' not in doc_data:
+                doc_data['parsed_at'] = None
+            if 'structured_products' not in doc_data:
+                doc_data['structured_products'] = None
             return CollectionDocumentResponse(**doc_data)
             
         except HTTPException:
@@ -407,16 +436,19 @@ class CollectionDocumentService:
         collection_id: str, 
         document_id: str, 
         file_bytes: bytes, 
-        filename: str
+        filename: str,
+        document_type: str
     ):
         """
         Parse document and store extracted/normalized text in Firestore.
+        For line sheets, also extract structured product data.
         
         Args:
             collection_id: Collection ID
             document_id: Document ID
             file_bytes: File content as bytes
             filename: Original filename
+            document_type: Document type (line_sheet, purchase_order, etc.)
         """
         try:
             logger.info(f"Parsing document: {filename}")
@@ -452,20 +484,101 @@ class CollectionDocumentService:
             normalized_text = category_generation_service.normalize_text(parsed_text)
             logger.info(f"Normalized text: {len(normalized_text)} characters")
             
+            # Extract structured products for line sheets
+            structured_products = None
+            if document_type == 'line_sheet' and normalized_text:
+                logger.info("Document is a line sheet, extracting structured products...")
+                structured_products = await self._extract_structured_products(normalized_text)
+            
             # Update document in Firestore
             doc_ref = self.db.collection(self.collections_collection).document(collection_id).collection('documents').document(document_id)
-            doc_ref.update({
+            update_data = {
                 'parsed_text': parsed_text,
                 'normalized_text': normalized_text,
                 'parsed_at': datetime.utcnow(),
                 'updated_at': datetime.utcnow()
-            })
+            }
+            
+            # Add structured products if extracted
+            if structured_products is not None:
+                update_data['structured_products'] = structured_products
+            
+            doc_ref.update(update_data)
             
             logger.info(f"Successfully stored parsed text for document {document_id}")
             
         except Exception as e:
             logger.error(f"Error parsing and storing text for document {document_id}: {e}")
             # Don't raise - parsing failure shouldn't block document upload
+    
+    async def _extract_structured_products(self, normalized_text: str) -> List[Dict[str, Any]]:
+        """
+        Extract structured product data from line sheet using LLM.
+        
+        Args:
+            normalized_text: Normalized text from line sheet
+            
+        Returns:
+            List of structured product dictionaries
+        """
+        try:
+            logger.info("Extracting structured products from line sheet using LLM")
+            
+            # Create prompt for LLM
+            system_message = """You are a fashion industry data extraction expert.
+Your task is to parse line sheet documents and extract structured product information.
+Return ONLY valid JSON with no additional text."""
+            
+            prompt = f"""Parse this line sheet and extract ALL products in the following JSON format:
+
+{{
+  "products": [
+    {{
+      "sku": "base SKU or style number",
+      "product_name": "product name",
+      "colors": [
+        {{
+          "color_name": "color name",
+          "color_code": "color code (if available)"
+        }}
+      ],
+      "wholesale_price": numeric value or null,
+      "rrp": numeric retail price or null,
+      "currency": "USD/EUR/GBP etc or null",
+      "origin": "country (if available)",
+      "materials": ["material 1", "material 2"] or []
+    }}
+  ]
+}}
+
+Rules:
+- Extract ALL products from the line sheet
+- If a field is not found, use null or empty array
+- For colors, extract all color variants for each product
+- Prices should be numeric (no currency symbols)
+- Keep descriptions brief
+- Be thorough - don't skip products
+
+Line sheet text:
+{normalized_text}"""
+
+            # Call LLM (uses configured model from llm_service)
+            result = await llm_service.generate_json_completion(
+                prompt=prompt,
+                system_message=system_message,
+                temperature=0.0,  # Deterministic
+                max_tokens=16384  # Maximum for gpt-4o-mini
+            )
+            
+            # Extract products array
+            products = result.get('products', [])
+            logger.info(f"Extracted {len(products)} products from line sheet")
+            
+            return products
+            
+        except Exception as e:
+            logger.error(f"Error extracting structured products: {e}")
+            return []
 
 
 # Global collection document service instance
