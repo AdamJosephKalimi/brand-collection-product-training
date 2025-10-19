@@ -48,17 +48,22 @@ class CategoryGenerationService:
                     detail="No line sheet documents found for this collection"
                 )
             
-            # Step 2: Download and parse documents
-            parsed_text = await self.download_and_parse_documents(documents)
+            # Step 2: Try to get stored normalized text first (faster)
+            normalized_text = self._get_stored_normalized_text(documents)
             
-            if not parsed_text:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Failed to extract text from documents"
-                )
+            # Step 3: If no stored text, fall back to parsing (backward compatible)
+            if not normalized_text:
+                logger.info("No stored text found, parsing documents...")
+                parsed_text = await self.download_and_parse_documents(documents)
+                
+                if not parsed_text:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Failed to extract text from documents"
+                    )
+                
+                normalized_text = self.normalize_text(parsed_text)
             
-            # Step 3: Normalize text
-            normalized_text = self.normalize_text(parsed_text)
             logger.info(f"Normalized text length: {len(normalized_text)} characters")
             
             # Log sample of text
@@ -143,7 +148,9 @@ class CategoryGenerationService:
                         'document_id': doc.id,
                         'storage_url': doc_data.get('url'),
                         'filename': doc_data.get('name'),
-                        'storage_path': doc_data.get('storage_path')
+                        'storage_path': doc_data.get('storage_path'),
+                        'normalized_text': doc_data.get('normalized_text'),
+                        'parsed_text': doc_data.get('parsed_text')
                     })
             
             logger.info(f"Found {len(documents)} line sheet(s) for collection {collection_id}")
@@ -152,6 +159,37 @@ class CategoryGenerationService:
         except Exception as e:
             logger.error(f"Error fetching line sheets for collection {collection_id}: {e}")
             return []
+    
+    def _get_stored_normalized_text(self, documents: List[Dict[str, Any]]) -> str:
+        """
+        Get stored normalized text from documents.
+        
+        Args:
+            documents: List of document metadata with normalized_text field
+            
+        Returns:
+            Combined normalized text from all documents, or empty string if none found
+        """
+        try:
+            normalized_texts = []
+            
+            for doc in documents:
+                normalized_text = doc.get('normalized_text')
+                if normalized_text:
+                    normalized_texts.append(normalized_text)
+                    logger.info(f"Using stored text for {doc.get('filename')}: {len(normalized_text)} characters")
+            
+            if normalized_texts:
+                combined_text = '\n\n'.join(normalized_texts)
+                logger.info(f"Retrieved {len(normalized_texts)} stored text(s), total: {len(combined_text)} characters")
+                return combined_text
+            else:
+                logger.info("No stored normalized text found in documents")
+                return ""
+                
+        except Exception as e:
+            logger.error(f"Error getting stored normalized text: {e}")
+            return ""
     
     async def download_and_parse_documents(self, documents: List[Dict[str, Any]]) -> str:
         """

@@ -34,6 +34,11 @@ class CollectionDocument(BaseModel):
     url: str = Field(..., description="Firebase Storage signed URL")
     file_size_bytes: int = Field(..., ge=0, description="File size in bytes")
     
+    # Parsed Content
+    parsed_text: Optional[str] = Field(None, description="Extracted text from document")
+    normalized_text: Optional[str] = Field(None, description="Normalized/cleaned text for LLM processing")
+    parsed_at: Optional[datetime] = Field(None, description="When document was parsed")
+    
     # Metadata
     uploaded_by: str = Field(..., description="User ID who uploaded the document")
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
@@ -67,6 +72,9 @@ class CollectionDocumentResponse(BaseModel):
     storage_path: str
     url: str
     file_size_bytes: int
+    parsed_text: Optional[str]
+    normalized_text: Optional[str]
+    parsed_at: Optional[datetime]
     uploaded_by: str
     uploaded_at: datetime
     updated_at: datetime

@@ -4,12 +4,15 @@ Collection Document Service for managing collection document CRUD operations wit
 from typing import List, Dict, Any
 from datetime import datetime
 import uuid
+import os
 from pathlib import Path
 from fastapi import HTTPException, status, UploadFile
 from ..models.collection_document import CollectionDocument, CollectionDocumentCreate, CollectionDocumentUpdate, CollectionDocumentResponse
 from .firebase_service import firebase_service
 from .storage_service import storage_service
 from .collection_service import collection_service
+from .parser_service import parser_service
+from .category_generation_service import category_generation_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,6 +24,8 @@ class CollectionDocumentService:
     def __init__(self):
         self.db = firebase_service.db
         self.collections_collection = "collections"
+        self.parser_service = parser_service
+        self.storage_service = storage_service
     
     async def validate_collection_ownership(self, collection_id: str, user_id: str) -> Dict[str, Any]:
         """
@@ -138,7 +143,17 @@ class CollectionDocumentService:
             
             # Save to Firestore subcollection
             docs_ref = self.db.collection(self.collections_collection).document(collection_id).collection('documents')
-            docs_ref.document(document_id).set(document_doc)
+            doc_ref = docs_ref.document(document_id)
+            doc_ref.set(document_doc)
+            
+            # Parse and store text (synchronous - wait for completion)
+            try:
+                file.file.seek(0)  # Reset file pointer
+                file_bytes = await file.read()
+                await self._parse_and_store_text(collection_id, document_id, file_bytes, file.filename)
+            except Exception as parse_error:
+                logger.error(f"Error parsing document text: {parse_error}")
+                # Don't fail the upload if parsing fails
             
             # Update collection stats
             collection_ref = self.db.collection(self.collections_collection).document(collection_id)
@@ -152,8 +167,14 @@ class CollectionDocumentService:
                     'updated_at': datetime.utcnow()
                 })
             
-            # Return response
-            return CollectionDocumentResponse(**document_doc)
+            # Fetch the updated document with parsed text
+            updated_doc = doc_ref.get()
+            if updated_doc.exists:
+                updated_doc_data = updated_doc.to_dict()
+                return CollectionDocumentResponse(**updated_doc_data)
+            else:
+                # Fallback to original doc if fetch fails
+                return CollectionDocumentResponse(**document_doc)
             
         except HTTPException:
             raise
@@ -380,6 +401,71 @@ class CollectionDocumentService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to delete document: {str(e)}"
             )
+    
+    async def _parse_and_store_text(
+        self, 
+        collection_id: str, 
+        document_id: str, 
+        file_bytes: bytes, 
+        filename: str
+    ):
+        """
+        Parse document and store extracted/normalized text in Firestore.
+        
+        Args:
+            collection_id: Collection ID
+            document_id: Document ID
+            file_bytes: File content as bytes
+            filename: Original filename
+        """
+        try:
+            logger.info(f"Parsing document: {filename}")
+            
+            # Extract text based on file type
+            file_ext = os.path.splitext(filename)[1].lower()
+            parsed_text = ""
+            
+            if file_ext == '.pdf':
+                # Parse PDF
+                result = await self.parser_service.parse_pdf(file_bytes, filename)
+                parsed_text = result.get('extracted_text', '')
+                logger.info(f"Parsed PDF {filename}: {len(parsed_text)} characters")
+            
+            elif file_ext in ['.xlsx', '.xls']:
+                # Parse Excel
+                result = await self.parser_service.parse_excel(file_bytes, filename)
+                if result.get('sheets'):
+                    # Convert sheets to text
+                    sheets_text = []
+                    for sheet in result['sheets']:
+                        sheet_text = sheet.get('text', '')
+                        if sheet_text:
+                            sheets_text.append(sheet_text)
+                    parsed_text = '\n\n'.join(sheets_text)
+                    logger.info(f"Parsed Excel {filename}: {len(parsed_text)} characters")
+            
+            else:
+                logger.warning(f"Unsupported file type for parsing: {file_ext}")
+                return
+            
+            # Normalize text using category generation service
+            normalized_text = category_generation_service.normalize_text(parsed_text)
+            logger.info(f"Normalized text: {len(normalized_text)} characters")
+            
+            # Update document in Firestore
+            doc_ref = self.db.collection(self.collections_collection).document(collection_id).collection('documents').document(document_id)
+            doc_ref.update({
+                'parsed_text': parsed_text,
+                'normalized_text': normalized_text,
+                'parsed_at': datetime.utcnow(),
+                'updated_at': datetime.utcnow()
+            })
+            
+            logger.info(f"Successfully stored parsed text for document {document_id}")
+            
+        except Exception as e:
+            logger.error(f"Error parsing and storing text for document {document_id}: {e}")
+            # Don't raise - parsing failure shouldn't block document upload
 
 
 # Global collection document service instance
