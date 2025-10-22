@@ -141,6 +141,7 @@ class CollectionDocumentService:
                 "normalized_text": None,
                 "parsed_at": None,
                 "structured_products": None,
+                "extraction_progress": None,
                 "uploaded_by": user_id,
                 "uploaded_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
@@ -231,6 +232,8 @@ class CollectionDocumentService:
                     doc_data['parsed_at'] = None
                 if 'structured_products' not in doc_data:
                     doc_data['structured_products'] = None
+                if 'extraction_progress' not in doc_data:
+                    doc_data['extraction_progress'] = None
                 documents.append(CollectionDocumentResponse(**doc_data))
             
             return documents
@@ -288,6 +291,8 @@ class CollectionDocumentService:
                 doc_data['parsed_at'] = None
             if 'structured_products' not in doc_data:
                 doc_data['structured_products'] = None
+            if 'extraction_progress' not in doc_data:
+                doc_data['extraction_progress'] = None
             return CollectionDocumentResponse(**doc_data)
             
         except HTTPException:
@@ -488,7 +493,11 @@ class CollectionDocumentService:
             structured_products = None
             if document_type == 'line_sheet' and normalized_text:
                 logger.info("Document is a line sheet, extracting structured products...")
-                structured_products = await self._extract_structured_products(normalized_text)
+                structured_products = await self._extract_structured_products(
+                    normalized_text,
+                    collection_id,
+                    document_id
+                )
             
             # Update document in Firestore
             doc_ref = self.db.collection(self.collections_collection).document(collection_id).collection('documents').document(document_id)
@@ -511,26 +520,173 @@ class CollectionDocumentService:
             logger.error(f"Error parsing and storing text for document {document_id}: {e}")
             # Don't raise - parsing failure shouldn't block document upload
     
-    async def _extract_structured_products(self, normalized_text: str) -> List[Dict[str, Any]]:
+    def _create_large_chunks(self, text: str, chunk_size: int = 30000, overlap: int = 3000) -> List[str]:
         """
-        Extract structured product data from line sheet using LLM.
+        Create large overlapping chunks for LLM processing.
+        
+        Args:
+            text: Text to chunk
+            chunk_size: Target size per chunk in characters (default 30000)
+            overlap: Overlap between chunks in characters (default 3000)
+            
+        Returns:
+            List of text chunks
+        """
+        if not text:
+            return []
+        
+        chunks = []
+        start = 0
+        text_length = len(text)
+        last_end = 0
+        
+        while start < text_length:
+            # Calculate end position
+            end = start + chunk_size
+            
+            # If not at the end, find a natural break point
+            if end < text_length:
+                # Search for break point in overlap zone
+                search_start = max(start, end - overlap)
+                search_end = min(text_length, end + overlap)
+                
+                # Prefer double newline (paragraph break)
+                break_point = text.rfind('\n\n', search_start, search_end)
+                
+                # Fall back to single newline
+                if break_point == -1 or break_point <= start:
+                    break_point = text.rfind('\n', search_start, search_end)
+                
+                # Fall back to space
+                if break_point == -1 or break_point <= start:
+                    break_point = text.rfind(' ', search_start, search_end)
+                
+                # Use break point if found
+                if break_point > start:
+                    end = break_point
+            else:
+                # Last chunk, take everything
+                end = text_length
+            
+            # Extract chunk
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            
+            # Move to next position with overlap
+            if end >= text_length:
+                break
+            else:
+                start = end - overlap
+                # Ensure we're making progress
+                if start <= last_end:
+                    start = end
+                last_end = end
+        
+        logger.info(f"Created {len(chunks)} chunks (avg {len(text)//len(chunks) if chunks else 0} chars each)")
+        return chunks
+    
+    async def _extract_structured_products(
+        self, 
+        normalized_text: str,
+        collection_id: str,
+        document_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract structured product data from line sheet using chunked LLM extraction.
         
         Args:
             normalized_text: Normalized text from line sheet
+            collection_id: Collection ID for Firestore updates
+            document_id: Document ID for Firestore updates
             
         Returns:
-            List of structured product dictionaries
+            List of unique structured product dictionaries
         """
         try:
-            logger.info("Extracting structured products from line sheet using LLM")
+            logger.info("Extracting structured products from line sheet using chunked approach")
             
-            # Create prompt for LLM
+            # Step 1: Create large chunks using custom chunker
+            chunks = self._create_large_chunks(
+                text=normalized_text,
+                chunk_size=20000,
+                overlap=2000
+            )
+            logger.info(f"Split text into {len(chunks)} chunks")
+            
+            # Step 2: Process each chunk
+            all_products = []
+            doc_ref = self.db.collection(self.collections_collection).document(collection_id).collection('documents').document(document_id)
+            
+            for i, chunk_text in enumerate(chunks):
+                
+                # Extract products from this chunk
+                chunk_products = await self._extract_products_from_chunk(
+                    chunk_text,
+                    i + 1,
+                    len(chunks)
+                )
+                
+                if chunk_products:
+                    all_products.extend(chunk_products)
+                    
+                    # Step 3: Update Firestore progressively
+                    doc_ref.update({
+                        'structured_products': all_products,
+                        'extraction_progress': {
+                            'current_chunk': i + 1,
+                            'total_chunks': len(chunks),
+                            'products_so_far': len(all_products)
+                        },
+                        'updated_at': datetime.utcnow()
+                    })
+                    
+                    logger.info(f"Progress: {len(all_products)} products extracted from {i+1}/{len(chunks)} chunks")
+            
+            # Step 4: Deduplicate products
+            unique_products = self._deduplicate_products(all_products)
+            
+            # Step 5: Final Firestore update
+            doc_ref.update({
+                'structured_products': unique_products,
+                'extraction_progress': None,  # Clear progress indicator
+                'updated_at': datetime.utcnow()
+            })
+            
+            logger.info(f"Extraction complete: {len(unique_products)} unique products from {len(chunks)} chunks")
+            return unique_products
+            
+        except Exception as e:
+            logger.error(f"Error extracting structured products: {e}")
+            return []
+    
+    async def _extract_products_from_chunk(
+        self, 
+        chunk_text: str, 
+        chunk_num: int, 
+        total_chunks: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract products from a single chunk using LLM.
+        
+        Args:
+            chunk_text: Text from one chunk
+            chunk_num: Current chunk number (1-indexed)
+            total_chunks: Total number of chunks
+            
+        Returns:
+            List of products extracted from this chunk
+        """
+        try:
+            logger.info(f"Extracting products from chunk {chunk_num}/{total_chunks} ({len(chunk_text)} chars)")
+            
             system_message = """You are a fashion industry data extraction expert.
-Your task is to parse line sheet documents and extract structured product information.
+Extract products from this line sheet section.
 Return ONLY valid JSON with no additional text."""
             
-            prompt = f"""Parse this line sheet and extract ALL products in the following JSON format:
+            prompt = f"""Extract ALL products from this line sheet section (chunk {chunk_num}/{total_chunks}).
 
+Return JSON:
 {{
   "products": [
     {{
@@ -552,33 +708,65 @@ Return ONLY valid JSON with no additional text."""
 }}
 
 Rules:
-- Extract ALL products from the line sheet
+- Extract ALL products in this section
+- If a product seems incomplete (cut off at chunk boundary), still include it
 - If a field is not found, use null or empty array
-- For colors, extract all color variants for each product
+- For colors, extract all color variants
 - Prices should be numeric (no currency symbols)
-- Keep descriptions brief
-- Be thorough - don't skip products
 
-Line sheet text:
-{normalized_text}"""
+Line sheet section:
+{chunk_text}"""
 
-            # Call LLM (uses configured model from llm_service)
+            # Call LLM
             result = await llm_service.generate_json_completion(
                 prompt=prompt,
                 system_message=system_message,
-                temperature=0.0,  # Deterministic
-                max_tokens=16384  # Maximum for gpt-4o-mini
+                temperature=0.0,
+                max_tokens=16384
             )
             
-            # Extract products array
             products = result.get('products', [])
-            logger.info(f"Extracted {len(products)} products from line sheet")
+            logger.info(f"Chunk {chunk_num}: Extracted {len(products)} products")
             
             return products
             
         except Exception as e:
-            logger.error(f"Error extracting structured products: {e}")
+            logger.error(f"Error extracting from chunk {chunk_num}: {e}")
             return []
+    
+    def _deduplicate_products(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Remove duplicate products based on SKU and color codes.
+        
+        Args:
+            products: List of products (may contain duplicates from overlaps)
+            
+        Returns:
+            Deduplicated list of products
+        """
+        seen_keys = set()
+        unique_products = []
+        
+        for product in products:
+            sku = product.get('sku')
+            if not sku:
+                # No SKU, keep it anyway
+                unique_products.append(product)
+                continue
+            
+            # Create unique key: sku + sorted color codes
+            colors = product.get('colors', [])
+            color_codes = [c.get('color_code', '') for c in colors if c.get('color_code')]
+            unique_key = f"{sku}:{':'.join(sorted(color_codes))}"
+            
+            if unique_key not in seen_keys:
+                seen_keys.add(unique_key)
+                unique_products.append(product)
+            else:
+                logger.debug(f"Skipping duplicate: {sku}")
+        
+        logger.info(f"Deduplication: {len(products)} -> {len(unique_products)} products")
+        return unique_products
 
 
 # Global collection document service instance

@@ -41,6 +41,7 @@ class CollectionDocument(BaseModel):
     
     # Structured Data (for line sheets)
     structured_products: Optional[List[Dict[str, Any]]] = Field(None, description="Structured product data extracted from line sheet")
+    extraction_progress: Optional[Dict[str, Any]] = Field(None, description="Progress during structured extraction")
     
     # Metadata
     uploaded_by: str = Field(..., description="User ID who uploaded the document")
@@ -79,6 +80,7 @@ class CollectionDocumentResponse(BaseModel):
     normalized_text: Optional[str]
     parsed_at: Optional[datetime]
     structured_products: Optional[List[Dict[str, Any]]]
+    extraction_progress: Optional[Dict[str, Any]]
     uploaded_by: str
     uploaded_at: datetime
     updated_at: datetime

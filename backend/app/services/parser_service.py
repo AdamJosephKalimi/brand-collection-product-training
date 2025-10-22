@@ -6,7 +6,6 @@ import uuid
 import hashlib
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
-import pdfplumber
 from PIL import Image
 from docx import Document
 from docx.shared import Inches
@@ -26,7 +25,7 @@ class ParserService:
     
     async def parse_pdf(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
         """
-        Parse PDF document and extract text and images.
+        Parse PDF document and extract text and images using PyMuPDF.
         
         Args:
             file_bytes: PDF file content as bytes
@@ -36,46 +35,52 @@ class ParserService:
             Dictionary containing extracted text, images, and metadata
         """
         try:
-            # Create file-like object from bytes
-            pdf_file = io.BytesIO(file_bytes)
+            # Open PDF with PyMuPDF (fitz)
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
             
             # Initialize variables
             extracted_text = []
             page_metadata = []
+            total_pages = len(doc)
             
-            # Open PDF with pdfplumber
-            with pdfplumber.open(pdf_file) as pdf:
-                total_pages = len(pdf.pages)
+            for page_num in range(total_pages):
+                page = doc[page_num]
                 
-                for page_num, page in enumerate(pdf.pages, 1):
-                    # Extract text from page
-                    page_text = page.extract_text()
-                    if page_text:
-                        extracted_text.append({
-                            "page": page_num,
-                            "text": page_text.strip()
-                        })
-                    
-                    # Extract tables if present
-                    tables = page.extract_tables()
-                    if tables:
-                        for table_idx, table in enumerate(tables):
-                            # Convert table to text representation
-                            table_text = self._table_to_text(table, page_num, table_idx)
-                            extracted_text.append({
-                                "page": page_num,
-                                "text": table_text,
-                                "type": "table"
-                            })
-                    
-                    # Collect page metadata
-                    page_metadata.append({
-                        "page": page_num,
-                        "width": page.width,
-                        "height": page.height,
-                        "has_text": bool(page_text),
-                        "has_tables": bool(tables)
+                # Extract text from page
+                page_text = page.get_text()
+                if page_text:
+                    extracted_text.append({
+                        "page": page_num + 1,
+                        "text": page_text.strip()
                     })
+                
+                # Extract tables if present
+                tables = page.find_tables()
+                has_tables = False
+                if tables and tables.tables:
+                    has_tables = True
+                    for table_idx, table in enumerate(tables.tables):
+                        # Convert table to text representation
+                        table_data = table.extract()
+                        table_text = self._table_to_text(table_data, page_num + 1, table_idx)
+                        extracted_text.append({
+                            "page": page_num + 1,
+                            "text": table_text,
+                            "type": "table"
+                        })
+                
+                # Collect page metadata
+                rect = page.rect
+                page_metadata.append({
+                    "page": page_num + 1,
+                    "width": rect.width,
+                    "height": rect.height,
+                    "has_text": bool(page_text),
+                    "has_tables": has_tables
+                })
+            
+            # Close document
+            doc.close()
             
             # Combine all text
             full_text = "\n\n".join([item["text"] for item in extracted_text])
@@ -88,7 +93,7 @@ class ParserService:
                 "text_by_page": extracted_text,
                 "page_metadata": page_metadata,
                 "metadata": {
-                    "parser": "pdfplumber",
+                    "parser": "PyMuPDF",
                     "total_characters": len(full_text),
                     "pages_with_text": len([p for p in page_metadata if p["has_text"]]),
                     "pages_with_tables": len([p for p in page_metadata if p["has_tables"]])
