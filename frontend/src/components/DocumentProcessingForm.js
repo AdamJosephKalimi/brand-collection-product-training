@@ -14,6 +14,8 @@ function DocumentProcessingForm() {
   });
   
   const [generating, setGenerating] = useState(false);
+  const [generatingItems, setGeneratingItems] = useState(false);
+  const [collectionItems, setCollectionItems] = useState([]);
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
@@ -443,6 +445,110 @@ function DocumentProcessingForm() {
     }
   };
 
+  const fetchCollectionItems = async () => {
+    if (!savedIds.collectionId) return;
+    
+    try {
+      const token = await getAuthToken();
+      console.log(`Fetching items for collection: ${savedIds.collectionId}`);
+      
+      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/items`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log(`Fetch response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`Failed to fetch items: ${response.status} - ${errorText}`);
+        setCollectionItems([]);
+        return;
+      }
+      
+      const data = await response.json();
+      console.log(`Fetched ${data?.length || 0} items:`, data);
+      setCollectionItems(data || []);
+    } catch (error) {
+      console.error('Error fetching collection items:', error);
+      setCollectionItems([]);
+    }
+  };
+
+  const generateItems = async () => {
+    if (!savedIds.collectionId) {
+      alert('Please save the collection first');
+      return;
+    }
+    
+    setGeneratingItems(true);
+    try {
+      const token = await getAuthToken();
+      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/items/generate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to generate items');
+      }
+      
+      const data = await response.json();
+      console.log('Generation response:', data);
+      
+      if (data.success && data.items) {
+        console.log(`Setting ${data.items.length} items in state`);
+        setCollectionItems(data.items);
+        alert(`Successfully generated ${data.stats.items_created} items! (${data.stats.items_skipped} duplicates skipped)`);
+      } else {
+        throw new Error(data.error || 'Failed to generate items');
+      }
+      
+    } catch (error) {
+      console.error('Error generating items:', error);
+      alert(`Failed to generate items: ${error.message}`);
+    } finally {
+      setGeneratingItems(false);
+    }
+  };
+
+  const toggleItemHighlight = async (itemId, currentValue) => {
+    try {
+      const token = await getAuthToken();
+      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/items/${itemId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          highlighted_item: !currentValue
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update item');
+      }
+      
+      // Update local state
+      setCollectionItems(prev => 
+        prev.map(item => 
+          item.item_id === itemId 
+            ? { ...item, highlighted_item: !currentValue }
+            : item
+        )
+      );
+      
+    } catch (error) {
+      console.error('Error toggling highlight:', error);
+      alert(`Failed to update highlight: ${error.message}`);
+    }
+  };
+
   const generateCategories = async () => {
     if (!savedIds.collectionId) {
       alert('Please save the collection first');
@@ -567,6 +673,7 @@ function DocumentProcessingForm() {
   useEffect(() => {
     if (savedIds.collectionId) {
       fetchDocuments();
+      fetchCollectionItems();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedIds.collectionId]);
@@ -1053,6 +1160,140 @@ function DocumentProcessingForm() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Collection Items Section */}
+        <div className="card mb-4">
+          <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 className="mb-0">Collection Items</h5>
+            <button 
+              type="button" 
+              className="btn btn-sm btn-warning"
+              onClick={generateItems}
+              disabled={generatingItems || !savedIds.collectionId}
+            >
+              {generatingItems ? 'Generating...' : '🚀 Generate Items'}
+            </button>
+          </div>
+          <div className="card-body">
+            {collectionItems.length === 0 ? (
+              <div className="text-center text-muted py-4">
+                <p className="mb-0">No items generated yet.</p>
+                <small>Upload a Purchase Order and Line Sheet, then click "Generate Items"</small>
+              </div>
+            ) : (
+              <div>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h6 className="mb-0">{collectionItems.length} Items Generated</h6>
+                  <button 
+                    type="button" 
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={fetchCollectionItems}
+                  >
+                    🔄 Refresh
+                  </button>
+                </div>
+                <div 
+                  style={{
+                    maxHeight: '600px',
+                    overflowY: 'auto'
+                  }}
+                >
+                  <div className="row g-3">
+                    {collectionItems.map((item) => (
+                      <div key={item.item_id} className="col-md-6 col-lg-4">
+                        <div className="card h-100 shadow-sm">
+                          <div className="card-body">
+                            <div className="d-flex justify-content-between align-items-start mb-2">
+                              <h6 className="card-title mb-0" style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                                {item.product_name || 'Unnamed Product'}
+                              </h6>
+                              <div className="form-check form-switch">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id={`highlight-${item.item_id}`}
+                                  checked={item.highlighted_item || false}
+                                  onChange={() => toggleItemHighlight(item.item_id, item.highlighted_item)}
+                                  style={{ cursor: 'pointer' }}
+                                />
+                                <label 
+                                  className="form-check-label" 
+                                  htmlFor={`highlight-${item.item_id}`}
+                                  style={{ fontSize: '11px', cursor: 'pointer' }}
+                                >
+                                  Highlight
+                                </label>
+                              </div>
+                            </div>
+                            
+                            <div style={{ fontSize: '12px' }}>
+                              <div className="mb-2">
+                                <strong>SKU:</strong> <span className="text-muted">{item.sku}</span>
+                              </div>
+                              
+                              {item.color && (
+                                <div className="mb-2">
+                                  <strong>Color:</strong> <span className="text-muted">{item.color}</span>
+                                  {item.color_code && <span className="text-muted"> ({item.color_code})</span>}
+                                </div>
+                              )}
+                              
+                              {item.materials && item.materials.length > 0 && (
+                                <div className="mb-2">
+                                  <strong>Material:</strong> <span className="text-muted">{item.materials.join(', ')}</span>
+                                </div>
+                              )}
+                              
+                              {item.rrp && (
+                                <div className="mb-2">
+                                  <strong>Retail Price:</strong> <span className="text-muted">${item.rrp}</span>
+                                </div>
+                              )}
+                              
+                              {item.origin && (
+                                <div className="mb-2">
+                                  <strong>Origin:</strong> <span className="text-muted">{item.origin}</span>
+                                </div>
+                              )}
+                              
+                              <div className="mb-2">
+                                <strong>Category:</strong> 
+                                <span className="text-muted"> {item.category || 'Not categorized'}</span>
+                              </div>
+                              
+                              {item.subcategory && (
+                                <div className="mb-2">
+                                  <strong>Subcategory:</strong> <span className="text-muted">{item.subcategory}</span>
+                                </div>
+                              )}
+                              
+                              {item.sizes && Object.keys(item.sizes).length > 0 && (
+                                <div className="mt-2 pt-2" style={{ borderTop: '1px solid #dee2e6' }}>
+                                  <strong>Sizes:</strong>
+                                  <div className="d-flex flex-wrap gap-1 mt-1">
+                                    {Object.entries(item.sizes).map(([size, qty]) => (
+                                      <span 
+                                        key={size} 
+                                        className="badge bg-secondary"
+                                        style={{ fontSize: '10px' }}
+                                      >
+                                        {size}: {qty}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

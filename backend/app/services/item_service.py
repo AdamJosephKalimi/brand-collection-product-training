@@ -292,6 +292,34 @@ class ItemService:
             
             for doc in docs:
                 item_data = doc.to_dict()
+                
+                # Normalize datetime fields (Firestore DatetimeWithNanoseconds -> ISO string)
+                if 'created_at' in item_data and item_data['created_at'] is not None:
+                    if hasattr(item_data['created_at'], 'isoformat'):
+                        item_data['created_at'] = item_data['created_at'].isoformat()
+                    elif not isinstance(item_data['created_at'], str):
+                        item_data['created_at'] = str(item_data['created_at'])
+                
+                if 'updated_at' in item_data and item_data['updated_at'] is not None:
+                    if hasattr(item_data['updated_at'], 'isoformat'):
+                        item_data['updated_at'] = item_data['updated_at'].isoformat()
+                    elif not isinstance(item_data['updated_at'], str):
+                        item_data['updated_at'] = str(item_data['updated_at'])
+                
+                if 'reviewed_at' in item_data and item_data['reviewed_at'] is not None:
+                    if hasattr(item_data['reviewed_at'], 'isoformat'):
+                        item_data['reviewed_at'] = item_data['reviewed_at'].isoformat()
+                    elif not isinstance(item_data['reviewed_at'], str):
+                        item_data['reviewed_at'] = str(item_data['reviewed_at'])
+                
+                # Ensure lists have default values
+                item_data.setdefault('materials', [])
+                item_data.setdefault('care_instructions', [])
+                item_data.setdefault('process', [])
+                item_data.setdefault('images', [])
+                item_data.setdefault('tags', [])
+                item_data.setdefault('sizes', {})
+                
                 items.append(ItemResponse(**item_data))
             
             return items
@@ -335,6 +363,34 @@ class ItemService:
                 )
             
             item_data = item_doc.to_dict()
+            
+            # Normalize datetime fields
+            if 'created_at' in item_data and item_data['created_at'] is not None:
+                if hasattr(item_data['created_at'], 'isoformat'):
+                    item_data['created_at'] = item_data['created_at'].isoformat()
+                elif not isinstance(item_data['created_at'], str):
+                    item_data['created_at'] = str(item_data['created_at'])
+            
+            if 'updated_at' in item_data and item_data['updated_at'] is not None:
+                if hasattr(item_data['updated_at'], 'isoformat'):
+                    item_data['updated_at'] = item_data['updated_at'].isoformat()
+                elif not isinstance(item_data['updated_at'], str):
+                    item_data['updated_at'] = str(item_data['updated_at'])
+            
+            if 'reviewed_at' in item_data and item_data['reviewed_at'] is not None:
+                if hasattr(item_data['reviewed_at'], 'isoformat'):
+                    item_data['reviewed_at'] = item_data['reviewed_at'].isoformat()
+                elif not isinstance(item_data['reviewed_at'], str):
+                    item_data['reviewed_at'] = str(item_data['reviewed_at'])
+            
+            # Ensure lists have default values
+            item_data.setdefault('materials', [])
+            item_data.setdefault('care_instructions', [])
+            item_data.setdefault('process', [])
+            item_data.setdefault('images', [])
+            item_data.setdefault('tags', [])
+            item_data.setdefault('sizes', {})
+            
             return ItemResponse(**item_data)
             
         except HTTPException:

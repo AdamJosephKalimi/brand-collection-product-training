@@ -2,6 +2,9 @@
 Item Generation Service - Generates collection items from purchase orders and line sheets.
 """
 import logging
+import uuid
+import hashlib
+import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from .firebase_service import firebase_service
@@ -35,20 +38,62 @@ class ItemGenerationService:
         try:
             logger.info(f"Starting item generation for collection: {collection_id}")
             
-            # TODO: Implement item generation flow
-            # Step 1: Fetch purchase order
-            # Step 2: Parse purchase order
-            # Step 3: Identify columns with LLM
-            # Step 4: Extract SKU data
-            # Step 5: Enrich from line sheet
-            # Step 6: Categorize items
-            # Step 7: Generate item objects
+            # Step 1: Fetch purchase order document
+            logger.info("Step 1: Fetching purchase order")
+            po_doc = await self.fetch_purchase_order(collection_id)
+            if not po_doc:
+                raise ValueError(f"No purchase order found for collection {collection_id}")
+            
+            # Step 2: Download PO file from Storage
+            logger.info(f"Step 2: Downloading PO file: {po_doc['name']}")
+            file_bytes = await self.storage_service.download_file(po_doc['storage_path'])
+            
+            # Step 3: Parse purchase order
+            logger.info("Step 3: Parsing purchase order")
+            parsed_data = await self.parse_purchase_order(file_bytes, po_doc['name'])
+            
+            # Step 4: Identify columns with LLM
+            logger.info("Step 4: Identifying columns with LLM")
+            column_mapping = await self.identify_columns_with_llm(
+                parsed_data['headers'],
+                parsed_data['rows'][:5]  # First 5 rows as sample
+            )
+            
+            # Step 5: Extract SKU data from PO
+            logger.info("Step 5: Extracting SKU data from PO")
+            po_items = await self.extract_sku_data(parsed_data, column_mapping)
+            
+            # Step 6: Enrich from line sheet
+            logger.info("Step 6: Enriching from line sheet")
+            enriched_items = await self.enrich_from_linesheet(collection_id, po_items)
+            
+            # Step 7: Generate item objects (skip categorization for now)
+            logger.info("Step 7: Generating item objects")
+            linesheet_doc = await self.fetch_linesheet(collection_id)
+            final_items = self.generate_item_objects(
+                enriched_items=enriched_items,
+                collection_id=collection_id,
+                po_document_id=po_doc['document_id'],
+                linesheet_document_id=linesheet_doc['document_id']
+            )
+            
             # Step 8: Save to Firestore
+            logger.info("Step 8: Saving items to Firestore")
+            save_stats = await self.save_items_to_firestore(collection_id, final_items)
+            
+            logger.info(f"Item generation complete: {save_stats['items_created']} items created, {save_stats['items_skipped']} skipped")
             
             return {
                 'success': True,
-                'items': [],
-                'message': 'Item generation not yet implemented'
+                'items': final_items,
+                'stats': {
+                    'po_items_extracted': len(po_items),
+                    'items_enriched': len([i for i in enriched_items if i.get('enriched')]),
+                    'items_unmatched': len([i for i in enriched_items if not i.get('enriched')]),
+                    'final_items_generated': len(final_items),
+                    'items_created': save_stats['items_created'],
+                    'items_skipped': save_stats['items_skipped']
+                }
             }
             
         except Exception as e:
@@ -341,6 +386,324 @@ Rules:
         
         # Single size or "One Size"
         return {size_raw: quantity}
+    
+    def generate_item_hash(self, item: Dict[str, Any]) -> str:
+        """
+        Generate content hash from item's core identity (SKU + color_code).
+        
+        Args:
+            item: Item dictionary
+            
+        Returns:
+            16-character hash string
+        """
+        hash_fields = {
+            'sku': item.get('sku'),
+            'color_code': item.get('color_code')
+        }
+        
+        # Create deterministic JSON string
+        hash_string = json.dumps(hash_fields, sort_keys=True)
+        
+        # Generate SHA-256 hash (first 16 chars)
+        return hashlib.sha256(hash_string.encode()).hexdigest()[:16]
+    
+    async def fetch_linesheet(self, collection_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch line sheet document for a collection.
+        
+        Args:
+            collection_id: Collection ID
+            
+        Returns:
+            Line sheet document or None
+        """
+        try:
+            logger.info(f"Fetching line sheet for collection: {collection_id}")
+            
+            # Query Firestore for line sheet document
+            docs_ref = self.firebase_service.db.collection('collections').document(collection_id).collection('documents')
+            query = docs_ref.where('type', '==', 'line_sheet').limit(1)
+            docs = query.stream()
+            
+            for doc in docs:
+                doc_data = doc.to_dict()
+                doc_data['document_id'] = doc.id
+                logger.info(f"Found line sheet: {doc_data.get('name')}")
+                return doc_data
+            
+            logger.warning(f"No line sheet found for collection {collection_id}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error fetching line sheet: {e}")
+            return None
+    
+    async def enrich_from_linesheet(
+        self, 
+        collection_id: str, 
+        po_items: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Enrich PO items with line sheet data.
+        
+        Args:
+            collection_id: Collection ID
+            po_items: Items extracted from PO
+            
+        Returns:
+            Enriched items with line sheet data merged
+        """
+        try:
+            logger.info(f"Enriching {len(po_items)} items from line sheet")
+            
+            # Fetch line sheet document
+            linesheet_doc = await self.fetch_linesheet(collection_id)
+            if not linesheet_doc:
+                raise ValueError(f"No line sheet found for collection {collection_id}")
+            
+            # Get structured products from line sheet
+            structured_products = linesheet_doc.get('structured_products', [])
+            if not structured_products:
+                logger.warning("Line sheet has no structured_products")
+                raise ValueError("Line sheet has no structured products")
+            
+            logger.info(f"Line sheet has {len(structured_products)} products")
+            
+            # Create lookup by base SKU
+            # Extract base SKU from each line sheet product
+            linesheet_lookup = {}
+            for product in structured_products:
+                sku = product.get('sku')
+                if sku:
+                    # Extract base SKU (before dash if exists)
+                    base_sku = sku.split('-')[0] if '-' in sku else sku
+                    linesheet_lookup[base_sku] = product
+            
+            logger.info(f"Created lookup with {len(linesheet_lookup)} base SKUs")
+            
+            # Enrich each PO item
+            enriched_items = []
+            matched_count = 0
+            
+            for po_item in po_items:
+                po_sku = po_item.get('sku')
+                po_base_sku = po_item.get('base_sku')
+                
+                # Try to match by base SKU
+                linesheet_data = linesheet_lookup.get(po_base_sku)
+                
+                if linesheet_data:
+                    # Get color info from line sheet (colors array with 1 item)
+                    ls_colors = linesheet_data.get('colors', [])
+                    ls_color = ls_colors[0] if ls_colors else {}
+                    
+                    enriched_item = {
+                        # === FROM PO (source of truth for order) ===
+                        'sku': po_sku,
+                        'base_sku': po_base_sku,
+                        'sizes': po_item.get('sizes', {}),
+                        'quantity': po_item.get('quantity'),
+                        
+                        # === FROM LINE SHEET (product info) ===
+                        'product_name': linesheet_data.get('product_name'),
+                        'wholesale_price': linesheet_data.get('wholesale_price'),
+                        'rrp': linesheet_data.get('rrp'),
+                        'currency': linesheet_data.get('currency'),
+                        'origin': linesheet_data.get('origin'),
+                        'materials': linesheet_data.get('materials', []),
+                        
+                        # === COLOR INFO (from line sheet) ===
+                        'color': ls_color.get('color_name'),
+                        'color_code': ls_color.get('color_code'),
+                        
+                        # === METADATA ===
+                        'enriched': True,
+                        'source': 'po_and_linesheet'
+                    }
+                    matched_count += 1
+                else:
+                    # No match found - PO only
+                    enriched_item = {
+                        'sku': po_sku,
+                        'base_sku': po_base_sku,
+                        'sizes': po_item.get('sizes', {}),
+                        'quantity': po_item.get('quantity'),
+                        'product_name': None,
+                        'wholesale_price': None,
+                        'rrp': None,
+                        'currency': None,
+                        'origin': None,
+                        'materials': [],
+                        'color': None,
+                        'color_code': None,
+                        'enriched': False,
+                        'source': 'po_only'
+                    }
+                
+                enriched_items.append(enriched_item)
+            
+            logger.info(f"Enrichment complete: {matched_count}/{len(po_items)} items matched")
+            
+            if matched_count < len(po_items):
+                unmatched_skus = [i['sku'] for i in enriched_items if not i['enriched']]
+                logger.warning(f"Unmatched SKUs: {unmatched_skus[:10]}...")  # Log first 10
+            
+            return enriched_items
+            
+        except Exception as e:
+            logger.error(f"Error enriching from line sheet: {e}")
+            raise
+    
+    def generate_item_objects(
+        self,
+        enriched_items: List[Dict[str, Any]],
+        collection_id: str,
+        po_document_id: str,
+        linesheet_document_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Transform enriched items into final Item model format.
+        
+        Args:
+            enriched_items: Items from Step 5 (enrichment)
+            collection_id: Collection ID
+            po_document_id: Purchase order document ID
+            linesheet_document_id: Line sheet document ID
+            
+        Returns:
+            List of final Item objects ready for Firestore
+        """
+        try:
+            logger.info(f"Generating {len(enriched_items)} item objects")
+            
+            final_items = []
+            now = datetime.utcnow().isoformat() + 'Z'
+            
+            for item in enriched_items:
+                # Generate unique item ID
+                item_id = f"item_{uuid.uuid4().hex[:16]}"
+                
+                # Generate content hash for duplicate detection
+                content_hash = self.generate_item_hash(item)
+                
+                final_item = {
+                    # === IDs ===
+                    'item_id': item_id,
+                    'collection_id': collection_id,
+                    'content_hash': content_hash,
+                    
+                    # === PRODUCT INFO (from enriched item) ===
+                    'product_name': item.get('product_name'),
+                    'sku': item['sku'],
+                    'base_sku': item.get('base_sku'),
+                    'color': item.get('color'),
+                    'color_code': item.get('color_code'),
+                    'wholesale_price': item.get('wholesale_price'),
+                    'rrp': item.get('rrp'),
+                    'currency': item.get('currency', 'USD'),
+                    'origin': item.get('origin'),
+                    'materials': item.get('materials', []),
+                    'sizes': item.get('sizes', {}),
+                    
+                    # === DEFAULTS (categorization skipped) ===
+                    'category': None,
+                    'subcategory': None,
+                    'gender': 'unisex',
+                    'description': None,
+                    'care_instructions': [],
+                    'process': [],
+                    'highlighted_item': False,
+                    'images': [],
+                    'tags': [],
+                    
+                    # === SOURCE TRACKING ===
+                    'source_documents': {
+                        'purchase_order_id': po_document_id,
+                        'line_sheet_id': linesheet_document_id
+                    },
+                    
+                    # === METADATA ===
+                    'extraction_confidence': 1.0 if item.get('enriched') else 0.5,
+                    'manual_review': not item.get('enriched'),
+                    'reviewed_by': None,
+                    'reviewed_at': None,
+                    
+                    # === TIMESTAMPS ===
+                    'created_at': now,
+                    'updated_at': now
+                }
+                
+                final_items.append(final_item)
+            
+            logger.info(f"Generated {len(final_items)} item objects")
+            return final_items
+            
+        except Exception as e:
+            logger.error(f"Error generating item objects: {e}")
+            raise
+    
+    async def save_items_to_firestore(
+        self,
+        collection_id: str,
+        items: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Save items to Firestore with hash-based duplicate detection.
+        
+        Args:
+            collection_id: Collection ID
+            items: Final Item objects from Step 7
+            
+        Returns:
+            Save statistics (items_created, items_skipped)
+        """
+        try:
+            logger.info(f"Saving {len(items)} items to Firestore")
+            
+            items_ref = self.firebase_service.db.collection('collections').document(collection_id).collection('items')
+            
+            created_count = 0
+            skipped_count = 0
+            
+            for item in items:
+                content_hash = item.get('content_hash')
+                
+                # Check if item with same hash already exists
+                existing_query = items_ref.where('content_hash', '==', content_hash).limit(1).stream()
+                existing_docs = list(existing_query)
+                
+                if existing_docs:
+                    # Duplicate found - skip
+                    logger.debug(f"Skipping duplicate item: {item['sku']} (hash: {content_hash})")
+                    skipped_count += 1
+                else:
+                    # New item - save
+                    items_ref.document(item['item_id']).set(item)
+                    logger.debug(f"Created item: {item['sku']} (ID: {item['item_id']})")
+                    created_count += 1
+            
+            # Update collection stats
+            collection_ref = self.firebase_service.db.collection('collections').document(collection_id)
+            now = datetime.utcnow().isoformat() + 'Z'
+            
+            collection_ref.update({
+                'total_items': created_count,
+                'items_generated_at': now,
+                'updated_at': now
+            })
+            
+            logger.info(f"Save complete: {created_count} created, {skipped_count} skipped")
+            
+            return {
+                'items_created': created_count,
+                'items_skipped': skipped_count,
+                'total_items': created_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Error saving items to Firestore: {e}")
+            raise
 
 
 # Global service instance

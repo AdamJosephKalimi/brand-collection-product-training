@@ -165,6 +165,40 @@ async def get_item(
         )
 
 
+@router.patch("/{collection_id}/items/{item_id}", response_model=ItemResponse)
+async def partial_update_item(
+    collection_id: str,
+    item_id: str,
+    update_data: ItemUpdate,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> ItemResponse:
+    """
+    Partially update an item (e.g., toggle highlight).
+    
+    **Parameters:**
+    - collection_id: Parent collection ID
+    - item_id: Unique item identifier
+    
+    **Use Cases:**
+    - Toggle highlighted_item flag
+    - Quick field updates without sending full object
+    
+    **Returns:**
+    - Updated item
+    """
+    try:
+        user_id = current_user["uid"]
+        return await item_service.update_item(collection_id, item_id, user_id, update_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in partial_update_item endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update item"
+        )
+
+
 @router.put("/{collection_id}/items/{item_id}", response_model=ItemResponse)
 async def update_item(
     collection_id: str,

@@ -156,30 +156,34 @@ class ItemResponse(BaseModel):
     """Item response model for API responses"""
     item_id: str
     collection_id: str
-    product_name: str
+    product_name: Optional[str] = None  # Can be None if not enriched
     sku: str
-    base_sku: Optional[str]
-    category: str
-    subcategory: Optional[str]
-    gender: Optional[Gender]
-    color: Optional[str]
-    color_code: Optional[str]
-    description: Optional[str]
-    materials: List[str]
-    care_instructions: List[str]
-    process: List[str]
-    origin: Optional[str]
-    wholesale_price: Optional[float]
-    rrp: Optional[float]
-    currency: Currency
-    highlighted_item: bool
-    images: List[ItemImage]
-    sizes: Dict[str, int]
-    tags: List[str]
-    source_document_id: Optional[str]
-    extraction_confidence: Optional[float]
-    manual_review: bool
-    reviewed_by: Optional[str]
-    reviewed_at: Optional[datetime]
-    created_at: datetime
-    updated_at: datetime
+    base_sku: Optional[str] = None
+    category: Optional[str] = None  # Can be None if categorization skipped
+    subcategory: Optional[str] = None
+    gender: Optional[Gender] = None
+    color: Optional[str] = None
+    color_code: Optional[str] = None
+    description: Optional[str] = None
+    materials: Optional[List[str]] = None
+    care_instructions: Optional[List[str]] = None
+    process: Optional[List[str]] = None
+    origin: Optional[str] = None
+    wholesale_price: Optional[float] = None
+    rrp: Optional[float] = None
+    currency: Optional[str] = None  # Allow string for flexibility
+    highlighted_item: Optional[bool] = False
+    images: Optional[List[ItemImage]] = None
+    sizes: Optional[Dict[str, int]] = None
+    tags: Optional[List[str]] = None
+    content_hash: Optional[str] = None  # Hash for duplicate detection
+    source_document_id: Optional[str] = None  # Legacy field
+    source_documents: Optional[Dict[str, str]] = None  # New field: {purchase_order_id, line_sheet_id}
+    extraction_confidence: Optional[float] = None
+    manual_review: Optional[bool] = False
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None  # ISO string format
+    created_at: Optional[str] = None  # ISO string format (can be datetime from old items)
+    updated_at: Optional[str] = None  # ISO string format (can be datetime from old items)
+    
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
