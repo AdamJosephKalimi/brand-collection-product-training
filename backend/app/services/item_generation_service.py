@@ -470,17 +470,15 @@ Rules:
             
             logger.info(f"Line sheet has {len(structured_products)} products")
             
-            # Create lookup by base SKU
-            # Extract base SKU from each line sheet product
+            # Create lookup by full SKU (to handle multiple colors per base SKU)
             linesheet_lookup = {}
             for product in structured_products:
                 sku = product.get('sku')
                 if sku:
-                    # Extract base SKU (before dash if exists)
-                    base_sku = sku.split('-')[0] if '-' in sku else sku
-                    linesheet_lookup[base_sku] = product
+                    # Use full SKU as key to preserve color variants
+                    linesheet_lookup[sku] = product
             
-            logger.info(f"Created lookup with {len(linesheet_lookup)} base SKUs")
+            logger.info(f"Created lookup with {len(linesheet_lookup)} SKUs")
             
             # Enrich each PO item
             enriched_items = []
@@ -490,8 +488,8 @@ Rules:
                 po_sku = po_item.get('sku')
                 po_base_sku = po_item.get('base_sku')
                 
-                # Try to match by base SKU
-                linesheet_data = linesheet_lookup.get(po_base_sku)
+                # Try to match by full SKU first (exact match including color code)
+                linesheet_data = linesheet_lookup.get(po_sku)
                 
                 if linesheet_data:
                     # Get color info from line sheet (colors array with 1 item)
@@ -512,6 +510,10 @@ Rules:
                         'currency': linesheet_data.get('currency'),
                         'origin': linesheet_data.get('origin'),
                         'materials': linesheet_data.get('materials', []),
+                        
+                        # === CATEGORY INFO (from line sheet) ===
+                        'category': linesheet_data.get('category'),
+                        'subcategory': linesheet_data.get('subcategory'),
                         
                         # === COLOR INFO (from line sheet) ===
                         'color': ls_color.get('color_name'),
@@ -607,8 +609,8 @@ Rules:
                     'sizes': item.get('sizes', {}),
                     
                     # === DEFAULTS (categorization skipped) ===
-                    'category': None,
-                    'subcategory': None,
+                    'category': item.get('category') or None,
+                    'subcategory': item.get('subcategory') or None,
                     'gender': 'unisex',
                     'description': None,
                     'care_instructions': [],

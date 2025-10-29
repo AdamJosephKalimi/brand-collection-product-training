@@ -492,11 +492,20 @@ class CollectionDocumentService:
             # Extract structured products for line sheets
             structured_products = None
             if document_type == 'line_sheet' and normalized_text:
-                logger.info("Document is a line sheet, extracting structured products...")
+                # Step 1: Generate and save categories first
+                logger.info("Document is a line sheet, generating categories first...")
+                categories = await self._generate_and_save_categories(
+                    normalized_text,
+                    collection_id
+                )
+                
+                # Step 2: Extract structured products with category assignment
+                logger.info("Extracting structured products with category assignment...")
                 structured_products = await self._extract_structured_products(
                     normalized_text,
                     collection_id,
-                    document_id
+                    document_id,
+                    categories
                 )
             
             # Update document in Firestore
@@ -519,6 +528,65 @@ class CollectionDocumentService:
         except Exception as e:
             logger.error(f"Error parsing and storing text for document {document_id}: {e}")
             # Don't raise - parsing failure shouldn't block document upload
+    
+    async def _generate_and_save_categories(
+        self,
+        normalized_text: str,
+        collection_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate categories from normalized text and save to collection.
+        Uses category_generation_service for LLM call and formatting.
+        
+        Args:
+            normalized_text: Normalized text from line sheet
+            collection_id: Collection ID
+            
+        Returns:
+            List of formatted category objects with name and subcategories
+        """
+        try:
+            logger.info("Generating categories from line sheet text...")
+            
+            # Step 1: Generate categories using existing service
+            categories = await category_generation_service.generate_categories_with_llm(
+                normalized_text
+            )
+            
+            logger.info(f"LLM returned {len(categories)} categories")
+            
+            # Step 2: Format categories (same logic as category_generation_service)
+            formatted_categories = []
+            for idx, category in enumerate(categories):
+                formatted_subcategories = []
+                for sub_idx, subcat_name in enumerate(category.get('subcategories', [])):
+                    formatted_subcategories.append({
+                        'name': subcat_name,
+                        'product_count': 0,
+                        'display_order': sub_idx
+                    })
+                
+                formatted_categories.append({
+                    'name': category.get('name'),
+                    'product_count': 0,
+                    'display_order': idx,
+                    'subcategories': formatted_subcategories
+                })
+            
+            # Step 3: Save to Firestore
+            collection_ref = self.db.collection(self.collections_collection).document(collection_id)
+            collection_ref.update({
+                'categories': formatted_categories,
+                'updated_at': datetime.utcnow()
+            })
+            
+            logger.info(f"Generated and saved {len(formatted_categories)} categories")
+            return formatted_categories
+            
+        except Exception as e:
+            logger.error(f"Error generating categories: {e}")
+            # Return empty list if generation fails (graceful degradation)
+            return []
     
     def _create_large_chunks(self, text: str, chunk_size: int = 30000, overlap: int = 3000) -> List[str]:
         """
@@ -590,7 +658,8 @@ class CollectionDocumentService:
         self, 
         normalized_text: str,
         collection_id: str,
-        document_id: str
+        document_id: str,
+        categories: List[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Extract structured product data from line sheet using chunked LLM extraction.
@@ -599,6 +668,7 @@ class CollectionDocumentService:
             normalized_text: Normalized text from line sheet
             collection_id: Collection ID for Firestore updates
             document_id: Document ID for Firestore updates
+            categories: Optional list of category objects for product categorization
             
         Returns:
             List of unique structured product dictionaries
@@ -609,8 +679,8 @@ class CollectionDocumentService:
             # Step 1: Create large chunks using custom chunker
             chunks = self._create_large_chunks(
                 text=normalized_text,
-                chunk_size=20000,
-                overlap=2000
+                chunk_size=10000,
+                overlap=1000
             )
             logger.info(f"Split text into {len(chunks)} chunks")
             
@@ -624,7 +694,8 @@ class CollectionDocumentService:
                 chunk_products = await self._extract_products_from_chunk(
                     chunk_text,
                     i + 1,
-                    len(chunks)
+                    len(chunks),
+                    categories
                 )
                 
                 if chunk_products:
@@ -664,7 +735,8 @@ class CollectionDocumentService:
         self, 
         chunk_text: str, 
         chunk_num: int, 
-        total_chunks: int
+        total_chunks: int,
+        categories: List[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Extract products from a single chunk using LLM.
@@ -673,6 +745,7 @@ class CollectionDocumentService:
             chunk_text: Text from one chunk
             chunk_num: Current chunk number (1-indexed)
             total_chunks: Total number of chunks
+            categories: Optional list of category objects for product categorization
             
         Returns:
             List of products extracted from this chunk
@@ -684,7 +757,22 @@ class CollectionDocumentService:
 Extract products from this line sheet section.
 Return ONLY valid JSON with no additional text."""
             
+            # Build category list for prompt
+            category_list = []
+            if categories:
+                for cat in categories:
+                    subcats = [sub['name'] for sub in cat.get('subcategories', [])]
+                    if subcats:
+                        category_list.append(f"- {cat['name']}: {', '.join(subcats)}")
+                    else:
+                        category_list.append(f"- {cat['name']}")
+            
+            categories_text = "\n".join(category_list) if category_list else "No categories defined"
+            
             prompt = f"""Extract ALL products from this line sheet section (chunk {chunk_num}/{total_chunks}).
+
+**Available Categories:**
+{categories_text}
 
 Return JSON:
 {{
@@ -692,6 +780,8 @@ Return JSON:
     {{
       "sku": "base SKU or style number",
       "product_name": "product name",
+      "category": "assigned category from list above",
+      "subcategory": "assigned subcategory (if applicable) or null",
       "colors": [
         {{
           "color_name": "color name",
@@ -713,6 +803,12 @@ Rules:
 - If a field is not found, use null or empty array
 - For colors, extract all color variants
 - Prices should be numeric (no currency symbols)
+
+**Category Assignment Rules:**
+- Assign each product to the MOST appropriate category from the list above
+- If the category has subcategories, assign the most specific subcategory
+- If the category has NO subcategories, set subcategory to null
+- If no category fits, set category to null
 
 Line sheet section:
 {chunk_text}"""

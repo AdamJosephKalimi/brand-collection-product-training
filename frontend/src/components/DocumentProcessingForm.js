@@ -1258,10 +1258,12 @@ function DocumentProcessingForm() {
                                 </div>
                               )}
                               
-                              <div className="mb-2">
-                                <strong>Category:</strong> 
-                                <span className="text-muted"> {item.category || 'Not categorized'}</span>
-                              </div>
+                              {item.category && (
+                                <div className="mb-2">
+                                  <strong>Category:</strong> 
+                                  <span className="text-muted"> {item.category}</span>
+                                </div>
+                              )}
                               
                               {item.subcategory && (
                                 <div className="mb-2">
