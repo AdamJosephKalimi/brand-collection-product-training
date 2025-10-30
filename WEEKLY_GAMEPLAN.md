@@ -208,78 +208,332 @@ POST /api/collections/{id}/categories/generate
 - ❌ Defeats automation purpose
 
 ### Recommended Approach
-**Hybrid: Option A + Option D**
+**Option A: Bounding Box with Position Mapping**
 
-**Phase 1:** PDF Image Extraction (Option A)
-- Extract images from PDF
-- Match by position/proximity
-- Best-effort automatic association
+Using PyMuPDF to extract images with positions, filter by size, and match to products by proximity.
 
-**Phase 2:** Manual Upload (Option D)
-- UI to upload missing images
-- UI to replace incorrect images
-- Fallback for failed extractions
+**Expected Accuracy:** 85-90%  
+**Cost:** Free (compute only)  
+**Dev Time:** 9-12 hours over 3 days
 
-### Implementation Plan
+---
 
-#### Step 1: PDF Image Extraction
+## **Quick Reference: Implementation Steps**
+
+1. **Extract images** from PDF with positions → Upload to Storage
+2. **Extract text blocks** with positions (for matching)
+3. **Filter images** by size (remove color swatches, logos)
+4. **Match images to products** by proximity (same page, above text, closest distance)
+5. **Update structured_products** to include images array
+6. **Items inherit images** from line sheet (already implemented)
+
+---
+
+## **Detailed Implementation Plan**
+
+### **Phase 1: Image Extraction & Upload (2-3 hours)**
+
+#### Task 1.1: Create Image Extraction Method
+**File:** `backend/app/services/collection_document_service.py`
+
 ```python
-# In collection_document_service.py
 async def _extract_images_from_pdf(
-    file_bytes: bytes,
+    self,
+    pdf: fitz.Document,
+    collection_id: str,
     document_id: str
 ) -> List[Dict[str, Any]]:
     """
-    Extract images from PDF with position data.
-    Returns: [
+    Extract all images from PDF with position metadata.
+    
+    Returns: List of dicts with:
+    - page_number, image_index
+    - bbox: {x0, y0, x1, y1, width, height}
+    - center: {x, y}
+    - storage_path, url, format
+    """
+    images = []
+    for page_num, page in enumerate(pdf):
+        image_list = page.get_images()
+        for img_index, img in enumerate(image_list):
+            xref = img[0]
+            bbox_list = page.get_image_bbox(img)
+            base_image = pdf.extract_image(xref)
+            image_bytes = base_image["image"]
+            
+            # Upload to Storage
+            storage_path = f"collections/{collection_id}/images/{document_id}/page_{page_num + 1}_img_{img_index}.{base_image['ext']}"
+            signed_url = await self.storage_service.upload_bytes(...)
+            
+            images.append({...})
+    return images
+```
+
+**Verify:**
+- Images extracted with positions
+- Images uploaded to Firebase Storage
+- URLs returned
+
+---
+
+### **Phase 2: Text Position Extraction (1 hour)**
+
+#### Task 2.1: Extract Text WITH Positions
+**File:** `backend/app/services/collection_document_service.py`
+
+```python
+async def _extract_text_with_positions(
+    self,
+    pdf: fitz.Document
+) -> Tuple[str, List[Dict[str, Any]]]:
+    """
+    Extract text AND text block positions.
+    
+    Returns: (full_text, text_blocks)
+    text_blocks = [
         {
-            'image_index': 0,
             'page_number': 1,
-            'position': {'x': 100, 'y': 200},
-            'image_bytes': b'...',
-            'format': 'png'
+            'bbox': {x0, y0, x1, y1, width, height},
+            'center': {x, y},
+            'text': "Style #: R13W2048..."
         }
     ]
     """
+    full_text = ""
+    text_blocks = []
+    
+    for page_num, page in enumerate(pdf):
+        blocks = page.get_text("blocks")  # ← Changed from get_text()
+        for block in blocks:
+            x0, y0, x1, y1, text, block_no, block_type = block
+            full_text += text
+            text_blocks.append({...})
+    
+    return full_text, text_blocks
 ```
 
-#### Step 2: Upload Images to Storage
+**Update pipeline:**
 ```python
-# Upload each extracted image
-storage_path = f"collections/{collection_id}/images/{document_id}_img_{index}.{format}"
-image_url = await storage_service.upload_bytes(image_bytes, storage_path)
+# OLD: text = page.get_text()
+# NEW: full_text, text_blocks = await self._extract_text_with_positions(pdf)
 ```
 
-#### Step 3: Associate Images with Products
+---
+
+### **Phase 3: Image Filtering (30 min)**
+
+#### Task 3.1: Filter by Size
+**File:** `backend/app/services/collection_document_service.py`
+
 ```python
-# During structured product extraction
-# Match images to products by:
-# - Same page number
-# - Proximity to product text
-# - SKU/name matching in nearby text
+def _filter_product_images(
+    self,
+    images: List[Dict[str, Any]],
+    min_width: int = 150,
+    min_height: int = 150
+) -> List[Dict[str, Any]]:
+    """
+    Filter out small images (color swatches, logos).
+    """
+    return [
+        img for img in images
+        if img['bbox']['width'] >= min_width 
+        and img['bbox']['height'] >= min_height
+    ]
 ```
 
-#### Step 4: Update Item Generation
+**Handles:**
+- ✅ Image 1 (R13): No small images, all pass through
+- ✅ Image 2 (Sporty & Rich): Removes color swatches (~50x50px)
+
+---
+
+### **Phase 4: Image-Product Matching (2 hours)**
+
+#### Task 4.1: Match by Proximity
+**File:** `backend/app/services/collection_document_service.py`
+
 ```python
-# Items inherit images from line sheet structured_products
-item['images'] = [
-    {
-        'url': signed_url,
-        'storage_path': path,
-        'alt': product_name
-    }
-]
+def _match_images_to_products(
+    self,
+    products: List[Dict[str, Any]],
+    images: List[Dict[str, Any]],
+    text_blocks: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    Match images to products by proximity.
+    
+    Strategy:
+    1. Find text block containing product SKU
+    2. Find images on same page, ABOVE text
+    3. Calculate distance, assign closest image
+    """
+    for product in products:
+        sku = product.get('sku')
+        
+        # Find text block with this SKU
+        text_block = find_text_block_with_sku(sku, text_blocks)
+        
+        if text_block:
+            page_num = text_block['page_number']
+            text_y = text_block['center']['y']
+            
+            # Find images on same page, above text
+            candidates = [
+                img for img in images
+                if img['page_number'] == page_num
+                and img['center']['y'] < text_y  # Above text
+            ]
+            
+            # Calculate distances
+            for img in candidates:
+                img['distance'] = calculate_distance(img, text_block)
+            
+            # Sort by distance, take closest
+            candidates.sort(key=lambda x: x['distance'])
+            
+            if candidates:
+                product['images'] = [{
+                    'url': candidates[0]['url'],
+                    'storage_path': candidates[0]['storage_path'],
+                    'alt': product.get('product_name', '')
+                }]
+    
+    return products
 ```
 
-### Tasks
-- [ ] Research PDF image extraction libraries (PyMuPDF vs pdfplumber)
-- [ ] Implement image extraction from PDF
-- [ ] Upload images to Firebase Storage
-- [ ] Create image-to-product matching logic
-- [ ] Update structured_products schema to include images
-- [ ] Update item generation to inherit images
-- [ ] Build UI for manual image upload (fallback)
-- [ ] Build UI to replace/reorder images
+---
+
+### **Phase 5: Pipeline Integration (1 hour)**
+
+#### Task 5.1: Update Main Pipeline
+**File:** `backend/app/services/collection_document_service.py`
+
+**In `_parse_and_store_text()` method:**
+
+```python
+# 1. Extract text WITH positions
+full_text, text_blocks = await self._extract_text_with_positions(pdf)
+
+# 2. Extract images
+all_images = await self._extract_images_from_pdf(pdf, collection_id, document_id)
+
+# 3. Filter product images
+product_images = self._filter_product_images(all_images)
+
+# 4. Normalize text (existing)
+normalized_text = self._normalize_text(full_text)
+
+# 5. Extract structured products (existing)
+structured_products = await self._extract_structured_products(...)
+
+# 6. Match images to products (NEW)
+structured_products = self._match_images_to_products(
+    structured_products,
+    product_images,
+    text_blocks
+)
+
+# 7. Save to Firestore (existing, now includes images)
+doc_ref.update({'structured_products': structured_products, ...})
+```
+
+---
+
+### **Phase 6: Item Generation (30 min)**
+
+#### Task 6.1: Verify Images Copy to Items
+**File:** `backend/app/services/item_generation_service.py`
+
+**Already implemented! Just verify:**
+
+```python
+# In enrich_from_linesheet():
+enriched_item = {
+    # ... existing fields ...
+    'images': linesheet_data.get('images', []),  # ← Should be here
+}
+
+# In generate_item_objects():
+{
+    # ... existing fields ...
+    'images': item.get('images', []),  # ← Should be here
+}
+```
+
+---
+
+### **Phase 7: Testing & Tuning (2-3 hours)**
+
+#### Test Cases:
+1. **Image 1 (R13):** 5 products, 5 large images above text
+2. **Image 2 (Sporty & Rich):** 8 products, 8 large images + 8 small swatches
+
+#### Success Criteria:
+- ✅ 85-90% of products have images
+- ✅ Color swatches filtered out
+- ✅ Images match correct products
+- ✅ Items inherit images
+
+#### Tuning Parameters:
+```python
+MIN_IMAGE_WIDTH = 150   # Adjust if needed
+MIN_IMAGE_HEIGHT = 150
+MAX_DISTANCE = 300      # Max pixels between image and text
+```
+
+---
+
+## **Implementation Checklist**
+
+### **Phase 1: Image Extraction (2-3 hours)**
+- [ ] Create `_extract_images_from_pdf()` method
+- [ ] Test image extraction
+- [ ] Verify images upload to Storage
+- [ ] Verify URLs are returned
+
+### **Phase 2: Text Positions (1 hour)**
+- [ ] Create `_extract_text_with_positions()` method
+- [ ] Update pipeline to use new method
+- [ ] Verify text blocks have positions
+
+### **Phase 3: Image Filtering (30 min)**
+- [ ] Create `_filter_product_images()` method
+- [ ] Test with both line sheet formats
+- [ ] Tune `min_width` and `min_height` thresholds
+
+### **Phase 4: Image Matching (2 hours)**
+- [ ] Create `_match_images_to_products()` method
+- [ ] Test matching logic
+- [ ] Verify images match correct products
+- [ ] Handle edge cases (no images, multiple images)
+
+### **Phase 5: Pipeline Integration (1 hour)**
+- [ ] Update `_parse_and_store_text()` method
+- [ ] Test full pipeline end-to-end
+- [ ] Verify structured_products have images
+
+### **Phase 6: Item Generation (30 min)**
+- [ ] Verify images copy to enriched items
+- [ ] Verify images appear in generated items
+- [ ] Test with real PO + line sheet
+
+### **Phase 7: Testing & Tuning (2-3 hours)**
+- [ ] Test with Image 1 (R13 line sheet)
+- [ ] Test with Image 2 (Sporty & Rich line sheet)
+- [ ] Measure accuracy
+- [ ] Tune thresholds if needed
+- [ ] Handle edge cases
+
+---
+
+## **Estimated Timeline**
+
+- **Day 1 (4-5 hours):** Phases 1-3 (extraction + filtering)
+- **Day 2 (3-4 hours):** Phases 4-5 (matching + integration)
+- **Day 3 (2-3 hours):** Phases 6-7 (item generation + testing)
+
+**Total:** 9-12 hours over 3 days
 
 ---
 
