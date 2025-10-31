@@ -467,6 +467,17 @@ class CollectionDocumentService:
                 result = await self.parser_service.parse_pdf(file_bytes, filename)
                 parsed_text = result.get('extracted_text', '')
                 logger.info(f"Parsed PDF {filename}: {len(parsed_text)} characters")
+                
+                # PHASE 1 TEST: Extract images from PDF
+                logger.info("=" * 50)
+                logger.info("PHASE 1 TEST: Extracting images from PDF")
+                logger.info("=" * 50)
+                images = await self._extract_images_from_pdf(file_bytes, collection_id, document_id)
+                logger.info(f"✅ PHASE 1 TEST: Extracted {len(images)} images")
+                for i, img in enumerate(images[:5]):  # Log first 5 images
+                    logger.info(f"  Image {i+1}: Page {img['page_number']}, Size {img['bbox']['width']}x{img['bbox']['height']}")
+                    logger.info(f"    Full URL: {img['url']}")
+                logger.info("=" * 50)
             
             elif file_ext in ['.xlsx', '.xls']:
                 # Parse Excel
@@ -653,6 +664,97 @@ class CollectionDocumentService:
         
         logger.info(f"Created {len(chunks)} chunks (avg {len(text)//len(chunks) if chunks else 0} chars each)")
         return chunks
+    
+    async def _extract_images_from_pdf(
+        self,
+        file_bytes: bytes,
+        collection_id: str,
+        document_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract images from PDF and upload to Firebase Storage.
+        
+        Args:
+            file_bytes: PDF file content as bytes
+            collection_id: Collection ID
+            document_id: Document ID
+            
+        Returns:
+            List of image metadata with URLs, positions, and bounding boxes
+        """
+        try:
+            # Fetch collection to get brand_id
+            collection_ref = self.db.collection('collections').document(collection_id)
+            collection_doc = collection_ref.get()
+            
+            if not collection_doc.exists:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Collection {collection_id} not found"
+                )
+            
+            collection_data = collection_doc.to_dict()
+            brand_id = collection_data.get('brand_id')
+            
+            if not brand_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Collection does not have a brand_id"
+                )
+            
+            logger.info(f"Extracting images from PDF for collection {collection_id}, document {document_id}")
+            
+            # Extract images using PyMuPDF (reuse existing parser method)
+            images = self.parser_service._extract_images_with_pymupdf(file_bytes)
+            logger.info(f"Extracted {len(images)} images from PDF")
+            
+            if not images:
+                logger.warning("No images found in PDF")
+                return []
+            
+            # Upload images to Firebase Storage with proper path structure
+            uploaded_images = await self.storage_service.upload_document_images(
+                images=images,
+                brand_id=brand_id,
+                collection_id=collection_id,
+                document_id=document_id
+            )
+            
+            logger.info(f"Uploaded {len(uploaded_images)} images to Firebase Storage")
+            
+            # Format images for our use (add center point, clean up metadata)
+            formatted_images = []
+            for img in uploaded_images:
+                bbox = img.get('bbox', [0, 0, 0, 0])
+                formatted_images.append({
+                    'page_number': img.get('page'),
+                    'image_index': img.get('index'),
+                    'bbox': {
+                        'x0': bbox[0],
+                        'y0': bbox[1],
+                        'x1': bbox[2],
+                        'y1': bbox[3],
+                        'width': img.get('width', bbox[2] - bbox[0]),
+                        'height': img.get('height', bbox[3] - bbox[1])
+                    },
+                    'center': {
+                        'x': (bbox[0] + bbox[2]) / 2,
+                        'y': (bbox[1] + bbox[3]) / 2
+                    },
+                    'storage_path': img.get('storage_path'),
+                    'url': img.get('url'),
+                    'format': img.get('format'),
+                    'size': img.get('size')
+                })
+            
+            return formatted_images
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error extracting images from PDF: {e}")
+            # Don't fail the entire upload if image extraction fails
+            return []
     
     async def _extract_structured_products(
         self, 
