@@ -15,6 +15,7 @@ from .parser_service import parser_service
 from .category_generation_service import category_generation_service
 from .llm_service import llm_service
 import logging
+import fitz  # PyMuPDF
 
 logger = logging.getLogger(__name__)
 
@@ -463,21 +464,41 @@ class CollectionDocumentService:
             parsed_text = ""
             
             if file_ext == '.pdf':
-                # Parse PDF
-                result = await self.parser_service.parse_pdf(file_bytes, filename)
-                parsed_text = result.get('extracted_text', '')
-                logger.info(f"Parsed PDF {filename}: {len(parsed_text)} characters")
+                # Open PDF with PyMuPDF
+                pdf = fitz.open(stream=file_bytes, filetype="pdf")
                 
-                # PHASE 1 TEST: Extract images from PDF
+                # PHASE 1: Extract images from PDF
                 logger.info("=" * 50)
-                logger.info("PHASE 1 TEST: Extracting images from PDF")
+                logger.info("PHASE 1: Extracting images from PDF")
                 logger.info("=" * 50)
                 images = await self._extract_images_from_pdf(file_bytes, collection_id, document_id)
-                logger.info(f"✅ PHASE 1 TEST: Extracted {len(images)} images")
+                logger.info(f"✅ PHASE 1: Extracted {len(images)} images")
                 for i, img in enumerate(images[:5]):  # Log first 5 images
                     logger.info(f"  Image {i+1}: Page {img['page_number']}, Size {img['bbox']['width']}x{img['bbox']['height']}")
                     logger.info(f"    Full URL: {img['url']}")
                 logger.info("=" * 50)
+                
+                # Store image metadata for Phase 4 matching (already formatted with positions)
+                image_metadata = images
+                
+                # Extract text using parser_service (for LLM processing)
+                result = await self.parser_service.parse_pdf(file_bytes, filename)
+                parsed_text = result.get('extracted_text', '')
+                logger.info(f"Parsed PDF {filename}: {len(parsed_text)} characters")
+                
+                # PHASE 2: Extract text blocks with positions (for image matching)
+                logger.info("=" * 50)
+                logger.info("PHASE 2: Extracting text blocks with positions")
+                logger.info("=" * 50)
+                _, text_blocks = self._extract_text_with_positions(pdf)
+                logger.info(f"✅ PHASE 2: Extracted {len(text_blocks)} text blocks for image matching")
+                for i, block in enumerate(text_blocks[:5]):  # Log first 5 blocks
+                    logger.info(f"  Block {i+1}: Page {block['page_number']}, Text: {block['text'][:50]}...")
+                    logger.info(f"    Position: ({block['center']['x']:.1f}, {block['center']['y']:.1f})")
+                logger.info("=" * 50)
+                
+                # Close PDF
+                pdf.close()
             
             elif file_ext in ['.xlsx', '.xls']:
                 # Parse Excel
@@ -531,6 +552,16 @@ class CollectionDocumentService:
             # Add structured products if extracted
             if structured_products is not None:
                 update_data['structured_products'] = structured_products
+            
+            # Add text blocks with positions if extracted (for Phase 4 image matching)
+            if 'text_blocks' in locals() and text_blocks:
+                update_data['text_blocks'] = text_blocks
+                logger.info(f"Stored {len(text_blocks)} text blocks for image matching")
+            
+            # Add image metadata with positions if extracted (for Phase 4 image matching)
+            if 'image_metadata' in locals() and image_metadata:
+                update_data['image_metadata'] = image_metadata
+                logger.info(f"Stored {len(image_metadata)} image metadata for image matching")
             
             doc_ref.update(update_data)
             
@@ -664,6 +695,73 @@ class CollectionDocumentService:
         
         logger.info(f"Created {len(chunks)} chunks (avg {len(text)//len(chunks) if chunks else 0} chars each)")
         return chunks
+    
+    def _extract_text_with_positions(
+        self,
+        pdf: Any  # fitz.Document
+    ) -> tuple[str, List[Dict[str, Any]]]:
+        """
+        Extract text AND text block positions from PDF.
+        
+        Args:
+            pdf: PyMuPDF (fitz) Document object
+            
+        Returns:
+            Tuple of (full_text, text_blocks)
+            - full_text: Concatenated text for normalization/categories (same as before)
+            - text_blocks: List of text chunks with position metadata for image matching
+        """
+        full_text = ""
+        text_blocks = []
+        
+        try:
+            for page_num, page in enumerate(pdf):
+                # Get text blocks with positions
+                blocks = page.get_text("blocks")
+                
+                for block in blocks:
+                    # Unpack block tuple: (x0, y0, x1, y1, text, block_no, block_type)
+                    x0, y0, x1, y1, text, block_no, block_type = block
+                    
+                    # Skip empty blocks
+                    if not text or not text.strip():
+                        continue
+                    
+                    # Add to full text (for existing pipeline)
+                    full_text += text
+                    
+                    # Calculate dimensions and center
+                    width = x1 - x0
+                    height = y1 - y0
+                    center_x = (x0 + x1) / 2
+                    center_y = (y0 + y1) / 2
+                    
+                    # Store block with position metadata (for image matching)
+                    text_blocks.append({
+                        'page_number': page_num + 1,  # 1-indexed
+                        'block_number': block_no,
+                        'text': text.strip(),
+                        'bbox': {
+                            'x0': x0,
+                            'y0': y0,
+                            'x1': x1,
+                            'y1': y1,
+                            'width': width,
+                            'height': height
+                        },
+                        'center': {
+                            'x': center_x,
+                            'y': center_y
+                        }
+                    })
+            
+            logger.info(f"Extracted {len(text_blocks)} text blocks with positions")
+            return full_text, text_blocks
+            
+        except Exception as e:
+            logger.error(f"Error extracting text with positions: {e}")
+            # Return empty results on error
+            return "", []
     
     async def _extract_images_from_pdf(
         self,
