@@ -471,15 +471,25 @@ class CollectionDocumentService:
                 logger.info("=" * 50)
                 logger.info("PHASE 1: Extracting images from PDF")
                 logger.info("=" * 50)
-                images = await self._extract_images_from_pdf(file_bytes, collection_id, document_id)
-                logger.info(f"✅ PHASE 1: Extracted {len(images)} images")
-                for i, img in enumerate(images[:5]):  # Log first 5 images
+                all_images = await self._extract_images_from_pdf(file_bytes, collection_id, document_id)
+                logger.info(f"✅ PHASE 1: Extracted {len(all_images)} images")
+                for i, img in enumerate(all_images[:5]):  # Log first 5 images
                     logger.info(f"  Image {i+1}: Page {img['page_number']}, Size {img['bbox']['width']}x{img['bbox']['height']}")
                     logger.info(f"    Full URL: {img['url']}")
                 logger.info("=" * 50)
                 
-                # Store image metadata for Phase 4 matching (already formatted with positions)
-                image_metadata = images
+                # PHASE 3: Filter product images (remove small images like swatches/logos)
+                logger.info("=" * 50)
+                logger.info("PHASE 3: Filtering product images")
+                logger.info("=" * 50)
+                product_images = self._filter_product_images(all_images, min_width=100, min_height=100)
+                logger.info(f"✅ PHASE 3: Kept {len(product_images)} product images")
+                for i, img in enumerate(product_images[:5]):  # Log first 5 filtered images
+                    logger.info(f"  Product Image {i+1}: Page {img['page_number']}, Size {img['bbox']['width']}x{img['bbox']['height']}")
+                logger.info("=" * 50)
+                
+                # Store filtered image metadata for Phase 4 matching
+                image_metadata = product_images
                 
                 # Extract text using parser_service (for LLM processing)
                 result = await self.parser_service.parse_pdf(file_bytes, filename)
@@ -695,6 +705,33 @@ class CollectionDocumentService:
         
         logger.info(f"Created {len(chunks)} chunks (avg {len(text)//len(chunks) if chunks else 0} chars each)")
         return chunks
+    
+    def _filter_product_images(
+        self,
+        images: List[Dict[str, Any]],
+        min_width: int = 150,
+        min_height: int = 150
+    ) -> List[Dict[str, Any]]:
+        """
+        Filter out small images (color swatches, logos, decorative elements).
+        Keep only product-sized images for matching.
+        
+        Args:
+            images: List of all extracted images with bbox metadata
+            min_width: Minimum width in pixels (default 150)
+            min_height: Minimum height in pixels (default 150)
+            
+        Returns:
+            Filtered list of product images only
+        """
+        product_images = [
+            img for img in images
+            if img['bbox']['width'] >= min_width 
+            and img['bbox']['height'] >= min_height
+        ]
+        
+        logger.info(f"Filtered {len(images)} images → {len(product_images)} product images (removed {len(images) - len(product_images)} small images)")
+        return product_images
     
     def _extract_text_with_positions(
         self,
