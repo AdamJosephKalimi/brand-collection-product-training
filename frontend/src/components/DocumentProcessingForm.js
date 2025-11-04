@@ -1204,6 +1204,24 @@ function DocumentProcessingForm() {
                     {collectionItems.map((item) => (
                       <div key={item.item_id} className="col-md-6 col-lg-4">
                         <div className="card h-100 shadow-sm">
+                          {/* Product Image */}
+                          {item.images && item.images.length > 0 && (
+                            <img 
+                              src={item.images[0]} 
+                              className="card-img-top" 
+                              alt={item.product_name || 'Product'}
+                              style={{ 
+                                height: '200px', 
+                                objectFit: 'contain', 
+                                backgroundColor: '#f8f9fa',
+                                padding: '10px'
+                              }}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          )}
+                          
                           <div className="card-body">
                             <div className="d-flex justify-content-between align-items-start mb-2">
                               <h6 className="card-title mb-0" style={{ fontSize: '14px', fontWeight: 'bold' }}>

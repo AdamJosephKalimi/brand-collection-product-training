@@ -510,6 +510,7 @@ Rules:
                         'currency': linesheet_data.get('currency'),
                         'origin': linesheet_data.get('origin'),
                         'materials': linesheet_data.get('materials', []),
+                        'images': linesheet_data.get('images', []),
                         
                         # === CATEGORY INFO (from line sheet) ===
                         'category': linesheet_data.get('category'),
@@ -616,7 +617,7 @@ Rules:
                     'care_instructions': [],
                     'process': [],
                     'highlighted_item': False,
-                    'images': [],
+                    'images': item.get('images', []),
                     'tags': [],
                     
                     # === SOURCE TRACKING ===

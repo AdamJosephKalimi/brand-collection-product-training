@@ -549,6 +549,18 @@ class CollectionDocumentService:
                     document_id,
                     categories
                 )
+                
+                # PHASE 4: Match images to products
+                if structured_products and 'text_blocks' in locals() and 'image_metadata' in locals():
+                    logger.info("=" * 50)
+                    logger.info("PHASE 4: Matching images to products")
+                    logger.info("=" * 50)
+                    structured_products = self._match_images_to_products(
+                        structured_products,
+                        text_blocks,
+                        image_metadata
+                    )
+                    logger.info("=" * 50)
             
             # Update document in Firestore
             doc_ref = self.db.collection(self.collections_collection).document(collection_id).collection('documents').document(document_id)
@@ -705,6 +717,93 @@ class CollectionDocumentService:
         
         logger.info(f"Created {len(chunks)} chunks (avg {len(text)//len(chunks) if chunks else 0} chars each)")
         return chunks
+    
+    def _match_images_to_products(
+        self,
+        structured_products: List[Dict[str, Any]],
+        text_blocks: List[Dict[str, Any]],
+        image_metadata: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Match images to products based on proximity to SKU text blocks.
+        
+        Args:
+            structured_products: List of products with SKUs
+            text_blocks: List of text blocks with positions
+            image_metadata: List of images with positions
+            
+        Returns:
+            Updated structured_products with 'images' field
+        """
+        import math
+        
+        # Index images by page for faster lookup
+        images_by_page = {}
+        for img in image_metadata:
+            page = img.get('page_number')
+            if page not in images_by_page:
+                images_by_page[page] = []
+            images_by_page[page].append(img)
+        
+        matched_count = 0
+        
+        for product in structured_products:
+            sku = product.get('sku')
+            if not sku:
+                product['images'] = []
+                continue
+            
+            # Find text block containing this SKU
+            text_block = None
+            for block in text_blocks:
+                if sku in block.get('text', ''):
+                    text_block = block
+                    break
+            
+            if not text_block:
+                logger.warning(f"No text block found for SKU: {sku}")
+                product['images'] = []
+                continue
+            
+            # Get images on the same page
+            page = text_block.get('page_number')
+            page_images = images_by_page.get(page, [])
+            
+            if not page_images:
+                logger.warning(f"No images found on page {page} for SKU: {sku}")
+                product['images'] = []
+                continue
+            
+            # Calculate distance from text block to each image
+            text_center = text_block.get('center', {})
+            text_x = text_center.get('x', 0)
+            text_y = text_center.get('y', 0)
+            
+            closest_image = None
+            min_distance = float('inf')
+            
+            for img in page_images:
+                img_center = img.get('center', {})
+                img_x = img_center.get('x', 0)
+                img_y = img_center.get('y', 0)
+                
+                # Calculate Euclidean distance
+                distance = math.sqrt((img_x - text_x)**2 + (img_y - text_y)**2)
+                
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_image = img
+            
+            # Assign closest image to product
+            if closest_image:
+                product['images'] = [closest_image.get('url')]
+                matched_count += 1
+                logger.debug(f"Matched SKU {sku} to image at distance {min_distance:.1f}px")
+            else:
+                product['images'] = []
+        
+        logger.info(f"✅ Matched images to {matched_count}/{len(structured_products)} products")
+        return structured_products
     
     def _filter_product_images(
         self,
