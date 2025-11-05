@@ -510,7 +510,13 @@ Rules:
                         'currency': linesheet_data.get('currency'),
                         'origin': linesheet_data.get('origin'),
                         'materials': linesheet_data.get('materials', []),
-                        'images': linesheet_data.get('images', []),
+                        'images': [
+                            {
+                                'url': url,
+                                'alt': f"{linesheet_data.get('product_name', 'Product')} - {ls_color.get('color_name', '')}"
+                            }
+                            for url in linesheet_data.get('images', [])
+                        ],
                         
                         # === CATEGORY INFO (from line sheet) ===
                         'category': linesheet_data.get('category'),

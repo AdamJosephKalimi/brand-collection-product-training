@@ -1161,6 +1161,324 @@ const generatePresentation = async () => {
 
 ---
 
+## **Goal 3: Intro Slides Configuration & Generation**
+
+### Current State
+- Collection has intro slide settings (8 boolean flags)
+- All flags default to `true` in Firestore
+- No UI to toggle these settings
+- No generation logic for intro slide content
+- No storage for generated intro slide content
+
+### Requirements
+
+#### **1. UI: Checkbox Controls**
+**Location:** Document Processing Form → Intro Slides section
+
+**Current State:**
+- Checkboxes exist but don't save to Firestore
+- All default to checked
+
+**Needed:**
+- Wire checkboxes to Firestore settings
+- Save on change (or with "Save Settings" button)
+- Load existing settings on page load
+
+**Settings to Control:**
+```javascript
+{
+  include_cover_page_slide: true,
+  include_brand_introduction_slide: true,
+  include_brand_history_slide: true,
+  include_brand_values_slide: true,
+  include_brand_personality_slide: true,
+  include_flagship_store_and_experiences_slide: true,
+  include_core_collection_and_signature_categories_slide: true,
+  include_product_categories_slide: true
+}
+```
+
+---
+
+#### **2. Backend: Intro Slide Generation Service**
+
+**New Service:** `intro_slide_generation_service.py`
+
+**Responsibilities:**
+1. Fetch collection data (brand info, categories, etc.)
+2. Check which slides are enabled
+3. Generate content for each enabled slide using LLM
+4. Return structured slide content
+
+**API Endpoint:**
+```
+POST /api/collections/{collection_id}/intro-slides/generate
+```
+
+**Response:**
+```javascript
+{
+  "slides": [
+    {
+      "slide_type": "cover_page",
+      "title": "FW25 Collection",
+      "subtitle": "R13 Denim",
+      "content": {...}
+    },
+    {
+      "slide_type": "brand_introduction",
+      "title": "About R13",
+      "content": {
+        "paragraphs": ["..."],
+        "key_points": ["..."]
+      }
+    }
+  ]
+}
+```
+
+---
+
+#### **3. LLM Prompts for Each Slide Type**
+
+**Slide 1: Cover Page**
+- Input: Brand name, collection name, season
+- Output: Title, subtitle, tagline
+
+**Slide 2: Brand Introduction**
+- Input: Brand description, founding story
+- Output: Overview paragraph, key facts
+
+**Slide 3: Brand History**
+- Input: Brand founding year, milestones
+- Output: Timeline, key moments
+
+**Slide 4: Brand Values**
+- Input: Brand mission, values
+- Output: 3-5 core values with descriptions
+
+**Slide 5: Brand Personality**
+- Input: Brand voice, aesthetic
+- Output: Personality traits, style descriptors
+
+**Slide 6: Flagship Store & Experiences**
+- Input: Store locations, retail strategy
+- Output: Store highlights, experience description
+
+**Slide 7: Core Collection & Signature Categories**
+- Input: Collection categories
+- Output: Category overview, signature pieces
+
+**Slide 8: Product Categories**
+- Input: Full category list
+- Output: Category breakdown with counts
+
+---
+
+#### **4. Storage: Generated Slide Content**
+
+**Location:** `collections/{collection_id}`
+
+**New Fields:**
+```javascript
+{
+  // Existing fields...
+  
+  // NEW: Generated intro slide content
+  "intro_slides": {
+    "generated_at": "2025-11-03T20:00:00Z",
+    "slides": [
+      {
+        "slide_type": "cover_page",
+        "title": "FW25 Collection",
+        "subtitle": "R13 Denim",
+        "content": {...}
+      },
+      {
+        "slide_type": "brand_introduction",
+        "title": "About R13",
+        "content": {
+          "paragraphs": ["..."],
+          "key_points": ["..."]
+        }
+      }
+      // ... other slides
+    ]
+  }
+}
+```
+
+---
+
+#### **5. UI: Display Generated Slides**
+
+**Location:** Below "Generate Intro Slides" button
+
+**Display Format:**
+- Accordion or card-based layout
+- Show each slide type
+- Display title and content preview
+- Allow expand/collapse for full content
+
+**Example:**
+```
+┌─────────────────────────────────────┐
+│ ✅ Cover Page                       │
+│ Title: FW25 Collection              │
+│ Subtitle: R13 Denim                 │
+├─────────────────────────────────────┤
+│ ✅ Brand Introduction               │
+│ R13 is a contemporary denim brand...│
+├─────────────────────────────────────┤
+│ ✅ Brand History                    │
+│ Founded in 2009 by Chris Leba...    │
+└─────────────────────────────────────┘
+```
+
+---
+
+### Implementation Plan
+
+#### **Phase 1: UI Checkbox Wiring (1 hour)**
+- [ ] Add state management for intro slide settings
+- [ ] Wire checkboxes to update Firestore on change
+- [ ] Load existing settings on component mount
+- [ ] Test save/load functionality
+
+**Files:**
+- `frontend/src/components/DocumentProcessingForm.js`
+
+---
+
+#### **Phase 2: Backend Service (3 hours)**
+- [ ] Create `intro_slide_generation_service.py`
+- [ ] Implement LLM prompts for each slide type
+- [ ] Add conditional logic (only generate enabled slides)
+- [ ] Create API endpoint in new router
+- [ ] Test with Postman/API docs
+
+**Files:**
+- `backend/app/services/intro_slide_generation_service.py` (NEW)
+- `backend/app/routers/intro_slides.py` (NEW)
+- `backend/app/main.py` (register router)
+
+---
+
+#### **Phase 3: Storage Schema (30 min)**
+- [ ] Add `intro_slides` field to collection schema
+- [ ] Update Firestore after generation
+- [ ] Test data persistence
+
+**Files:**
+- `backend/app/models/collection.py` (update schema)
+- `backend/app/services/intro_slide_generation_service.py` (save logic)
+
+---
+
+#### **Phase 4: UI Display (2 hours)**
+- [ ] Add "Generate Intro Slides" button
+- [ ] Show loading state during generation
+- [ ] Display generated slides in accordion/cards
+- [ ] Add refresh button to re-generate
+- [ ] Style slide preview cards
+
+**Files:**
+- `frontend/src/components/DocumentProcessingForm.js`
+
+---
+
+#### **Phase 5: Testing & Refinement (1 hour)**
+- [ ] Test with real collection data
+- [ ] Verify all 8 slide types generate correctly
+- [ ] Test enable/disable toggles
+- [ ] Verify Firestore storage
+- [ ] Check UI responsiveness
+
+---
+
+### LLM Prompt Templates
+
+#### **Cover Page Prompt**
+```
+Generate a cover page for a fashion collection presentation.
+
+Brand: {brand_name}
+Collection: {collection_name}
+Season: {season}
+
+Return JSON:
+{
+  "title": "Main title for cover",
+  "subtitle": "Subtitle or tagline",
+  "tagline": "Optional short tagline"
+}
+```
+
+#### **Brand Introduction Prompt**
+```
+Generate a brand introduction slide for {brand_name}.
+
+Brand Description: {brand_description}
+Founded: {founded_year}
+
+Return JSON:
+{
+  "title": "About {brand_name}",
+  "overview": "2-3 sentence brand overview",
+  "key_points": ["Point 1", "Point 2", "Point 3"]
+}
+```
+
+*(Similar templates for other 6 slide types)*
+
+---
+
+### Data Flow
+
+```
+1. User clicks "Generate Intro Slides"
+   ↓
+2. Frontend calls POST /api/collections/{id}/intro-slides/generate
+   ↓
+3. Backend fetches collection data
+   ↓
+4. Backend checks which slides are enabled
+   ↓
+5. For each enabled slide:
+   - Build LLM prompt with collection data
+   - Call OpenAI API
+   - Parse response
+   ↓
+6. Store generated slides in Firestore
+   ↓
+7. Return slides to frontend
+   ↓
+8. Frontend displays slides in UI
+```
+
+---
+
+### Estimated Time
+- **Phase 1 (UI Checkboxes):** 1 hour
+- **Phase 2 (Backend Service):** 3 hours
+- **Phase 3 (Storage):** 30 min
+- **Phase 4 (UI Display):** 2 hours
+- **Phase 5 (Testing):** 1 hour
+
+**Total: ~7.5 hours**
+
+---
+
+### Success Criteria
+- ✅ Checkboxes save to Firestore settings
+- ✅ "Generate Intro Slides" button triggers generation
+- ✅ Only enabled slides are generated
+- ✅ Generated content stored in Firestore
+- ✅ Slides displayed in UI with proper formatting
+- ✅ Can re-generate slides (overwrites previous)
+
+---
+
 ## 🔗 Related Files
 
 ### Documentation

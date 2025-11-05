@@ -31,8 +31,8 @@ class Currency(str, Enum):
 class ItemImage(BaseModel):
     """Image associated with an item"""
     url: str = Field(..., description="Firebase Storage signed URL")
-    alt: str = Field(..., description="Alternative text for image")
-    storage_path: str = Field(..., description="Path in Firebase Storage")
+    alt: Optional[str] = Field(None, description="Alternative text for image")
+    storage_path: Optional[str] = Field(None, description="Path in Firebase Storage")
 
 
 class ItemSizes(BaseModel):

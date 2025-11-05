@@ -367,7 +367,9 @@ class CollectionService:
                 if field == "theme" and value:
                     update_doc["theme"] = value
                 elif field == "settings" and value:
-                    update_doc["settings"] = value
+                    # Use dot notation to merge individual settings fields
+                    for setting_key, setting_value in value.items():
+                        update_doc[f"settings.{setting_key}"] = setting_value
                 elif field == "categories" and value:
                     update_doc["categories"] = [cat if isinstance(cat, dict) else cat.model_dump() for cat in value]
                 elif field == "rag_settings" and value:

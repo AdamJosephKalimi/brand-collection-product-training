@@ -94,14 +94,68 @@ function DocumentProcessingForm() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleIntroSlideChange = (slide) => {
+  const handleIntroSlideChange = async (slide) => {
+    const newValue = !formData.introSlides[slide];
+    
+    // Update local state
     setFormData(prev => ({
       ...prev,
       introSlides: {
         ...prev.introSlides,
-        [slide]: !prev.introSlides[slide]
+        [slide]: newValue
       }
     }));
+
+    // Auto-save to Firestore
+    if (savedIds.collectionId) {
+      try {
+        const token = await auth.currentUser.getIdToken();
+        
+        // Map local state names to Firestore field names
+        const fieldMapping = {
+          coverPage: 'include_cover_page_slide',
+          brandIntroduction: 'include_brand_introduction_slide',
+          brandHistory: 'include_brand_history_slide',
+          brandValues: 'include_brand_values_slide',
+          brandPersonality: 'include_brand_personality_slide',
+          flagshipStores: 'include_flagship_store_and_experiences_slide',
+          coreCollections: 'include_core_collection_and_signature_categories_slide',
+          productCategories: 'include_product_categories_slide'
+        };
+
+        const firestoreField = fieldMapping[slide];
+        
+        const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            settings: {
+              [firestoreField]: newValue
+            }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save intro slide setting');
+        }
+
+        console.log(`Saved ${slide}: ${newValue}`);
+      } catch (error) {
+        console.error('Error saving intro slide setting:', error);
+        alert('Failed to save setting. Please try again.');
+        // Revert local state on error
+        setFormData(prev => ({
+          ...prev,
+          introSlides: {
+            ...prev.introSlides,
+            [slide]: !newValue
+          }
+        }));
+      }
+    }
   };
 
   const handleItemDetailChange = (detail) => {
@@ -445,6 +499,43 @@ function DocumentProcessingForm() {
     }
   };
 
+  const loadIntroSlideSettings = async () => {
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch collection');
+      }
+
+      const collection = await response.json();
+      const settings = collection.settings || {};
+
+      // Map Firestore field names to local state names
+      setFormData(prev => ({
+        ...prev,
+        introSlides: {
+          coverPage: settings.include_cover_page_slide !== false,
+          brandIntroduction: settings.include_brand_introduction_slide !== false,
+          brandHistory: settings.include_brand_history_slide !== false,
+          brandValues: settings.include_brand_values_slide !== false,
+          brandPersonality: settings.include_brand_personality_slide !== false,
+          flagshipStores: settings.include_flagship_store_and_experiences_slide !== false,
+          coreCollections: settings.include_core_collection_and_signature_categories_slide !== false,
+          productCategories: settings.include_product_categories_slide !== false
+        }
+      }));
+
+      console.log('Loaded intro slide settings:', settings);
+    } catch (error) {
+      console.error('Error loading intro slide settings:', error);
+    }
+  };
+
   const fetchCollectionItems = async () => {
     if (!savedIds.collectionId) return;
     
@@ -674,6 +765,7 @@ function DocumentProcessingForm() {
     if (savedIds.collectionId) {
       fetchDocuments();
       fetchCollectionItems();
+      loadIntroSlideSettings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedIds.collectionId]);
@@ -1207,9 +1299,9 @@ function DocumentProcessingForm() {
                           {/* Product Image */}
                           {item.images && item.images.length > 0 && (
                             <img 
-                              src={item.images[0]} 
+                              src={item.images[0].url || item.images[0]} 
                               className="card-img-top" 
-                              alt={item.product_name || 'Product'}
+                              alt={item.images[0].alt || item.product_name || 'Product'}
                               style={{ 
                                 height: '200px', 
                                 objectFit: 'contain', 
