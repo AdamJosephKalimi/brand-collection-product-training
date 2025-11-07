@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { auth } from '../firebase/config';
 
 function DocumentProcessingForm() {
@@ -15,7 +16,9 @@ function DocumentProcessingForm() {
   
   const [generating, setGenerating] = useState(false);
   const [generatingItems, setGeneratingItems] = useState(false);
+  const [generatingSlides, setGeneratingSlides] = useState(false);
   const [collectionItems, setCollectionItems] = useState([]);
+  const [introSlides, setIntroSlides] = useState(null);
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
@@ -356,6 +359,12 @@ function DocumentProcessingForm() {
   };
 
   const selectExistingCollection = (collection) => {
+    console.log('=== SELECTING COLLECTION ===');
+    console.log('Collection ID:', collection.collection_id);
+    
+    // Clear previous intro slides
+    setIntroSlides(null);
+    
     setSavedIds(prev => ({ ...prev, collectionId: collection.collection_id }));
     
     // Load categories if they exist
@@ -377,6 +386,9 @@ function DocumentProcessingForm() {
     }));
     
     setHasUnsavedChanges(false);
+    
+    // Note: intro slides will be loaded by the useEffect that calls loadIntroSlideSettings()
+    // when savedIds.collectionId changes
   };
 
   const fetchDocuments = async () => {
@@ -529,6 +541,12 @@ function DocumentProcessingForm() {
           productCategories: settings.include_product_categories_slide !== false
         }
       }));
+
+      // Load existing intro slides if they exist
+      if (collection.intro_slides) {
+        setIntroSlides(collection.intro_slides);
+        console.log('Loaded existing intro slides:', collection.intro_slides);
+      }
 
       console.log('Loaded intro slide settings:', settings);
     } catch (error) {
@@ -688,6 +706,189 @@ function DocumentProcessingForm() {
       alert(`Failed to generate categories: ${error.message}`);
     } finally {
       setGenerating(false);
+    }
+  };
+
+  // Helper function to render slide content as readable text
+  const renderSlideContent = (content, slideType) => {
+    if (!content) return null;
+
+    switch (slideType) {
+      case 'cover_page':
+        return (
+          <div>
+            <p><strong>Title:</strong> {content.title}</p>
+            <p><strong>Subtitle:</strong> {content.subtitle}</p>
+            <p><strong>Tagline:</strong> {content.tagline}</p>
+          </div>
+        );
+      
+      case 'brand_introduction':
+        return (
+          <div>
+            <p className="mb-3">{content.overview}</p>
+            {content.key_points && content.key_points.length > 0 && (
+              <>
+                <p><strong>Key Points:</strong></p>
+                <ul>
+                  {content.key_points.map((point, i) => <li key={i}>{point}</li>)}
+                </ul>
+              </>
+            )}
+          </div>
+        );
+      
+      case 'brand_history':
+        return (
+          <div>
+            <p><strong>Founded:</strong> {content.founding_year} by {content.founder}</p>
+            <p><strong>Origin:</strong> {content.origin}</p>
+            {content.milestones && content.milestones.length > 0 && (
+              <>
+                <p className="mt-3"><strong>Milestones:</strong></p>
+                <ul>
+                  {content.milestones.map((milestone, i) => <li key={i}>{milestone}</li>)}
+                </ul>
+              </>
+            )}
+          </div>
+        );
+      
+      case 'brand_values':
+        return (
+          <div>
+            {content.values && content.values.length > 0 && (
+              content.values.map((value, i) => (
+                <div key={i} className="mb-3">
+                  <p className="mb-1"><strong>{value.name}</strong></p>
+                  <p className="text-muted">{value.description}</p>
+                </div>
+              ))
+            )}
+          </div>
+        );
+      
+      case 'brand_personality':
+        return (
+          <div>
+            {content.personality_traits && content.personality_traits.length > 0 && (
+              <div className="mb-3">
+                <p><strong>Personality Traits:</strong></p>
+                <p>{content.personality_traits.join(', ')}</p>
+              </div>
+            )}
+            {content.style_descriptors && content.style_descriptors.length > 0 && (
+              <div className="mb-3">
+                <p><strong>Style Descriptors:</strong></p>
+                <p>{content.style_descriptors.join(', ')}</p>
+              </div>
+            )}
+            {content.brand_voice && (
+              <div>
+                <p><strong>Brand Voice:</strong></p>
+                <p>{content.brand_voice}</p>
+              </div>
+            )}
+          </div>
+        );
+      
+      case 'flagship_stores':
+        return (
+          <div>
+            {content.store_locations && content.store_locations.length > 0 && (
+              <>
+                <p><strong>Store Locations:</strong></p>
+                {content.store_locations.map((store, i) => (
+                  <div key={i} className="mb-2">
+                    <p className="mb-1"><strong>{store.city}</strong></p>
+                    <p className="text-muted small">{store.description}</p>
+                  </div>
+                ))}
+              </>
+            )}
+            {content.retail_experience && (
+              <div className="mt-3">
+                <p><strong>Retail Experience:</strong></p>
+                <p>{content.retail_experience}</p>
+              </div>
+            )}
+          </div>
+        );
+      
+      case 'core_collection':
+        return (
+          <div>
+            <p className="mb-3">{content.overview}</p>
+            {content.signature_categories && content.signature_categories.length > 0 && (
+              <>
+                <p><strong>Signature Categories:</strong></p>
+                {content.signature_categories.map((cat, i) => (
+                  <div key={i} className="mb-3">
+                    <p className="mb-1"><strong>{cat.category}</strong></p>
+                    <p className="text-muted small mb-1">{cat.description}</p>
+                    {cat.key_pieces && cat.key_pieces.length > 0 && (
+                      <p className="small"><em>Key pieces: {cat.key_pieces.join(', ')}</em></p>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        );
+      
+      case 'product_categories':
+        return (
+          <div>
+            <p className="mb-3">{content.overview}</p>
+            {content.categories && content.categories.length > 0 && (
+              content.categories.map((cat, i) => (
+                <div key={i} className="mb-2">
+                  <p className="mb-1">
+                    <strong>{cat.name}</strong>
+                    {cat.product_count > 0 && <span className="text-muted small"> ({cat.product_count} products)</span>}
+                  </p>
+                  <p className="text-muted small">{cat.description}</p>
+                </div>
+              ))
+            )}
+          </div>
+        );
+      
+      default:
+        return <pre className="bg-light p-3 rounded" style={{ fontSize: '0.85rem' }}>{JSON.stringify(content, null, 2)}</pre>;
+    }
+  };
+
+  const generateIntroSlides = async () => {
+    if (!savedIds.collectionId) {
+      alert('Please save the collection first');
+      return;
+    }
+    
+    setGeneratingSlides(true);
+    try {
+      const token = await getAuthToken();
+      const response = await fetch(`http://localhost:8000/collections/${savedIds.collectionId}/intro-slides/generate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to generate intro slides');
+      }
+      
+      const data = await response.json();
+      setIntroSlides(data);
+      alert(`Successfully generated ${data.slides?.length || 0} intro slides!`);
+      
+    } catch (error) {
+      console.error('Error generating intro slides:', error);
+      alert(`Failed to generate intro slides: ${error.message}`);
+    } finally {
+      setGeneratingSlides(false);
     }
   };
 
@@ -1170,6 +1371,77 @@ function DocumentProcessingForm() {
                 </div>
               </div>
             </div>
+            
+            {/* Generate Intro Slides Button - Only show if slides don't exist */}
+            {!introSlides && (
+              <div className="mt-3">
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={generateIntroSlides}
+                  disabled={generatingSlides || !savedIds.collectionId}
+                >
+                  {generatingSlides ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      Generating Slides...
+                    </>
+                  ) : (
+                    'Generate Intro Slides'
+                  )}
+                </button>
+                {!savedIds.collectionId && (
+                  <small className="text-muted ms-2">Save collection first</small>
+                )}
+              </div>
+            )}
+            
+            {/* Display Generated Slides */}
+            {console.log('=== RENDER CHECK ===', 'introSlides:', introSlides, 'has slides?', introSlides?.slides)}
+            {introSlides && introSlides.slides && (
+              <div className="mt-4">
+                <h6 className="mb-3">Generated Slides ({introSlides.slides.length})</h6>
+                <p className="text-muted small mb-3">
+                  Generated at: {new Date(introSlides.generated_at).toLocaleString()}
+                </p>
+                
+                <div className="accordion" id="introSlidesAccordion">
+                  {introSlides.slides.map((slide, index) => {
+                    if (!slide) return null; // Skip null slides
+                    
+                    return (
+                      <div className="accordion-item" key={index}>
+                        <h2 className="accordion-header" id={`heading${index}`}>
+                          <button 
+                            className="accordion-button collapsed" 
+                            type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target={`#collapse${index}`}
+                            aria-expanded="false" 
+                            aria-controls={`collapse${index}`}
+                          >
+                            <strong>{slide.slide_type}:</strong>&nbsp;{slide.title || 'Untitled'}
+                          </button>
+                        </h2>
+                        <div 
+                          id={`collapse${index}`} 
+                          className="accordion-collapse collapse" 
+                          aria-labelledby={`heading${index}`}
+                          data-bs-parent="#introSlidesAccordion"
+                        >
+                          <div className="accordion-body">
+                            {slide.subtitle && (
+                              <p className="text-muted mb-3"><em>{slide.subtitle}</em></p>
+                            )}
+                            {renderSlideContent(slide.content, slide.slide_type)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
