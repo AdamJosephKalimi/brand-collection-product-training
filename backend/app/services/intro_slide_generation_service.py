@@ -115,11 +115,6 @@ class IntroSlideGenerationService:
                 slide = await self._generate_core_collection(brand_name, collection_name, categories, product_names)
                 slides.append(slide)
             
-            if settings.include_product_categories_slide:
-                logger.info("Generating product categories slide...")
-                slide = await self._generate_product_categories(brand_name, categories)
-                slides.append(slide)
-            
             # 3. Prepare result
             result = {
                 "generated_at": datetime.utcnow().isoformat(),
@@ -585,108 +580,6 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_product_categories(
-        self, 
-        brand_name: str,
-        categories: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """
-        Generate product categories slide.
-        
-        Args:
-            brand_name: Name of the brand
-            categories: List of category objects from collection
-            
-        Returns:
-            Dictionary containing slide type, title, and content
-        """
-        try:
-            # Extract category data with subcategories (same pattern as Slide 7)
-            logger.info(f"Product categories - received {len(categories)} categories")
-            logger.info(f"Categories type: {type(categories)}")
-            if categories:
-                logger.info(f"First category type: {type(categories[0])}")
-            
-            category_data = []
-            for cat in categories:
-                # Handle both dict and Pydantic objects using getattr
-                name = cat.get('name') if isinstance(cat, dict) else getattr(cat, 'name', 'Unknown')
-                subcats = cat.get('subcategories', []) if isinstance(cat, dict) else getattr(cat, 'subcategories', [])
-                count = cat.get('product_count', 0) if isinstance(cat, dict) else getattr(cat, 'product_count', 0)
-                
-                logger.info(f"Extracted category: {name}, count: {count}, subcats: {subcats}")
-                
-                category_data.append({
-                    "name": name,
-                    "subcategories": subcats,
-                    "product_count": count
-                })
-            
-            logger.info(f"Total category_data extracted: {len(category_data)}")
-            
-            # Build prompt with category structure
-            if category_data:
-                categories_text = "\n".join([
-                    f"- {cat['name']}: {cat['product_count']} products"
-                    + (f" (Subcategories: {', '.join([getattr(sc, 'name', str(sc)) for sc in cat['subcategories']])})" if cat['subcategories'] else "")
-                    for cat in category_data
-                ])
-            else:
-                categories_text = "No categories defined"
-            
-            prompt = f"""Generate a product categories slide for {brand_name}.
-
-Look at the categories and subcategories list below. This slide is meant to act as a "guide" 
-for the categories and products that the user will see in the collection. Make sure the slide 
-is organized in a structured format that helps users understand the category organization.
-
-Collection Categories:
-{categories_text}
-
-Analyze the category structure and present it as a clear, organized guide to the collection's assortment.
-
-Return ONLY valid JSON in this exact format:
-{{
-    "title": "Product Categories",
-    "overview": "Brief overview of how the collection is organized (1-2 sentences)",
-    "categories": [
-        {{
-            "name": "Category name from the list above",
-            "description": "Brief description of what this category includes",
-            "product_count": number_of_products
-        }}
-    ]
-}}"""
-
-            logger.info(f"Calling LLM for product categories: {brand_name}")
-            
-            response = await self.llm_service.generate_json_completion(
-                prompt=prompt,
-                temperature=0.7,
-                max_tokens=1000
-            )
-            
-            content = response if isinstance(response, dict) else {}
-            
-            logger.info(f"Generated product categories for {brand_name}")
-            
-            return {
-                "slide_type": "product_categories",
-                "title": content.get("title", "Product Categories"),
-                "content": content
-            }
-            
-        except Exception as e:
-            logger.error(f"Error generating product categories: {e}")
-            return {
-                "slide_type": "product_categories",
-                "title": "Product Categories",
-                "content": {
-                    "title": "Product Categories",
-                    "overview": "Collection categories",
-                    "categories": []
-                }
-            }
 
 
 # Global service instance

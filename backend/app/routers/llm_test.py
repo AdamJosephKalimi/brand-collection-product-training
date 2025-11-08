@@ -114,7 +114,7 @@ async def test_intro_slide_generation(
     slide_type: str = Body(
         ...,
         example="brand_values",
-        description="Type of intro slide: cover_page, brand_introduction, brand_history, brand_values, brand_personality, flagship_stores, core_collections, product_categories"
+        description="Type of intro slide: cover_page, brand_introduction, brand_history, brand_values, brand_personality, flagship_stores, core_collections"
     ),
     brand_info: Dict[str, Any] = Body(
         ...,
@@ -144,7 +144,6 @@ async def test_intro_slide_generation(
     - brand_personality: Brand character and tone
     - flagship_stores: Store locations and experiences
     - core_collections: Main product collections
-    - product_categories: Category overview
     
     **Parameters:**
     - slide_type: Which intro slide to generate
@@ -269,8 +268,7 @@ async def get_llm_info() -> Dict[str, Any]:
             "brand_values",
             "brand_personality",
             "flagship_stores",
-            "core_collections",
-            "product_categories"
+            "core_collections"
         ],
         "notes": {
             "temperature": "0.0 = focused/deterministic, 2.0 = creative/random",

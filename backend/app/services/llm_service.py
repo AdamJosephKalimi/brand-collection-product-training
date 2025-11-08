@@ -252,12 +252,7 @@ Return JSON with: title, stores (array of store objects with location and descri
             "core_collections": f"""Create a core collections and signature categories slide.
 Brand: {brand_info.get('name')}
 
-Return JSON with: title, collections (array of collection objects with name and description)""",
-            
-            "product_categories": f"""Create a product categories overview slide.
-Brand: {brand_info.get('name')}
-
-Return JSON with: title, categories (array of category names), description"""
+Return JSON with: title, collections (array of collection objects with name and description)"""
         }
         
         prompt = prompts.get(slide_type, prompts["cover_page"])

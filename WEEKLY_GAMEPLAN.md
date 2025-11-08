@@ -1500,5 +1500,561 @@ Return JSON:
 
 ---
 
-**Last Updated:** October 26, 2025  
-**Status:** Planning Phase
+## PowerPoint Generation Implementation Plan
+
+### Overview
+
+Generate PowerPoint presentations with two main sections:
+1. **Intro Slides** - 8 LLM-generated slides (cover, brand intro, history, values, personality, stores, core collection, categories)
+2. **Product Slides** - Collection items with dynamic layout (1, 2, or 4 products per slide)
+
+**Technology:** `python-pptx` library for direct PPT generation
+
+---
+
+### Architecture
+
+```
+POST /collections/{id}/presentation/generate
+    ↓
+PresentationGenerationService
+    ↓
+1. Fetch collection data (intro_slides, items, settings)
+2. Create Presentation object
+3. Generate intro slides (8 slides)
+4. Generate product slides (dynamic layout)
+5. Save to Firebase Storage
+6. Return download URL
+```
+
+---
+
+### Phase 1: Foundation & Setup (Week 1, Day 1-2)
+
+#### **Step 1: Install Dependencies**
+```bash
+pip install python-pptx Pillow requests
+```
+
+**Files to update:**
+- `backend/requirements.txt`
+
+---
+
+#### **Step 2: Create Service Skeleton**
+
+**Create:** `backend/app/services/presentation_generation_service.py`
+
+```python
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.enum.text import PP_ALIGN
+
+class PresentationGenerationService:
+    def __init__(self, firebase_service, collection_service, item_service):
+        self.db = firebase_service.db
+        self.storage = firebase_service.storage
+        self.collection_service = collection_service
+        self.item_service = item_service
+        self.prs = None
+        self.blank_layout = None
+    
+    async def generate_presentation(
+        self, 
+        collection_id: str,
+        user_id: str
+    ) -> str:
+        """Generate complete presentation"""
+        # Implementation
+        pass
+```
+
+**Tasks:**
+- [ ] Create service file
+- [ ] Add to global services in `main.py`
+- [ ] Initialize with dependencies
+
+---
+
+#### **Step 3: Create API Router**
+
+**Create:** `backend/app/routers/presentation.py`
+
+```python
+@router.post("/collections/{collection_id}/presentation/generate")
+async def generate_presentation(
+    collection_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Generate PowerPoint presentation for collection"""
+    user_id = current_user["uid"]
+    download_url = await presentation_service.generate_presentation(
+        collection_id, 
+        user_id
+    )
+    return {"download_url": download_url}
+```
+
+**Tasks:**
+- [ ] Create router file
+- [ ] Register in `main.py`
+- [ ] Test endpoint with Swagger
+
+---
+
+### Phase 2: Intro Slides Implementation (Week 1, Day 3-5)
+
+#### **Step 4: Implement Core Slide Creation**
+
+**In `PresentationGenerationService`:**
+
+```python
+async def _generate_intro_slides(self, intro_slides):
+    """Generate all 8 intro slides"""
+    for slide_data in intro_slides['slides']:
+        slide_type = slide_data['slide_type']
+        
+        if slide_type == 'cover_page':
+            self._create_cover_slide(slide_data)
+        elif slide_type == 'brand_introduction':
+            self._create_brand_intro_slide(slide_data)
+        # ... etc for all 8 types
+```
+
+**Tasks:**
+- [ ] Implement `_generate_intro_slides()` dispatcher
+- [ ] Create blank slide helper
+- [ ] Add text formatting utilities
+
+---
+
+#### **Step 5: Implement Individual Slide Layouts**
+
+**Slide 1: Cover Page**
+```python
+def _create_cover_slide(self, data):
+    """Layout: Centered title, subtitle, tagline"""
+    # Title: Inches(1), Inches(2.5), 8x1, 44pt, bold, centered
+    # Subtitle: Inches(1), Inches(3.7), 8x0.5, 24pt, centered
+    # Tagline: Inches(1), Inches(6), 8x0.5, 18pt, italic, centered
+```
+
+**Slide 2: Brand Introduction**
+```python
+def _create_brand_intro_slide(self, data):
+    """Layout: Title, overview paragraph, bullet points"""
+    # Title: top, 32pt, bold
+    # Overview: paragraph below title, 16pt
+    # Key points: bullets, 14pt
+```
+
+**Slide 3: Brand History**
+```python
+def _create_brand_history_slide(self, data):
+    """Layout: Title, founding info, milestones"""
+    # Title: top, 32pt, bold
+    # Founded: year, founder, origin, 18pt
+    # Milestones: bullets, 14pt
+```
+
+**Slide 4: Brand Values**
+```python
+def _create_brand_values_slide(self, data):
+    """Layout: Title, value cards"""
+    # Title: top, 32pt, bold
+    # Each value: name (bold) + description
+```
+
+**Slide 5: Brand Personality**
+```python
+def _create_brand_personality_slide(self, data):
+    """Layout: Title, traits, descriptors, voice"""
+    # Title: top, 32pt, bold
+    # Personality traits: comma-separated
+    # Style descriptors: comma-separated
+    # Brand voice: paragraph
+```
+
+**Slide 6: Flagship Stores**
+```python
+def _create_flagship_stores_slide(self, data):
+    """Layout: Title, store locations, retail experience"""
+    # Title: top, 32pt, bold
+    # Each store: city (bold) + description
+    # Retail experience: paragraph at bottom
+```
+
+**Slide 7: Core Collection**
+```python
+def _create_core_collection_slide(self, data):
+    """Layout: Title, overview, signature categories"""
+    # Title: top, 32pt, bold
+    # Overview: paragraph
+    # Each category: name (bold) + description + key pieces
+```
+
+**Slide 8: Product Categories**
+```python
+def _create_product_categories_slide(self, data):
+    """Layout: Title, overview, category list"""
+    # Title: top, 32pt, bold
+    # Overview: paragraph
+    # Each category: name (bold) + product count + description
+```
+
+**Tasks:**
+- [ ] Implement all 8 slide layout methods
+- [ ] Test with real data
+- [ ] Adjust positioning/sizing
+- [ ] Verify text doesn't overflow
+
+---
+
+### Phase 3: Product Slides Implementation (Week 2, Day 1-3)
+
+#### **Step 6: Dynamic Layout System**
+
+**Create layout configurations:**
+
+```python
+def get_product_layout(self, products_per_slide: int):
+    """Returns layout config for product slides"""
+    
+    if products_per_slide == 1:
+        return {
+            'positions': [
+                {'left': Inches(3), 'top': Inches(2)}
+            ],
+            'image_size': Inches(4),
+            'detail_height': Inches(1.5)
+        }
+    
+    elif products_per_slide == 2:
+        return {
+            'positions': [
+                {'left': Inches(1), 'top': Inches(2)},
+                {'left': Inches(6), 'top': Inches(2)}
+            ],
+            'image_size': Inches(3),
+            'detail_height': Inches(1.2)
+        }
+    
+    elif products_per_slide == 4:
+        return {
+            'positions': [
+                {'left': Inches(1), 'top': Inches(1.5)},
+                {'left': Inches(5.5), 'top': Inches(1.5)},
+                {'left': Inches(1), 'top': Inches(4.5)},
+                {'left': Inches(5.5), 'top': Inches(4.5)}
+            ],
+            'image_size': Inches(2.5),
+            'detail_height': Inches(1)
+        }
+```
+
+**Tasks:**
+- [ ] Implement layout config method
+- [ ] Test positioning for each layout
+- [ ] Ensure no overlap
+
+---
+
+#### **Step 7: Image Handling**
+
+```python
+def download_image(self, url: str) -> BytesIO:
+    """Download image from URL"""
+    import requests
+    from io import BytesIO
+    
+    response = requests.get(url, timeout=10)
+    return BytesIO(response.content)
+
+def add_product_image(self, slide, url, left, top, size):
+    """Add product image to slide"""
+    try:
+        img_stream = self.download_image(url)
+        slide.shapes.add_picture(img_stream, left, top, width=size)
+    except Exception as e:
+        logger.error(f"Failed to add image: {e}")
+        # Add placeholder or skip
+```
+
+**Tasks:**
+- [ ] Implement image download
+- [ ] Add error handling
+- [ ] Test with real product images
+- [ ] Handle missing images gracefully
+
+---
+
+#### **Step 8: Product Slide Generation**
+
+```python
+async def _generate_product_slides(self, items, products_per_slide):
+    """Generate product slides with dynamic layout"""
+    
+    # Chunk items
+    chunks = [items[i:i+products_per_slide] 
+              for i in range(0, len(items), products_per_slide)]
+    
+    # Get layout
+    layout_config = self.get_product_layout(products_per_slide)
+    
+    # Generate slides
+    for chunk in chunks:
+        slide = self.prs.slides.add_slide(self.blank_layout)
+        
+        for idx, product in enumerate(chunk):
+            pos = layout_config['positions'][idx]
+            
+            # Add image
+            if product.images and len(product.images) > 0:
+                img_url = product.images[0].url
+                self.add_product_image(
+                    slide, 
+                    img_url,
+                    pos['left'],
+                    pos['top'],
+                    layout_config['image_size']
+                )
+            
+            # Add product details
+            details_top = pos['top'] + layout_config['image_size'] + Inches(0.2)
+            textbox = slide.shapes.add_textbox(
+                pos['left'],
+                details_top,
+                layout_config['image_size'],
+                layout_config['detail_height']
+            )
+            
+            tf = textbox.text_frame
+            tf.word_wrap = True
+            
+            # Product name
+            p = tf.paragraphs[0]
+            p.text = product.name
+            p.font.size = Pt(12)
+            p.font.bold = True
+            
+            # SKU
+            p = tf.add_paragraph()
+            p.text = f"SKU: {product.sku}"
+            p.font.size = Pt(10)
+            
+            # Price
+            p = tf.add_paragraph()
+            p.text = f"${product.retail_price}"
+            p.font.size = Pt(11)
+```
+
+**Tasks:**
+- [ ] Implement chunking logic
+- [ ] Add product details formatting
+- [ ] Test with different products_per_slide settings
+- [ ] Handle edge cases (last slide not full)
+
+---
+
+### Phase 4: File Storage & Download (Week 2, Day 4)
+
+#### **Step 9: Save to Firebase Storage**
+
+```python
+async def save_and_upload(self, collection_id: str) -> str:
+    """Save PPT and upload to Firebase Storage"""
+    
+    # Save to temp file
+    temp_path = f"/tmp/{collection_id}_{datetime.now().timestamp()}.pptx"
+    self.prs.save(temp_path)
+    
+    # Upload to Firebase Storage
+    blob = self.storage.bucket().blob(
+        f"presentations/{collection_id}/presentation.pptx"
+    )
+    blob.upload_from_filename(temp_path)
+    blob.make_public()
+    
+    # Clean up temp file
+    os.remove(temp_path)
+    
+    return blob.public_url
+```
+
+**Tasks:**
+- [ ] Implement save logic
+- [ ] Upload to Firebase Storage
+- [ ] Generate download URL
+- [ ] Clean up temp files
+- [ ] Test download
+
+---
+
+#### **Step 10: Update Collection Document**
+
+```python
+# Store presentation metadata in Firestore
+await self.db.collection('collections').document(collection_id).update({
+    'presentation': {
+        'generated_at': datetime.utcnow(),
+        'download_url': download_url,
+        'slide_count': len(self.prs.slides),
+        'products_per_slide': products_per_slide
+    }
+})
+```
+
+**Tasks:**
+- [ ] Update collection document
+- [ ] Store metadata
+- [ ] Test retrieval
+
+---
+
+### Phase 5: Frontend Integration (Week 2, Day 5)
+
+#### **Step 11: Add Generate Button**
+
+**In `DocumentProcessingForm.js`:**
+
+```javascript
+const [generatingPresentation, setGeneratingPresentation] = useState(false);
+const [presentationUrl, setPresentationUrl] = useState(null);
+
+const generatePresentation = async () => {
+  setGeneratingPresentation(true);
+  try {
+    const token = await getAuthToken();
+    const response = await fetch(
+      `http://localhost:8000/collections/${savedIds.collectionId}/presentation/generate`,
+      {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      }
+    );
+    const data = await response.json();
+    setPresentationUrl(data.download_url);
+    alert('Presentation generated successfully!');
+  } catch (error) {
+    alert(`Failed to generate presentation: ${error.message}`);
+  } finally {
+    setGeneratingPresentation(false);
+  }
+};
+```
+
+**Tasks:**
+- [ ] Add state for presentation generation
+- [ ] Add generate button
+- [ ] Show loading state
+- [ ] Display download link
+
+---
+
+#### **Step 12: Display Download Link**
+
+```jsx
+{presentationUrl && (
+  <div className="mt-3 alert alert-success">
+    <strong>✅ Presentation Ready!</strong>
+    <br />
+    <a 
+      href={presentationUrl} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="btn btn-primary mt-2"
+    >
+      Download PowerPoint
+    </a>
+  </div>
+)}
+```
+
+**Tasks:**
+- [ ] Add download UI
+- [ ] Test download flow
+- [ ] Handle errors
+
+---
+
+### Phase 6: Polish & Testing (Week 3)
+
+#### **Step 13: Styling Improvements**
+
+**Tasks:**
+- [ ] Add brand colors (from collection/brand)
+- [ ] Consistent fonts across slides
+- [ ] Add logo to slides (if available)
+- [ ] Improve spacing/alignment
+- [ ] Test with different screen sizes
+
+---
+
+#### **Step 14: Error Handling**
+
+**Tasks:**
+- [ ] Handle missing intro_slides
+- [ ] Handle missing items
+- [ ] Handle image download failures
+- [ ] Handle storage upload failures
+- [ ] Add retry logic
+- [ ] User-friendly error messages
+
+---
+
+#### **Step 15: Testing**
+
+**Test Cases:**
+- [ ] Generate with 1 product per slide
+- [ ] Generate with 2 products per slide
+- [ ] Generate with 4 products per slide
+- [ ] Generate with no products
+- [ ] Generate with missing images
+- [ ] Generate with all 8 intro slides
+- [ ] Generate with some intro slides disabled
+- [ ] Test download link
+- [ ] Test file opens in PowerPoint
+- [ ] Test with large collections (100+ items)
+
+---
+
+### Success Criteria
+
+✅ **Backend:**
+- Presentation generation service complete
+- All 8 intro slide types render correctly
+- Product slides render with 1, 2, or 4 layouts
+- Images download and embed successfully
+- File saves to Firebase Storage
+- Download URL returned
+
+✅ **Frontend:**
+- Generate button works
+- Loading state displays
+- Download link appears
+- Error handling works
+
+✅ **Quality:**
+- Slides look professional
+- Text doesn't overflow
+- Images are properly sized
+- Layout is consistent
+- File opens in PowerPoint/Google Slides
+
+---
+
+### Files to Create/Modify
+
+**New Files:**
+- `backend/app/services/presentation_generation_service.py`
+- `backend/app/routers/presentation.py`
+
+**Modified Files:**
+- `backend/app/main.py` (register router, add service)
+- `backend/requirements.txt` (add python-pptx, Pillow)
+- `frontend/src/components/DocumentProcessingForm.js` (add UI)
+
+---
+
+**Last Updated:** November 6, 2025  
+**Status:** Planning Phase - Ready to Implement

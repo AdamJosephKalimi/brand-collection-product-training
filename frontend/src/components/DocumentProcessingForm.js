@@ -61,8 +61,7 @@ function DocumentProcessingForm() {
       flagshipStores: true,
       brandIntroduction: true,
       brandPersonality: true,
-      coreCollections: true,
-      productCategories: true
+      coreCollections: true
     },
     
     // Categories
@@ -122,8 +121,7 @@ function DocumentProcessingForm() {
           brandValues: 'include_brand_values_slide',
           brandPersonality: 'include_brand_personality_slide',
           flagshipStores: 'include_flagship_store_and_experiences_slide',
-          coreCollections: 'include_core_collection_and_signature_categories_slide',
-          productCategories: 'include_product_categories_slide'
+          coreCollections: 'include_core_collection_and_signature_categories_slide'
         };
 
         const firestoreField = fieldMapping[slide];
@@ -537,8 +535,7 @@ function DocumentProcessingForm() {
           brandValues: settings.include_brand_values_slide !== false,
           brandPersonality: settings.include_brand_personality_slide !== false,
           flagshipStores: settings.include_flagship_store_and_experiences_slide !== false,
-          coreCollections: settings.include_core_collection_and_signature_categories_slide !== false,
-          productCategories: settings.include_product_categories_slide !== false
+          coreCollections: settings.include_core_collection_and_signature_categories_slide !== false
         }
       }));
 
@@ -832,24 +829,6 @@ function DocumentProcessingForm() {
                   </div>
                 ))}
               </>
-            )}
-          </div>
-        );
-      
-      case 'product_categories':
-        return (
-          <div>
-            <p className="mb-3">{content.overview}</p>
-            {content.categories && content.categories.length > 0 && (
-              content.categories.map((cat, i) => (
-                <div key={i} className="mb-2">
-                  <p className="mb-1">
-                    <strong>{cat.name}</strong>
-                    {cat.product_count > 0 && <span className="text-muted small"> ({cat.product_count} products)</span>}
-                  </p>
-                  <p className="text-muted small">{cat.description}</p>
-                </div>
-              ))
             )}
           </div>
         );
@@ -1354,19 +1333,6 @@ function DocumentProcessingForm() {
                   />
                   <label className="form-check-label" htmlFor="coreCollections">
                     Core Collections & Signature Categories
-                  </label>
-                </div>
-                
-                <div className="form-check mb-2">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    checked={formData.introSlides.productCategories}
-                    onChange={() => handleIntroSlideChange('productCategories')}
-                    id="productCategories"
-                  />
-                  <label className="form-check-label" htmlFor="productCategories">
-                    Product Categories
                   </label>
                 </div>
               </div>
