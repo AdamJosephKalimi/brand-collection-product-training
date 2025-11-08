@@ -1505,7 +1505,7 @@ Return JSON:
 ### Overview
 
 Generate PowerPoint presentations with two main sections:
-1. **Intro Slides** - 8 LLM-generated slides (cover, brand intro, history, values, personality, stores, core collection, categories)
+1. **Intro Slides** - 7 LLM-generated slides (cover, brand intro, history, values, personality, stores, core collection)
 2. **Product Slides** - Collection items with dynamic layout (1, 2, or 4 products per slide)
 
 **Technology:** `python-pptx` library for direct PPT generation
@@ -1521,7 +1521,7 @@ PresentationGenerationService
     ↓
 1. Fetch collection data (intro_slides, items, settings)
 2. Create Presentation object
-3. Generate intro slides (8 slides)
+3. Generate intro slides (7 slides)
 4. Generate product slides (dynamic layout)
 5. Save to Firebase Storage
 6. Return download URL
@@ -1531,13 +1531,14 @@ PresentationGenerationService
 
 ### Phase 1: Foundation & Setup (Week 1, Day 1-2)
 
-#### **Step 1: Install Dependencies**
-```bash
-pip install python-pptx Pillow requests
-```
+#### **Step 1: Verify Dependencies** ✅
 
-**Files to update:**
-- `backend/requirements.txt`
+**Already Installed:**
+- ✅ `python-pptx==0.6.23` (in requirements.txt)
+- ✅ `Pillow==10.1.0` (in requirements.txt)
+- ✅ `requests` (standard library)
+
+**No action needed** - Dependencies are ready to use.
 
 ---
 
@@ -1610,7 +1611,7 @@ async def generate_presentation(
 
 ```python
 async def _generate_intro_slides(self, intro_slides):
-    """Generate all 8 intro slides"""
+    """Generate all 7 intro slides"""
     for slide_data in intro_slides['slides']:
         slide_type = slide_data['slide_type']
         
@@ -1618,7 +1619,7 @@ async def _generate_intro_slides(self, intro_slides):
             self._create_cover_slide(slide_data)
         elif slide_type == 'brand_introduction':
             self._create_brand_intro_slide(slide_data)
-        # ... etc for all 8 types
+        # ... etc for all 7 types
 ```
 
 **Tasks:**
@@ -1693,17 +1694,8 @@ def _create_core_collection_slide(self, data):
     # Each category: name (bold) + description + key pieces
 ```
 
-**Slide 8: Product Categories**
-```python
-def _create_product_categories_slide(self, data):
-    """Layout: Title, overview, category list"""
-    # Title: top, 32pt, bold
-    # Overview: paragraph
-    # Each category: name (bold) + product count + description
-```
-
 **Tasks:**
-- [ ] Implement all 8 slide layout methods
+- [ ] Implement all 7 slide layout methods
 - [ ] Test with real data
 - [ ] Adjust positioning/sizing
 - [ ] Verify text doesn't overflow
@@ -2010,7 +2002,7 @@ const generatePresentation = async () => {
 - [ ] Generate with 4 products per slide
 - [ ] Generate with no products
 - [ ] Generate with missing images
-- [ ] Generate with all 8 intro slides
+- [ ] Generate with all 7 intro slides
 - [ ] Generate with some intro slides disabled
 - [ ] Test download link
 - [ ] Test file opens in PowerPoint
@@ -2022,7 +2014,7 @@ const generatePresentation = async () => {
 
 ✅ **Backend:**
 - Presentation generation service complete
-- All 8 intro slide types render correctly
+- All 7 intro slide types render correctly
 - Product slides render with 1, 2, or 4 layouts
 - Images download and embed successfully
 - File saves to Firebase Storage
@@ -2051,10 +2043,11 @@ const generatePresentation = async () => {
 
 **Modified Files:**
 - `backend/app/main.py` (register router, add service)
-- `backend/requirements.txt` (add python-pptx, Pillow)
 - `frontend/src/components/DocumentProcessingForm.js` (add UI)
+
+**Note:** `python-pptx` and `Pillow` are already installed in requirements.txt
 
 ---
 
-**Last Updated:** November 6, 2025  
-**Status:** Planning Phase - Ready to Implement
+**Last Updated:** November 8, 2025  
+**Status:** Ready to Implement - Dependencies verified, Slide 8 removed
