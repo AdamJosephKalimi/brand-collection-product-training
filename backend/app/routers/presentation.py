@@ -5,8 +5,8 @@ API endpoints for generating PowerPoint presentations from collection data.
 """
 
 import logging
-from typing import Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Dict, Any, Literal
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..utils.auth import get_current_user
 from ..services.presentation_generation_service import presentation_generation_service
@@ -19,6 +19,12 @@ router = APIRouter(prefix="/api", tags=["Presentation Generation"])
 @router.post("/collections/{collection_id}/presentation/generate")
 async def generate_presentation(
     collection_id: str,
+    products_per_slide: int = Query(
+        default=1,
+        ge=1,
+        le=4,
+        description="Number of products to display per slide (1, 2, 3, or 4)"
+    ),
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
@@ -30,6 +36,7 @@ async def generate_presentation(
     
     **Parameters:**
     - collection_id: ID of the collection to generate presentation for
+    - products_per_slide: Number of products per slide (1, 2, or 4). Default: 1
     
     **Returns:**
     - download_url: Public URL to download the generated .pptx file
@@ -49,12 +56,20 @@ async def generate_presentation(
     try:
         user_id = current_user["uid"]
         
-        logger.info(f"Generating presentation for collection: {collection_id}, user: {user_id}")
+        # Validate products_per_slide
+        if products_per_slide not in [1, 2, 3, 4]:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"products_per_slide must be 1, 2, 3, or 4. Got: {products_per_slide}"
+            )
+        
+        logger.info(f"Generating presentation for collection: {collection_id}, user: {user_id}, products_per_slide: {products_per_slide}")
         
         # Generate presentation
         download_url = await presentation_generation_service.generate_presentation(
             collection_id=collection_id,
-            user_id=user_id
+            user_id=user_id,
+            products_per_slide=products_per_slide
         )
         
         # Get slide count from the service
