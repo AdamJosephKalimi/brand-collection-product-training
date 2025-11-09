@@ -177,6 +177,62 @@ async def update_collection(
         )
 
 
+@router.patch("/collections/{collection_id}", response_model=CollectionResponse)
+async def patch_collection(
+    collection_id: str,
+    update_data: CollectionUpdate,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> CollectionResponse:
+    """
+    Partially update a collection (e.g., update only categories).
+    
+    **Parameters:**
+    - collection_id: Unique collection identifier
+    
+    **Updateable Fields:**
+    - Any field from CollectionUpdate model
+    - Commonly used for updating categories after generation
+    
+    **Example - Update Categories:**
+    ```json
+    {
+        "categories": [
+            {
+                "name": "Dresses",
+                "product_count": 0,
+                "display_order": 1,
+                "subcategories": [
+                    {"name": "Maxi Dresses", "product_count": 0, "display_order": 1},
+                    {"name": "Mini Dresses", "product_count": 0, "display_order": 2}
+                ]
+            }
+        ]
+    }
+    ```
+    
+    **Validations:**
+    - User must own the collection's brand
+    
+    **Returns:**
+    - Updated collection
+    
+    **Errors:**
+    - 403: User doesn't own the collection's brand
+    - 404: Collection not found
+    """
+    try:
+        user_id = current_user["uid"]
+        return await collection_service.update_collection(collection_id, user_id, update_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in patch_collection endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to patch collection"
+        )
+
+
 @router.delete("/collections/{collection_id}", response_model=Dict[str, str])
 async def delete_collection(
     collection_id: str,

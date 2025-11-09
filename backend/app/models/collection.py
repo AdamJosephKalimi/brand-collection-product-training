@@ -81,7 +81,6 @@ class CollectionSettings(BaseModel):
     include_brand_values_slide: bool = Field(default=True)
     include_core_collection_and_signature_categories_slide: bool = Field(default=True)
     include_flagship_store_and_experiences_slide: bool = Field(default=True)
-    include_product_categories_slide: bool = Field(default=True)
     
     auto_generate_index: bool = Field(default=True)
 
@@ -149,6 +148,9 @@ class Collection(BaseModel):
     # Workflow (optional)
     workflow: Optional[CollectionWorkflow] = None
     
+    # Intro Slides (generated content)
+    intro_slides: Optional[Dict[str, Any]] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 class CollectionCreate(BaseModel):
@@ -176,6 +178,7 @@ class CollectionUpdate(BaseModel):
     status: Optional[CollectionStatus] = None
     visibility: Optional[CollectionVisibility] = None
     workflow: Optional[CollectionWorkflow] = None
+    intro_slides: Optional[Dict[str, Any]] = None
 
 class CollectionResponse(BaseModel):
     """Collection response model for API responses"""
@@ -196,6 +199,7 @@ class CollectionResponse(BaseModel):
     updated_at: datetime
     published_at: Optional[datetime]
     workflow: Optional[CollectionWorkflow]
+    intro_slides: Optional[Dict[str, Any]] = None
 
 
 class CollectionWithDocuments(Collection):

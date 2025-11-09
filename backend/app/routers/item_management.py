@@ -36,8 +36,11 @@ async def create_item(
     - currency: Currency code (USD, EUR, GBP, etc.)
     
     **Optional:**
+    - base_sku: Base SKU without color code
     - subcategory: Product subcategory
     - gender: men, women, unisex, kids, boys, girls
+    - color: Color name
+    - color_code: Color code or identifier
     - description: Product description (max 2000 characters)
     - materials: List of materials
     - care_instructions: List of care instructions
@@ -47,7 +50,7 @@ async def create_item(
     - rrp: Recommended retail price
     - highlighted_item: Whether this is a featured item (default: false)
     - images: List of product images
-    - variants: List of color/size variants
+    - sizes: Size to quantity mapping (e.g., {"S": 10, "M": 20})
     - tags: Product tags
     - source_document_id: Document this was extracted from
     - extraction_confidence: AI extraction confidence (0-1)
@@ -143,7 +146,7 @@ async def get_item(
     - User must own the collection's brand
     
     **Returns:**
-    - Item details including all metadata, images, and variants
+    - Item details including all metadata, images, and sizes
     
     **Errors:**
     - 403: User doesn't own the collection's brand
@@ -159,6 +162,40 @@ async def get_item(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve item"
+        )
+
+
+@router.patch("/{collection_id}/items/{item_id}", response_model=ItemResponse)
+async def partial_update_item(
+    collection_id: str,
+    item_id: str,
+    update_data: ItemUpdate,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> ItemResponse:
+    """
+    Partially update an item (e.g., toggle highlight).
+    
+    **Parameters:**
+    - collection_id: Parent collection ID
+    - item_id: Unique item identifier
+    
+    **Use Cases:**
+    - Toggle highlighted_item flag
+    - Quick field updates without sending full object
+    
+    **Returns:**
+    - Updated item
+    """
+    try:
+        user_id = current_user["uid"]
+        return await item_service.update_item(collection_id, item_id, user_id, update_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in partial_update_item endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update item"
         )
 
 

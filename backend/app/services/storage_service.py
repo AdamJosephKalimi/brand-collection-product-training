@@ -493,6 +493,69 @@ class StorageService:
                 processed_images.append(image)
         
         return processed_images
+    
+    async def upload_document_images(
+        self,
+        images: List[Dict[str, Any]],
+        brand_id: str,
+        collection_id: str,
+        document_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Upload images for a specific collection document.
+        
+        Storage path: brands/{brand_id}/collections/{collection_id}/documents/{document_id}/page_X_img_Y.ext
+        
+        Args:
+            images: List of image dictionaries with _raw_bytes from PyMuPDF extraction
+            brand_id: Brand ID
+            collection_id: Collection ID
+            document_id: Document ID
+            
+        Returns:
+            List of image metadata with signed URLs and positions (no raw bytes)
+        """
+        processed_images = []
+        
+        for image in images:
+            try:
+                # Extract raw bytes (temporary field)
+                raw_bytes = image.pop("_raw_bytes", None)
+                
+                if not raw_bytes:
+                    continue
+                
+                # Generate storage path for this document
+                filename = image.get("filename", f"page_{image['page']}_img_{image['index']}.{image.get('format', 'png').lower()}")
+                storage_path = f"brands/{brand_id}/collections/{collection_id}/documents/{document_id}/{filename}"
+                
+                # Upload to Firebase Storage
+                blob = self._bucket.blob(storage_path)
+                content_type = image.get("content_type", "image/png")
+                blob.content_type = content_type
+                blob.upload_from_string(raw_bytes, content_type=content_type)
+                
+                # Make blob publicly accessible
+                blob.make_public()
+                
+                # Use public URL (no authentication needed)
+                public_url = blob.public_url
+                
+                # Add storage info to image metadata
+                image["storage_path"] = storage_path
+                image["url"] = public_url
+                image["size"] = len(raw_bytes)
+                
+                processed_images.append(image)
+                
+            except Exception as e:
+                print(f"Warning: Failed to upload image {image.get('filename')}: {str(e)}")
+                # Still include metadata even if upload failed (skip failed images)
+                image.pop("_raw_bytes", None)  # Remove raw bytes
+                image["upload_error"] = str(e)
+                # Don't add to processed_images if upload failed
+        
+        return processed_images
 
 # Global storage service instance
 storage_service = StorageService()

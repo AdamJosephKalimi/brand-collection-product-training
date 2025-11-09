@@ -8,6 +8,7 @@ python-pptx==0.6.23
 openai==1.51.0
 python-multipart==0.0.6
 Pillow==10.1.0
-PyPDF2==3.0.1
+PyMuPDF>=1.24.0
 pandas==2.1.4
 openpyxl==3.1.2
+requests>=2.31.0
