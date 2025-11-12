@@ -1,0 +1,151 @@
+/* Category group container */
+.categoryGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2);
+  background-color: var(--color-grey-0);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--border-radius-md);
+}
+
+/* Top row: Category name + Delete button */
+.categoryHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.categoryName {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-sm);
+  color: var(--text-brand);
+}
+
+.deleteCategoryButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-grey-40);
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.deleteCategoryButton:hover {
+  color: var(--color-grey-60);
+}
+
+.deleteCategoryButton:focus-visible {
+  outline: 2px solid var(--color-brand-wine);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.binIcon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Bottom row: Subcategory tags + Add button */
+.subcategoryRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Subcategory tag */
+.tag {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px var(--spacing-2);
+  background-color: var(--background-active);
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.tagLabel {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-xs);
+  color: var(--text-brand);
+  white-space: nowrap;
+}
+
+.tagDeleteButton {
+  position: absolute;
+  top: -7px;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #aec9a3; /* Lime green for delete circle */
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tagDeleteButton:hover {
+  opacity: 0.8;
+}
+
+.tagDeleteButton:focus-visible {
+  outline: 2px solid var(--color-brand-wine);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+.tagDeleteIcon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Add Sub-Category button */
+.addButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-xs);
+  color: rgba(125, 59, 81, 0.7); /* Wine color with opacity */
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+
+.addButton:hover {
+  color: var(--color-brand-wine);
+}
+
+.addButton:focus-visible {
+  outline: 2px solid var(--color-brand-wine);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.addIcon {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  flex-shrink: 0;
+}

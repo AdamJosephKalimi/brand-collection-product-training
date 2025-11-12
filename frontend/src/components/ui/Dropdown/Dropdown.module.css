@@ -1,0 +1,74 @@
+/* Dropdown wrapper */
+.dropdownWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+/* Label */
+.label {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-xs);
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+/* Select wrapper (for positioning chevron) */
+.selectWrapper {
+  position: relative;
+  width: 313px;
+}
+
+/* Select element */
+.select {
+  width: 100%;
+  height: 42px;
+  padding: 4px var(--spacing-1);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-sm);
+  color: var(--text-brand);
+  background-color: var(--background-white);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--border-primary);
+}
+
+.select:focus {
+  border-color: var(--border-primary);
+  box-shadow: 0 0 0 2px rgba(44, 53, 40, 0.1);
+}
+
+.select:disabled {
+  background-color: var(--background-light);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+/* Chevron icon */
+.chevron {
+  position: absolute;
+  right: var(--spacing-1);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--text-brand);
+  pointer-events: none;
+}
+
+.select:disabled ~ .chevron {
+  color: var(--text-secondary);
+}

@@ -1,16 +1,45 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase/config';
 import GoogleSignIn from './components/auth/GoogleSignIn';
-import DocumentProcessingForm from './components/DocumentProcessingForm';
+import Dashboard from './pages/Dashboard/Dashboard';
+import DocumentProcessing from './pages/DocumentProcessing/DocumentProcessing';
+import DeckSettingsPage from './pages/DeckSettings/DeckSettingsPage';
+import CollectionSettingsPage from './pages/CollectionSettings/CollectionSettingsPage';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
+
+// Navigation component to show tabs
+function Navigation() {
+  const location = useLocation();
+  
+  return (
+    <ul className="nav nav-tabs mb-4">
+      <li className="nav-item">
+        <Link 
+          className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
+          to="/"
+        >
+          Dashboard
+        </Link>
+      </li>
+      <li className="nav-item">
+        <Link 
+          className={`nav-link ${location.pathname === '/processing' ? 'active' : ''}`}
+          to="/processing"
+        >
+          Document Processing
+        </Link>
+      </li>
+    </ul>
+  );
+}
 
 function App() {
   const [user, setUser] = useState(null);
   const [idToken, setIdToken] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -44,153 +73,84 @@ function App() {
   }
 
   return (
-    <div className="App">
-      <div className="container mt-5">
-        <div className="row justify-content-center">
-          <div className="col-md-8">
-            <div className="card">
-              <div className="card-header">
-                <h1 className="text-center mb-0">Product Training AI v1.0</h1>
-              </div>
-              <div className="card-body">
-                {!user ? (
-                  <div className="text-center">
-                    <h3 className="mb-4">Welcome to Product Training AI</h3>
-                    <p className="mb-4">
-                      Create AI-powered product training presentations for your fashion brand.
-                    </p>
-                    <GoogleSignIn onAuthStateChange={handleAuthStateChange} />
+    <BrowserRouter>
+      <div className="App">
+        {!user ? (
+          <div className="container mt-5">
+            <div className="row justify-content-center">
+              <div className="col-md-8">
+                <div className="card">
+                  <div className="card-header">
+                    <h1 className="text-center mb-0">Product Training AI v1.0</h1>
                   </div>
-                ) : (
-                  <div>
-                    <div className="text-center mb-4">
+                  <div className="card-body">
+                    <div className="text-center">
+                      <h3 className="mb-4">Welcome to Product Training AI</h3>
+                      <p className="mb-4">
+                        Create AI-powered product training presentations for your fashion brand.
+                      </p>
                       <GoogleSignIn onAuthStateChange={handleAuthStateChange} />
                     </div>
-                    
-                    {/* Navigation Tabs */}
-                    <ul className="nav nav-tabs mb-4">
-                      <li className="nav-item">
-                        <button 
-                          className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
-                          onClick={() => setActiveTab('dashboard')}
-                        >
-                          Dashboard
-                        </button>
-                      </li>
-                      <li className="nav-item">
-                        <button 
-                          className={`nav-link ${activeTab === 'processing' ? 'active' : ''}`}
-                          onClick={() => setActiveTab('processing')}
-                        >
-                          Document Processing
-                        </button>
-                      </li>
-                    </ul>
-                    
-                    {/* Tab Content */}
-                    {activeTab === 'dashboard' && (
-                      <div>
-                        <h3 className="text-center mb-4">Dashboard</h3>
-                        
-                        <div className="row">
-                          <div className="col-md-4">
-                            <div className="card">
-                              <div className="card-body text-center">
-                                <h5 className="card-title">Brands</h5>
-                                <p className="card-text">Manage your fashion brands</p>
-                                <button className="btn btn-primary" disabled>
-                                  Coming Soon
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="col-md-4">
-                            <div className="card">
-                              <div className="card-body text-center">
-                                <h5 className="card-title">Collections</h5>
-                                <p className="card-text">Upload and manage product collections</p>
-                                <button className="btn btn-primary" disabled>
-                                  Coming Soon
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="col-md-4">
-                            <div className="card">
-                              <div className="card-body text-center">
-                                <h5 className="card-title">Presentations</h5>
-                                <p className="card-text">Generate AI-powered training decks</p>
-                                <button className="btn btn-primary" disabled>
-                                  Coming Soon
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="mt-4">
-                          <h5>Debug Info:</h5>
-                          <small className="text-muted">
-                            User ID: {user.uid}<br/>
-                            Email: {user.email}<br/>
-                          </small>
-                          
-                          {idToken && (
-                            <div className="mt-3">
-                              <h6>Authentication Token for API Testing:</h6>
-                              <div className="card bg-light">
-                                <div className="card-body p-2">
-                                  <div className="d-flex justify-content-between align-items-start">
-                                    <div className="flex-grow-1 me-2">
-                                      <small className="font-monospace text-break" style={{fontSize: '0.75rem'}}>
-                                        {idToken}
-                                      </small>
-                                    </div>
-                                    <button 
-                                      className="btn btn-sm btn-outline-primary"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(idToken);
-                                        // Show temporary feedback
-                                        const btn = document.activeElement;
-                                        const originalText = btn.textContent;
-                                        btn.textContent = 'Copied!';
-                                        btn.classList.remove('btn-outline-primary');
-                                        btn.classList.add('btn-success');
-                                        setTimeout(() => {
-                                          btn.textContent = originalText;
-                                          btn.classList.remove('btn-success');
-                                          btn.classList.add('btn-outline-primary');
-                                        }, 2000);
-                                      }}
-                                      title="Copy token to clipboard"
-                                    >
-                                      Copy
-                                    </button>
-                                  </div>
-                                  <small className="text-muted d-block mt-2">
-                                    Use this token in SwaggerUI: Click "Authorize" → Enter "Bearer [your-token]" in the Authorization field
-                                  </small>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {activeTab === 'processing' && (
-                      <DocumentProcessingForm />
-                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <Routes>
+            {/* Routes with card layout (Dashboard, Processing) */}
+            <Route path="/" element={
+              <div className="container mt-5">
+                <div className="row justify-content-center">
+                  <div className="col-md-8">
+                    <div className="card">
+                      <div className="card-header">
+                        <h1 className="text-center mb-0">Product Training AI v1.0</h1>
+                      </div>
+                      <div className="card-body">
+                        <div className="text-center mb-4">
+                          <GoogleSignIn onAuthStateChange={handleAuthStateChange} />
+                        </div>
+                        <Navigation />
+                        <Dashboard user={user} idToken={idToken} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            } />
+            
+            <Route path="/processing" element={
+              <div className="container mt-5">
+                <div className="row justify-content-center">
+                  <div className="col-md-8">
+                    <div className="card">
+                      <div className="card-header">
+                        <h1 className="text-center mb-0">Product Training AI v1.0</h1>
+                      </div>
+                      <div className="card-body">
+                        <div className="text-center mb-4">
+                          <GoogleSignIn onAuthStateChange={handleAuthStateChange} />
+                        </div>
+                        <Navigation />
+                        <DocumentProcessing />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            } />
+            
+            {/* Full-page routes (no card layout) */}
+            <Route path="/deck-settings/:collectionId" element={<DeckSettingsPage />} />
+            <Route path="/collection-settings/:collectionId" element={<CollectionSettingsPage />} />
+            
+            {/* Catch-all redirect */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        )}
       </div>
-    </div>
+    </BrowserRouter>
   );
 }
 
