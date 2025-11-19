@@ -1,0 +1,59 @@
+/* Toggle wrapper */
+.toggleWrapper {
+  display: inline-flex;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Hidden native checkbox */
+.toggleInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Toggle track */
+.toggleTrack {
+  width: 25px;
+  height: 14px;
+  background-color: #adaebc;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  padding: 1px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+/* Checked state */
+.toggleTrack.checked {
+  background-color: #7d3b51;
+}
+
+/* Hover state */
+.toggleWrapper:hover .toggleTrack:not(.disabled) {
+  opacity: 0.9;
+}
+
+/* Disabled state */
+.toggleTrack.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Toggle circle */
+.toggleCircle {
+  width: 11.364px;
+  height: 11.667px;
+  background-color: white;
+  border: 1px solid white;
+  border-radius: 9999px;
+  transition: transform 0.2s ease;
+  transform: translateX(0);
+}
+
+/* Move circle to right when checked */
+.toggleTrack.checked .toggleCircle {
+  transform: translateX(11px);
+}

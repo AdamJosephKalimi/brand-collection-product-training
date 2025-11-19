@@ -1,0 +1,120 @@
+/* Section container */
+.section {
+  width: 100%;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Type variants */
+.section.categorized {
+  background-color: #f9fafb;
+  border-bottom-color: #e5e7eb;
+}
+
+.section.uncategorized {
+  background-color: rgba(125, 59, 81, 0.1);
+  border-bottom-color: #fecaca;
+}
+
+.section.unmatched {
+  background-color: #ffedd5;
+  border-bottom-color: #fed7aa;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+
+/* Left content */
+.leftContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Toggle button */
+.toggleButton {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-grey-40);
+  transition: transform 0.2s ease;
+}
+
+.toggleButton.expanded {
+  transform: rotate(0deg);
+}
+
+.toggleButton:not(.expanded) {
+  transform: rotate(-90deg);
+}
+
+.toggleButton:hover {
+  color: var(--text-brand);
+}
+
+/* Title */
+.title {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-sm);
+  color: var(--text-brand);
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Warning icon */
+.warningIcon {
+  width: 16px;
+  height: 16px;
+  color: #ea580c;
+  flex-shrink: 0;
+}
+
+/* Filters (right side) */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Filter button */
+.filterButton {
+  padding: 6px 18px;
+  background-color: #ebf7e6;
+  color: var(--text-brand);
+  border: 1px solid var(--border-medium);
+  border-radius: 100px;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: normal;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.filterButton:hover {
+  background-color: #d4f0c9;
+}
+
+/* Active filter */
+.filterButton.active {
+  background-color: var(--background-primary);
+  color: var(--text-white);
+  border-color: var(--background-primary);
+}
+
+.filterButton.active:hover {
+  background-color: #3d4a35;
+}

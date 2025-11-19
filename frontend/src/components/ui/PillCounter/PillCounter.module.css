@@ -1,0 +1,54 @@
+/* Pill container */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 100px;
+  border: none;
+  background-color: var(--background-light);
+  white-space: nowrap;
+}
+
+/* Text */
+.text {
+  font-family: var(--font-family-body);
+  font-size: 12px;
+  font-weight: var(--font-weight-regular);
+  line-height: 16px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* Variants */
+.default {
+  background-color: #e5e7eb;
+}
+
+.default .text {
+  color: var(--text-secondary);
+}
+
+.primary {
+  background-color: var(--background-primary);
+}
+
+.primary .text {
+  color: var(--text-white);
+}
+
+.secondary {
+  background-color: #7d3b51;
+}
+
+.secondary .text {
+  color: var(--text-white);
+}
+
+.warning {
+  background-color: #fed7aa;
+}
+
+.warning .text {
+  color: #ea580c;
+}

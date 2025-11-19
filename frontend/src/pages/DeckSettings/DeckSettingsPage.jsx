@@ -1,17 +1,27 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import Button from '../../components/ui/Button/Button';
 import Tabs from '../../components/ui/Tabs/Tabs';
 import Checkbox from '../../components/ui/Checkbox/Checkbox';
 import CategoryGroup from '../../components/ui/CategoryGroup/CategoryGroup';
 import ProductPreview from '../../components/ui/ProductPreview/ProductPreview';
 import CheckboxList from '../../components/ui/CheckboxList/CheckboxList';
 import LayoutOptions from '../../components/features/LayoutOptions/LayoutOptions';
+import Button from '../../components/ui/Button/Button';
 import Sidebar from '../../components/features/Sidebar/Sidebar';
 import TopNav from '../../components/features/TopNav/TopNav';
 import SectionHeader from '../../components/ui/SectionHeader/SectionHeader';
 import Dropdown from '../../components/ui/Dropdown/Dropdown';
 import Footer from '../../components/features/Footer/Footer';
+import PillCounter from '../../components/ui/PillCounter/PillCounter';
+import ViewToggle from '../../components/ui/ViewToggle/ViewToggle';
+import SearchBar from '../../components/ui/SearchBar/SearchBar';
+import Select from '../../components/ui/Select/Select';
+import FileUpload from '../../components/ui/FileUpload/FileUpload';
+import POFileUpload from '../../components/ui/POFileUpload/POFileUpload';
+import SimpleCheckbox from '../../components/ui/SimpleCheckbox/SimpleCheckbox';
+import Toggle from '../../components/ui/Toggle/Toggle';
+import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
+import CategorySection from '../../components/ui/CategorySection/CategorySection';
 
 function DeckSettingsPage() {
   const { collectionId } = useParams();
@@ -84,6 +94,79 @@ function DeckSettingsPage() {
     { value: 'french', label: 'French' },
     { value: 'spanish', label: 'Spanish' },
     { value: 'german', label: 'German' }
+  ];
+  
+  // View toggle test
+  const [activeView, setActiveView] = useState('list');
+  
+  // Search bar test
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Simple checkbox test
+  const [simpleCheckbox1, setSimpleCheckbox1] = useState(true);
+  const [simpleCheckbox2, setSimpleCheckbox2] = useState(false);
+  
+  // Toggle test
+  const [toggle1, setToggle1] = useState(true);
+  const [toggle2, setToggle2] = useState(false);
+  
+  // Collection list item test
+  const [listItem1, setListItem1] = useState({
+    checked: false,
+    category: '',
+    highlighted: true,
+    included: true
+  });
+  const [listItem2, setListItem2] = useState({
+    checked: false,
+    category: '',
+    highlighted: true,
+    included: true
+  });
+  const [listItem3, setListItem3] = useState({
+    checked: false,
+    category: ''
+  });
+  const [listItem4, setListItem4] = useState({
+    checked: false
+  });
+  
+  const sampleItem = {
+    name: 'Mackage Wool Coat',
+    sku: 'MAC001',
+    color: 'Black',
+    material: 'Wool',
+    price: '$450',
+    origin: 'Canada',
+    description: 'Luxurious wool coat with modern silhouette',
+    image: null
+  };
+  
+  // Select test
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('');
+  const [moveToCategory, setMoveToCategory] = useState('');
+  
+  const categoryOptions = [
+    { value: 'all', label: 'All Categories' },
+    { value: 'tops', label: 'Tops' },
+    { value: 'bottoms', label: 'Bottoms' },
+    { value: 'outerwear', label: 'Outerwear' },
+    { value: 'accessories', label: 'Accessories' }
+  ];
+  
+  const subCategoryOptions = [
+    { value: 'shirts', label: 'Shirts' },
+    { value: 'sweaters', label: 'Sweaters' },
+    { value: 'jackets', label: 'Jackets' },
+    { value: 'coats', label: 'Coats' }
+  ];
+  
+  const moveToCategoryOptions = [
+    { value: 'tops', label: 'Tops' },
+    { value: 'bottoms', label: 'Bottoms' },
+    { value: 'outerwear', label: 'Outerwear' },
+    { value: 'accessories', label: 'Accessories' }
   ];
   
   // Sidebar data
@@ -426,6 +509,425 @@ function DeckSettingsPage() {
             buttonText="Save Changes"
             onButtonClick={() => alert('Save clicked!')}
           />
+        </div>
+      </div>
+      
+      {/* FileUpload Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          FileUpload Component Test (Linesheet)
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--spacing-3)'
+        }}>
+          <FileUpload
+            onFilesSelected={(files) => {
+              console.log('Linesheet files selected:', files);
+              alert(`Selected ${files.length} linesheet file(s): ${files.map(f => f.name).join(', ')}`);
+            }}
+            title="Upload Linesheet Files"
+            subtitle="Required for deck generation"
+            buttonText="Select Linesheet Files"
+            accept=".pdf,.xlsx,.xls,.csv"
+            multiple={true}
+          />
+        </div>
+      </div>
+      
+      {/* SimpleCheckbox Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          SimpleCheckbox Component Test
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--spacing-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--spacing-2)'
+        }}>
+          <div style={{ display: 'flex', gap: 'var(--spacing-2)', alignItems: 'center' }}>
+            <SimpleCheckbox
+              checked={simpleCheckbox1}
+              onChange={(e) => setSimpleCheckbox1(e.target.checked)}
+            />
+            <span>Checked checkbox</span>
+          </div>
+          
+          <div style={{ display: 'flex', gap: 'var(--spacing-2)', alignItems: 'center' }}>
+            <SimpleCheckbox
+              checked={simpleCheckbox2}
+              onChange={(e) => setSimpleCheckbox2(e.target.checked)}
+            />
+            <span>Unchecked checkbox</span>
+          </div>
+          
+          <div style={{ display: 'flex', gap: 'var(--spacing-2)', alignItems: 'center' }}>
+            <SimpleCheckbox
+              checked={true}
+              onChange={() => {}}
+              disabled={true}
+            />
+            <span style={{ color: 'var(--text-secondary)' }}>Disabled checkbox</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* CategorySection Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          CategorySection Component Test
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          overflow: 'hidden'
+        }}>
+          <CategorySection
+            type="categorized"
+            title="Outerwear"
+            itemCount={2}
+            filters={[
+              { label: 'View all', active: true },
+              { label: 'Coats', active: false },
+              { label: 'Jackets', active: false }
+            ]}
+            onFilterClick={(label) => console.log('Filter clicked:', label)}
+            defaultExpanded={true}
+          />
+          
+          <CategorySection
+            type="uncategorized"
+            title="Uncategorized"
+            itemCount={2}
+            defaultExpanded={true}
+          />
+          
+          <CategorySection
+            type="unmatched"
+            title="Unmatched Purchase Order Items"
+            itemCount={2}
+            defaultExpanded={true}
+          />
+        </div>
+      </div>
+      
+      {/* CollectionListItem Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          CollectionListItem Component Test
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--spacing-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--spacing-2)'
+        }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0 }}>State 1: Categorized & Enabled</h3>
+          <CollectionListItem
+            variant="default"
+            item={sampleItem}
+            checked={listItem1.checked}
+            onCheckChange={(e) => setListItem1({...listItem1, checked: e.target.checked})}
+            category={listItem1.category}
+            onCategoryChange={(value) => setListItem1({...listItem1, category: value})}
+            categoryOptions={subCategoryOptions}
+            highlighted={listItem1.highlighted}
+            onHighlightChange={(value) => setListItem1({...listItem1, highlighted: value})}
+            included={listItem1.included}
+            onIncludeChange={(value) => setListItem1({...listItem1, included: value})}
+          />
+          
+          <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0, marginTop: '16px' }}>State 2: Categorized & Disabled</h3>
+          <CollectionListItem
+            variant="inactive"
+            item={sampleItem}
+            checked={listItem2.checked}
+            onCheckChange={(e) => setListItem2({...listItem2, checked: e.target.checked})}
+            category={listItem2.category}
+            onCategoryChange={(value) => setListItem2({...listItem2, category: value})}
+            categoryOptions={subCategoryOptions}
+            highlighted={listItem2.highlighted}
+            onHighlightChange={(value) => setListItem2({...listItem2, highlighted: value})}
+            included={listItem2.included}
+            onIncludeChange={(value) => setListItem2({...listItem2, included: value})}
+          />
+          
+          <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0, marginTop: '16px' }}>State 3: Uncategorized & Enabled</h3>
+          <CollectionListItem
+            variant="uncategorized"
+            item={sampleItem}
+            checked={listItem3.checked}
+            onCheckChange={(e) => setListItem3({...listItem3, checked: e.target.checked})}
+            category={listItem3.category}
+            onCategoryChange={(value) => setListItem3({...listItem3, category: value})}
+            categoryOptions={moveToCategoryOptions}
+          />
+          
+          <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0, marginTop: '16px' }}>State 4: Unmatched (PO but not in linesheet)</h3>
+          <CollectionListItem
+            variant="unmatched"
+            item={sampleItem}
+            checked={listItem4.checked}
+            onCheckChange={(e) => setListItem4({...listItem4, checked: e.target.checked})}
+            onAddDetails={() => alert('Add Details clicked')}
+            onIgnore={() => alert('Ignore clicked')}
+          />
+        </div>
+      </div>
+      
+      {/* Toggle Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          Toggle Component Test
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--spacing-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--spacing-2)'
+        }}>
+          <div style={{ display: 'flex', gap: 'var(--spacing-2)', alignItems: 'center' }}>
+            <Toggle
+              checked={toggle1}
+              onChange={(e) => setToggle1(e.target.checked)}
+            />
+            <span>Toggle ON (wine background)</span>
+          </div>
+          
+          <div style={{ display: 'flex', gap: 'var(--spacing-2)', alignItems: 'center' }}>
+            <Toggle
+              checked={toggle2}
+              onChange={(e) => setToggle2(e.target.checked)}
+            />
+            <span>Toggle OFF (gray background)</span>
+          </div>
+          
+          <div style={{ display: 'flex', gap: 'var(--spacing-2)', alignItems: 'center' }}>
+            <Toggle
+              checked={true}
+              onChange={() => {}}
+              disabled={true}
+            />
+            <span style={{ color: 'var(--text-secondary)' }}>Disabled toggle</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* POFileUpload Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          POFileUpload Component Test (Purchase Order)
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--spacing-3)'
+        }}>
+          <POFileUpload
+            onFilesSelected={(files) => {
+              console.log('PO files selected:', files);
+              alert(`Selected ${files.length} PO file(s): ${files.map(f => f.name).join(', ')}`);
+            }}
+            title="Upload Purchase Order Files"
+            subtitle="Required for deck generation"
+            buttonText="Choose PO Files"
+            accept=".xlsx,.xls,.csv"
+            multiple={true}
+          />
+        </div>
+      </div>
+      
+      {/* Select Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          Select Component Test
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--spacing-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--spacing-2)'
+        }}>
+          <div style={{ display: 'flex', gap: 'var(--spacing-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Select
+              value={selectedCategory}
+              options={categoryOptions}
+              onChange={setSelectedCategory}
+              variant="default"
+            />
+            
+            <Select
+              value={selectedSubCategory}
+              options={subCategoryOptions}
+              onChange={setSelectedSubCategory}
+              variant="secondary"
+              placeholder="Select Sub-Category"
+            />
+            
+            <Select
+              value=""
+              options={subCategoryOptions}
+              onChange={() => {}}
+              variant="secondary"
+              placeholder="Select Sub-Category"
+              disabled={true}
+            />
+            
+            <Select
+              value={moveToCategory}
+              options={moveToCategoryOptions}
+              onChange={setMoveToCategory}
+              variant="primary"
+              placeholder="Move to Category"
+            />
+          </div>
+          
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Category: <strong>{selectedCategory}</strong>
+            {selectedSubCategory && <>, Sub-Category: <strong>{selectedSubCategory}</strong></>}
+            {moveToCategory && <>, Move to: <strong>{moveToCategory}</strong></>}
+          </p>
+        </div>
+      </div>
+      
+      {/* SearchBar Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          SearchBar Component Test
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--spacing-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--spacing-2)'
+        }}>
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by SKU, name, color..."
+          />
+          
+          {searchQuery && (
+            <p style={{ color: 'var(--text-secondary)' }}>
+              Searching for: <strong>{searchQuery}</strong>
+            </p>
+          )}
+        </div>
+      </div>
+      
+      {/* ViewToggle Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          ViewToggle Component Test
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--spacing-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--spacing-2)'
+        }}>
+          <ViewToggle
+            activeView={activeView}
+            onViewChange={setActiveView}
+          />
+          
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Active view: <strong>{activeView}</strong>
+          </p>
+        </div>
+      </div>
+      
+      {/* PillCounter Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          PillCounter Component Test
+        </h2>
+        
+        <div style={{ 
+          backgroundColor: 'var(--background-white)',
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--spacing-3)',
+          display: 'flex',
+          gap: 'var(--spacing-2)',
+          flexWrap: 'wrap'
+        }}>
+          <PillCounter count={80} label="items" variant="default" />
+          <PillCounter count={25} label="products" variant="default" />
+          <PillCounter count={5} label="selected" variant="primary" />
+          <PillCounter count={12} label="new" variant="secondary" />
         </div>
       </div>
       

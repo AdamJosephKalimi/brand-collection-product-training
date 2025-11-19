@@ -48,14 +48,14 @@ function CollectionSettingsPage() {
   const [activeBrand, setActiveBrand] = useState('mackage');
   const [activeCollection, setActiveCollection] = useState('fw2024');
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState('deck-settings');
+  // Tabs configuration
+  const [activeTab, setActiveTab] = useState(2); // Default to Deck Settings
   
   const tabs = [
-    { id: 'collection-info', number: 1, label: 'Collection Info' },
-    { id: 'deck-settings', number: 2, label: 'Deck Settings' },
-    { id: 'collection-items', number: 3, label: 'Collection Items' },
-    { id: 'generate-deck', number: 4, label: 'Generate Deck' }
+    { id: 1, number: 1, label: 'Collection Info' },
+    { id: 2, number: 2, label: 'Deck Settings' },
+    { id: 3, number: 3, label: 'Collection Items' },
+    { id: 4, number: 4, label: 'Generate Deck' }
   ];
 
   // Intro slides checkbox states
@@ -209,6 +209,26 @@ function CollectionSettingsPage() {
             onTabChange={setActiveTab}
           />
           
+          {/* Tab 1: Collection Info */}
+          {activeTab === 1 && (
+            <div style={{
+              backgroundColor: 'var(--background-white)',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--border-radius-md)',
+              padding: 'var(--spacing-4)',
+              textAlign: 'center',
+              color: 'var(--text-secondary)'
+            }}>
+              <h2 style={{ color: 'var(--text-brand)', marginBottom: 'var(--spacing-2)' }}>
+                Collection Info
+              </h2>
+              <p>Content coming soon...</p>
+            </div>
+          )}
+          
+          {/* Tab 2: Deck Settings */}
+          {activeTab === 2 && (
+            <>
           {/* Intro Slides Section */}
           <div style={{ 
             backgroundColor: 'var(--background-white)',
@@ -452,6 +472,72 @@ function CollectionSettingsPage() {
             onLayoutChange={handleLayoutChange}
             onSave={handleSaveLayout}
           />
+
+          {/* Continue to Collection Items Button */}
+          <div style={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingLeft: '433px',
+            paddingRight: '433px',
+            paddingTop: '0',
+            paddingBottom: '0',
+            gap: '10px'
+          }}>
+            <Button 
+              variant="highlight" 
+              size="lg"
+              onClick={() => setActiveTab(3)}
+            >
+              Continue to Collection Items
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path 
+                  d="M6 12L10 8L6 4" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Button>
+          </div>
+          </>
+          )}
+          
+          {/* Tab 3: Collection Items */}
+          {activeTab === 3 && (
+            <div style={{
+              backgroundColor: 'var(--background-white)',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--border-radius-md)',
+              padding: 'var(--spacing-4)',
+              textAlign: 'center',
+              color: 'var(--text-secondary)'
+            }}>
+              <h2 style={{ color: 'var(--text-brand)', marginBottom: 'var(--spacing-2)' }}>
+                Collection Items
+              </h2>
+              <p>Content coming soon...</p>
+            </div>
+          )}
+          
+          {/* Tab 4: Generate Deck */}
+          {activeTab === 4 && (
+            <div style={{
+              backgroundColor: 'var(--background-white)',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--border-radius-md)',
+              padding: 'var(--spacing-4)',
+              textAlign: 'center',
+              color: 'var(--text-secondary)'
+            }}>
+              <h2 style={{ color: 'var(--text-brand)', marginBottom: 'var(--spacing-2)' }}>
+                Generate Deck
+              </h2>
+              <p>Content coming soon...</p>
+            </div>
+          )}
           </div>
           
           {/* Footer */}
