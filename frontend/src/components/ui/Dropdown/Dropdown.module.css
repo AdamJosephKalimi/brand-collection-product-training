@@ -18,7 +18,7 @@
 /* Select wrapper (for positioning chevron) */
 .selectWrapper {
   position: relative;
-  width: 313px;
+  width: 100%;
 }
 
 /* Select element */

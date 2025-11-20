@@ -10,6 +10,8 @@ import Button from '../../components/ui/Button/Button';
 import CheckboxList from '../../components/ui/CheckboxList/CheckboxList';
 import ProductPreview from '../../components/ui/ProductPreview/ProductPreview';
 import Dropdown from '../../components/ui/Dropdown/Dropdown';
+import FileUpload from '../../components/ui/FileUpload/FileUpload';
+import POFileUpload from '../../components/ui/POFileUpload/POFileUpload';
 import LayoutOptions from '../../components/features/LayoutOptions/LayoutOptions';
 import Footer from '../../components/features/Footer/Footer';
 
@@ -49,13 +51,32 @@ function CollectionSettingsPage() {
   const [activeCollection, setActiveCollection] = useState('fw2024');
 
   // Tabs configuration
-  const [activeTab, setActiveTab] = useState(2); // Default to Deck Settings
+  const [activeTab, setActiveTab] = useState(1); // Default to Collection Info
   
   const tabs = [
     { id: 1, number: 1, label: 'Collection Info' },
     { id: 2, number: 2, label: 'Deck Settings' },
     { id: 3, number: 3, label: 'Collection Items' },
     { id: 4, number: 4, label: 'Generate Deck' }
+  ];
+
+  // Collection Info - Collection Name, Type and Year
+  const [collectionName, setCollectionName] = useState('');
+  const [collectionType, setCollectionType] = useState('spring-summer');
+  const [collectionYear, setCollectionYear] = useState('2025');
+  const [collectionInformation, setCollectionInformation] = useState('');
+
+  const collectionTypeOptions = [
+    { value: 'spring-summer', label: 'Spring/Summer' },
+    { value: 'fall-winter', label: 'Fall/Winter' },
+    { value: 'resort', label: 'Resort' },
+    { value: 'pre-fall', label: 'Pre-Fall' }
+  ];
+
+  const yearOptions = [
+    { value: '2025', label: '2025' },
+    { value: '2024', label: '2024' },
+    { value: '2023', label: '2023' }
   ];
 
   // Intro slides checkbox states
@@ -211,19 +232,337 @@ function CollectionSettingsPage() {
           
           {/* Tab 1: Collection Info */}
           {activeTab === 1 && (
-            <div style={{
-              backgroundColor: 'var(--background-white)',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--border-radius-md)',
-              padding: 'var(--spacing-4)',
-              textAlign: 'center',
-              color: 'var(--text-secondary)'
-            }}>
-              <h2 style={{ color: 'var(--text-brand)', marginBottom: 'var(--spacing-2)' }}>
-                Collection Info
-              </h2>
-              <p>Content coming soon...</p>
-            </div>
+            <>
+              {/* Collection Label Section */}
+              <div style={{ 
+                backgroundColor: 'var(--background-white)',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--border-radius-md)',
+                marginBottom: 'var(--spacing-4)'
+              }}>
+                <SectionHeader
+                  title="Collection Label"
+                  buttonText="Save Changes"
+                  onButtonClick={() => {
+                    console.log('Save Collection Label clicked');
+                    // TODO: Add save logic
+                  }}
+                />
+                
+                {/* Section Content - Form Fields */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--spacing-3)',
+                  padding: 'var(--spacing-3)'
+                }}>
+                  {/* Collection Name Input Field */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--spacing-1)',
+                    maxWidth: '535px'
+                  }}>
+                    <label style={{
+                      fontFamily: 'var(--font-family-body)',
+                      fontSize: 'var(--font-size-xs)',
+                      fontWeight: 'var(--font-weight-medium)',
+                      lineHeight: 'var(--line-height-xs)',
+                      color: 'var(--text-secondary)',
+                      textAlign: 'left'
+                    }}>
+                      Collection Name
+                    </label>
+                    <input
+                      type="text"
+                      value={collectionName}
+                      onChange={(e) => setCollectionName(e.target.value)}
+                      placeholder=""
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        padding: '12px 16px',
+                        fontFamily: 'var(--font-family-body)',
+                        fontSize: 'var(--font-size-sm)',
+                        fontWeight: 'var(--font-weight-regular)',
+                        lineHeight: 'var(--line-height-sm)',
+                        color: 'var(--text-brand)',
+                        backgroundColor: 'var(--background-white)',
+                        border: '1px solid var(--border-medium)',
+                        borderRadius: 'var(--border-radius-md)',
+                        outline: 'none',
+                        transition: 'border-color 0.2s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = 'var(--border-primary)';
+                        e.target.style.boxShadow = '0 0 0 2px rgba(44, 53, 40, 0.1)';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = 'var(--border-medium)';
+                        e.target.style.boxShadow = 'none';
+                      }}
+                    />
+                  </div>
+
+                  {/* Input Fields Grid - Collection Type & Year */}
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '16px',
+                    alignItems: 'flex-start'
+                  }}>
+                    {/* Collection Type Field Wrapper */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 'var(--spacing-1)',
+                      flex: '1 1 0',
+                      minWidth: '0'
+                    }}>
+                      <Dropdown
+                        label="Collection Type"
+                        value={collectionType}
+                        options={collectionTypeOptions}
+                        onChange={setCollectionType}
+                      />
+                    </div>
+                    
+                    {/* Year Field Wrapper */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 'var(--spacing-1)',
+                      flex: '1 1 0',
+                      minWidth: '0'
+                    }}>
+                      <Dropdown
+                        label="Year"
+                        value={collectionYear}
+                        options={yearOptions}
+                        onChange={setCollectionYear}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Collection Assets Section */}
+              <div style={{ 
+                backgroundColor: 'var(--background-white)',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--border-radius-md)',
+                marginBottom: 'var(--spacing-4)'
+              }}>
+                <SectionHeader
+                  title="Upload Collection Assets"
+                />
+                
+                {/* Section Content */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                  padding: 'var(--spacing-3)'
+                }}>
+                  {/* Linesheet Files Upload */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px'
+                  }}>
+                    {/* Title with Required Tag */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <h3 style={{
+                        fontFamily: 'var(--font-family-body)',
+                        fontSize: 'var(--font-size-xs)',
+                        fontWeight: 'var(--font-weight-semi-bold)',
+                        lineHeight: 'var(--line-height-xs)',
+                        color: 'var(--text-brand)',
+                        margin: 0
+                      }}>
+                        Linesheet Files
+                      </h3>
+                      <span style={{
+                        backgroundColor: 'rgba(125, 59, 81, 0.1)',
+                        color: 'var(--color-brand-wine)',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 'var(--font-weight-regular)',
+                        lineHeight: '16px'
+                      }}>
+                        Required
+                      </span>
+                    </div>
+                    
+                    {/* FileUpload Component */}
+                    <FileUpload
+                      onFilesSelected={(files) => {
+                        console.log('Linesheet files selected:', files);
+                        // TODO: Handle file upload
+                      }}
+                    />
+                  </div>
+
+                  {/* Purchase Order Files Upload */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px'
+                  }}>
+                    {/* Title with Optional Tag */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <h3 style={{
+                        fontFamily: 'var(--font-family-body)',
+                        fontSize: 'var(--font-size-xs)',
+                        fontWeight: 'var(--font-weight-semi-bold)',
+                        lineHeight: 'var(--line-height-xs)',
+                        color: 'var(--text-brand)',
+                        margin: 0
+                      }}>
+                        Purchase Order Files
+                      </h3>
+                      <span style={{
+                        backgroundColor: 'var(--background-active)',
+                        color: 'var(--text-brand)',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 'var(--font-weight-regular)',
+                        lineHeight: '16px'
+                      }}>
+                        Optional
+                      </span>
+                    </div>
+                    
+                    {/* Description Text */}
+                    <p style={{
+                      fontFamily: 'var(--font-family-body)',
+                      fontSize: 'var(--font-size-xs)',
+                      fontWeight: 'var(--font-weight-regular)',
+                      lineHeight: 'var(--line-height-xs)',
+                      color: 'var(--text-secondary)',
+                      margin: 0,
+                      textAlign: 'left'
+                    }}>
+                      Uploading a purchase order will match it against your linesheet and automatically include only the items you've ordered in your training deck. Items not ordered will be hidden by default, but you can still view and manage all items anytime in the Collection Items tab.
+                    </p>
+                    
+                    {/* POFileUpload Component */}
+                    <POFileUpload
+                      onFilesSelected={(files) => {
+                        console.log('Purchase Order files selected:', files);
+                        // TODO: Handle file upload
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Collection Information Section */}
+              <div style={{ 
+                backgroundColor: 'var(--background-white)',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--border-radius-md)',
+                marginBottom: 'var(--spacing-4)'
+              }}>
+                <SectionHeader
+                  title="Collection Information"
+                  description="Auto-generated content from uploaded documents. Edit for additional context. This information will be used to create better content in the deck you create. The more relevant information, the better the output will be."
+                />
+                
+                {/* Section Content - Textarea and Save Button */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--spacing-3)',
+                  padding: 'var(--spacing-3)'
+                }}>
+                  {/* Large Textarea */}
+                  <textarea
+                    value={collectionInformation}
+                    onChange={(e) => setCollectionInformation(e.target.value)}
+                    placeholder="Modern minimalism meets urban sophistication. This collection draws inspiration from architectural forms and contemporary city life, featuring clean lines and structured silhouettes. Premium materials including Italian wool and Japanese technical fabrics. Emphasis on versatile pieces that transition from day to evening wear. Professional women aged 25-45 who value quality, craftsmanship, and timeless design. Urban lifestyle with appreciation for luxury and sustainability."
+                    style={{
+                      width: '100%',
+                      minHeight: '150px',
+                      padding: 'var(--spacing-2) var(--spacing-3)',
+                      fontFamily: 'var(--font-family-body)',
+                      fontSize: 'var(--font-size-sm)',
+                      fontWeight: 'var(--font-weight-regular)',
+                      lineHeight: 'var(--line-height-sm)',
+                      color: 'var(--text-brand)',
+                      backgroundColor: 'var(--background-white)',
+                      border: '1px solid var(--border-medium)',
+                      borderRadius: 'var(--border-radius-md)',
+                      outline: 'none',
+                      resize: 'vertical',
+                      transition: 'border-color 0.2s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = 'var(--border-primary)';
+                      e.target.style.boxShadow = '0 0 0 2px rgba(44, 53, 40, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = 'var(--border-medium)';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  />
+                  
+                  {/* Save Button - Right Aligned */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end'
+                  }}>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        console.log('Save Collection Information:', collectionInformation);
+                        // TODO: Add save logic
+                      }}
+                    >
+                      Save Changes
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Continue to Deck Settings Button */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingLeft: '433px',
+                paddingRight: '433px',
+                paddingTop: 0,
+                paddingBottom: 0,
+                gap: '10px',
+                marginBottom: 'var(--spacing-4)'
+              }}>
+                <Button
+                  variant="highlight"
+                  size="lg"
+                  onClick={() => {
+                    console.log('Continue to Deck Settings clicked');
+                    setActiveTab(2); // Navigate to Deck Settings tab
+                  }}
+                >
+                  Continue to Deck Settings
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </Button>
+              </div>
+            </>
           )}
           
           {/* Tab 2: Deck Settings */}
