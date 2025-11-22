@@ -1,0 +1,171 @@
+/* Page container */
+.pageContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--background-page);
+}
+
+/* Content wrapper with sidebar */
+.contentWrapper {
+  display: flex;
+  flex: 1;
+}
+
+/* Main content area */
+.mainContent {
+  flex: 1;
+  padding: var(--spacing-4);
+  overflow-y: auto;
+  background-color: var(--background-page);
+}
+
+/* Back button */
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2);
+  margin-bottom: var(--spacing-3);
+  background: none;
+  border: none;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.backButton:hover {
+  color: var(--text-brand);
+}
+
+/* Page title */
+.pageTitle {
+  margin: 0 0 var(--spacing-4) 0;
+  font-family: var(--font-family-heading);
+  font-size: 32px;
+  font-weight: var(--font-weight-bold);
+  line-height: normal;
+  color: var(--text-brand);
+}
+
+/* Error message */
+.errorMessage {
+  padding: var(--spacing-3);
+  margin-bottom: var(--spacing-3);
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: var(--border-radius-md);
+  color: #c00;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+}
+
+/* Section container */
+.section {
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-3);
+  overflow: hidden;
+}
+
+/* Section content */
+.sectionContent {
+  padding: var(--spacing-3);
+}
+
+/* Input field */
+.input {
+  width: 100%;
+  padding: var(--spacing-2);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  color: var(--text-brand);
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-sm);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.input:focus {
+  border-color: var(--border-dark);
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Logo upload container */
+.logoUpload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  align-items: flex-start;
+}
+
+/* Logo preview */
+.logoPreview {
+  width: 120px;
+  height: 120px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--background-page);
+}
+
+.logoPreview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* File input (hidden) */
+.fileInput {
+  display: none;
+}
+
+/* Upload button (label) */
+.uploadButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2) var(--spacing-3);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-brand);
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.uploadButton:hover {
+  background-color: var(--background-page);
+  border-color: var(--border-dark);
+}
+
+/* Placeholder text */
+.placeholder {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Action buttons */
+.actions {
+  display: flex;
+  gap: var(--spacing-2);
+  justify-content: flex-end;
+  padding-top: var(--spacing-3);
+}

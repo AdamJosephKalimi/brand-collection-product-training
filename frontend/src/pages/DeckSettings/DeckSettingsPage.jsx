@@ -22,6 +22,7 @@ import SimpleCheckbox from '../../components/ui/SimpleCheckbox/SimpleCheckbox';
 import Toggle from '../../components/ui/Toggle/Toggle';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
+import BrandCard from '../../components/features/BrandCard/BrandCard';
 
 function DeckSettingsPage() {
   const { collectionId } = useParams();
@@ -957,6 +958,60 @@ function DeckSettingsPage() {
           <p style={{ marginTop: 'var(--spacing-2)', color: 'var(--text-secondary)' }}>
             Selected: {selectedLanguage}
           </p>
+        </div>
+      </div>
+      
+      {/* BrandCard Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          BrandCard Component Test
+        </h2>
+        
+        <div style={{ 
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          gap: 'var(--spacing-3)'
+        }}>
+          {/* Brand with collections */}
+          <BrandCard
+            brandName="Mackage"
+            brandLogo="https://via.placeholder.com/65"
+            collections={[
+              { id: '1', name: 'SS2025' },
+              { id: '2', name: 'FW2024' }
+            ]}
+            onEditBrand={() => console.log('Edit Mackage')}
+            onAddCollection={() => console.log('Add collection to Mackage')}
+            onCollectionClick={(collection) => console.log('Clicked:', collection.name)}
+          />
+          
+          {/* Brand without collections */}
+          <BrandCard
+            brandName="Theory"
+            brandLogo="https://via.placeholder.com/65"
+            collections={[]}
+            onEditBrand={() => console.log('Edit Theory')}
+            onAddCollection={() => console.log('Add collection to Theory')}
+            onCollectionClick={(collection) => console.log('Clicked:', collection.name)}
+          />
+          
+          {/* Brand with many collections */}
+          <BrandCard
+            brandName="R13"
+            brandLogo="https://via.placeholder.com/65"
+            collections={[
+              { id: '1', name: 'SS2025' },
+              { id: '2', name: 'FW2024' },
+              { id: '3', name: 'Resort 2024' }
+            ]}
+            onEditBrand={() => console.log('Edit R13')}
+            onAddCollection={() => console.log('Add collection to R13')}
+            onCollectionClick={(collection) => console.log('Clicked:', collection.name)}
+          />
         </div>
       </div>
       

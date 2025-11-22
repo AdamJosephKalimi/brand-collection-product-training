@@ -5,6 +5,7 @@ import { auth } from './firebase/config';
 import GoogleSignIn from './components/auth/GoogleSignIn';
 import Dashboard from './pages/Dashboard/Dashboard';
 import DashboardPage from './pages/Dashboard/DashboardPage';
+import BrandEditPage from './pages/BrandEdit/BrandEditPage';
 import DocumentProcessing from './pages/DocumentProcessing/DocumentProcessing';
 import DeckSettingsPage from './pages/DeckSettings/DeckSettingsPage';
 import CollectionSettingsPage from './pages/CollectionSettings/CollectionSettingsPage';
@@ -164,7 +165,11 @@ function App() {
               </div>
             } />
             
+            {/* Component Library / Test Page */}
+            <Route path="/component-library" element={<DeckSettingsPage />} />
+            
             {/* Detail pages */}
+            <Route path="/brands/:brandId/edit" element={<BrandEditPage />} />
             <Route path="/deck-settings/:collectionId" element={<DeckSettingsPage />} />
             <Route path="/collection-settings/:collectionId" element={<CollectionSettingsPage />} />
             

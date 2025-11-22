@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopNav from '../../components/features/TopNav/TopNav';
 import Sidebar from '../../components/features/Sidebar/Sidebar';
 import Footer from '../../components/features/Footer/Footer';
 import Button from '../../components/ui/Button/Button';
+import BrandCard from '../../components/features/BrandCard/BrandCard';
+import { getAuthToken } from '../../utils/auth';
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -15,12 +17,65 @@ function DashboardPage() {
     { path: '/settings', label: 'Settings' }
   ];
 
-  // Sidebar data (placeholder - will be replaced with real data)
-  // Set to empty array to show empty state
-  const [brands] = useState([]);
+  // State for brands data
+  const [brands, setBrands] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  const [activeBrand, setActiveBrand] = useState('mackage');
-  const [activeCollection, setActiveCollection] = useState('fw2024');
+  const [activeBrand, setActiveBrand] = useState(null);
+  const [activeCollection, setActiveCollection] = useState(null);
+
+  // Fetch brands with collections
+  const fetchBrandsWithCollections = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = await getAuthToken();
+      const response = await fetch('http://localhost:8000/api/brands/with-collections', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch brands');
+      }
+      
+      const data = await response.json();
+      
+      // Transform data to match Sidebar format
+      const transformedBrands = data.map(brand => ({
+        id: brand.brand_id,
+        name: brand.name,
+        logo: brand.logo_url,
+        collections: brand.collections.map(col => ({
+          id: col.collection_id,
+          name: col.name
+        }))
+      }));
+      
+      setBrands(transformedBrands);
+      
+      // Set first brand and collection as active if available
+      if (transformedBrands.length > 0) {
+        setActiveBrand(transformedBrands[0].id);
+        if (transformedBrands[0].collections.length > 0) {
+          setActiveCollection(transformedBrands[0].collections[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching brands:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchBrandsWithCollections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleBrandChange = (brandId) => {
     setActiveBrand(brandId);
@@ -64,8 +119,52 @@ function DashboardPage() {
           overflowY: 'auto',
           backgroundColor: 'var(--background-page)'
         }}>
+          {/* Loading State */}
+          {loading && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%'
+            }}>
+              <p style={{
+                fontFamily: 'var(--font-family-body)',
+                fontSize: 'var(--font-size-md)',
+                color: 'var(--text-secondary)'
+              }}>
+                Loading brands...
+              </p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !loading && (
+            <div style={{
+              backgroundColor: 'var(--background-white)',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--border-radius-md)',
+              padding: 'var(--spacing-4)',
+              textAlign: 'center'
+            }}>
+              <p style={{
+                fontFamily: 'var(--font-family-body)',
+                fontSize: 'var(--font-size-md)',
+                color: 'var(--text-error)',
+                marginBottom: 'var(--spacing-2)'
+              }}>
+                Error: {error}
+              </p>
+              <Button
+                variant="primary"
+                onClick={fetchBrandsWithCollections}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+
           {/* Empty State - No Brands */}
-          {brands.length === 0 && (
+          {!loading && !error && brands.length === 0 && (
             <div style={{
               display: 'flex',
               flexDirection: 'column',
@@ -167,21 +266,49 @@ function DashboardPage() {
           )}
           
           {/* Brands List - When data exists */}
-          {brands.length > 0 && (
-            <div style={{
-              backgroundColor: 'var(--background-white)',
-              border: '1px solid var(--border-light)',
-              borderRadius: 'var(--border-radius-md)',
-              padding: 'var(--spacing-4)',
-              marginTop: 'var(--spacing-4)'
-            }}>
-              <p style={{
-                fontFamily: 'var(--font-family-body)',
-                fontSize: 'var(--font-size-md)',
-                color: 'var(--text-secondary)'
+          {!loading && !error && brands.length > 0 && (
+            <div>
+              {/* Welcome Header */}
+              <h1 style={{
+                margin: 0,
+                marginBottom: 'var(--spacing-4)',
+                fontFamily: 'var(--font-family-heading)',
+                fontSize: '40px',
+                fontWeight: 'var(--font-weight-bold)',
+                lineHeight: 'normal',
+                color: '#2c2f29',
+                textAlign: 'left'
               }}>
-                Brands list coming soon...
-              </p>
+                Welcome to Proko
+              </h1>
+
+              {/* Brand Cards Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                gap: 'var(--spacing-3)'
+              }}>
+                {brands.map((brand) => (
+                  <BrandCard
+                    key={brand.id}
+                    brandName={brand.name}
+                    brandLogo={brand.logo}
+                    collections={brand.collections}
+                    onEditBrand={() => {
+                      navigate(`/brands/${brand.id}/edit`);
+                    }}
+                    onAddCollection={() => {
+                      console.log('Add collection to:', brand.name);
+                      // TODO: Open add collection modal/page
+                    }}
+                    onCollectionClick={(collection) => {
+                      console.log('Navigate to collection:', collection.name);
+                      // TODO: Navigate to collection page
+                      navigate(`/collection-settings/${collection.id}`);
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </main>

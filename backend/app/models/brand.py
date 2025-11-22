@@ -170,3 +170,19 @@ class AddCollaboratorRequest(BaseModel):
     """Request model for adding a collaborator"""
     email: str
     role: CollaboratorRole = CollaboratorRole.VIEWER
+
+
+class CollectionSummary(BaseModel):
+    """Summary of a collection for nested responses"""
+    collection_id: str = Field(..., description="Unique collection identifier")
+    name: str = Field(..., description="Collection name")
+    season: Optional[str] = Field(None, description="Collection season (e.g., 'spring_summer', 'fall_winter')")
+    year: Optional[int] = Field(None, description="Collection year")
+
+
+class BrandWithCollections(BaseModel):
+    """Brand with nested collections for dashboard view"""
+    brand_id: str = Field(..., description="Unique brand identifier")
+    name: str = Field(..., description="Brand name")
+    logo_url: Optional[str] = Field(None, description="Brand logo URL (signed URL for Firebase Storage)")
+    collections: List[CollectionSummary] = Field(default_factory=list, description="List of collections for this brand")
