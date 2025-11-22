@@ -4,6 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase/config';
 import GoogleSignIn from './components/auth/GoogleSignIn';
 import Dashboard from './pages/Dashboard/Dashboard';
+import DashboardPage from './pages/Dashboard/DashboardPage';
 import DocumentProcessing from './pages/DocumentProcessing/DocumentProcessing';
 import DeckSettingsPage from './pages/DeckSettings/DeckSettingsPage';
 import CollectionSettingsPage from './pages/CollectionSettings/CollectionSettingsPage';
@@ -98,28 +99,50 @@ function App() {
           </div>
         ) : (
           <Routes>
-            {/* Routes with card layout (Dashboard, Processing) */}
-            <Route path="/" element={
-              <div className="container mt-5">
-                <div className="row justify-content-center">
-                  <div className="col-md-8">
-                    <div className="card">
-                      <div className="card-header">
-                        <h1 className="text-center mb-0">Product Training AI v1.0</h1>
-                      </div>
-                      <div className="card-body">
-                        <div className="text-center mb-4">
-                          <GoogleSignIn onAuthStateChange={handleAuthStateChange} />
-                        </div>
-                        <Navigation />
-                        <Dashboard user={user} idToken={idToken} />
-                      </div>
-                    </div>
-                  </div>
+            {/* Main navigation pages */}
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/generated-decks" element={
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100vh',
+                backgroundColor: 'var(--background-page)'
+              }}>
+                <div style={{
+                  backgroundColor: 'var(--background-white)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--border-radius-md)',
+                  padding: 'var(--spacing-4)',
+                  textAlign: 'center'
+                }}>
+                  <h1 style={{ color: 'var(--text-brand)' }}>Generated Decks</h1>
+                  <p style={{ color: 'var(--text-secondary)' }}>Page coming soon...</p>
+                </div>
+              </div>
+            } />
+            <Route path="/settings" element={
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100vh',
+                backgroundColor: 'var(--background-page)'
+              }}>
+                <div style={{
+                  backgroundColor: 'var(--background-white)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 'var(--border-radius-md)',
+                  padding: 'var(--spacing-4)',
+                  textAlign: 'center'
+                }}>
+                  <h1 style={{ color: 'var(--text-brand)' }}>Settings</h1>
+                  <p style={{ color: 'var(--text-secondary)' }}>Page coming soon...</p>
                 </div>
               </div>
             } />
             
+            {/* Legacy routes with card layout (keeping for now) */}
             <Route path="/processing" element={
               <div className="container mt-5">
                 <div className="row justify-content-center">
@@ -141,7 +164,7 @@ function App() {
               </div>
             } />
             
-            {/* Full-page routes (no card layout) */}
+            {/* Detail pages */}
             <Route path="/deck-settings/:collectionId" element={<DeckSettingsPage />} />
             <Route path="/collection-settings/:collectionId" element={<CollectionSettingsPage />} />
             
