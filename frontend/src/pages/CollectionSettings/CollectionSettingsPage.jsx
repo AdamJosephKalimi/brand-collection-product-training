@@ -12,6 +12,9 @@ import ProductPreview from '../../components/ui/ProductPreview/ProductPreview';
 import Dropdown from '../../components/ui/Dropdown/Dropdown';
 import FileUpload from '../../components/ui/FileUpload/FileUpload';
 import POFileUpload from '../../components/ui/POFileUpload/POFileUpload';
+import PillCounter from '../../components/ui/PillCounter/PillCounter';
+import ViewToggle from '../../components/ui/ViewToggle/ViewToggle';
+import SearchBar from '../../components/ui/SearchBar/SearchBar';
 import LayoutOptions from '../../components/features/LayoutOptions/LayoutOptions';
 import Footer from '../../components/features/Footer/Footer';
 
@@ -65,6 +68,13 @@ function CollectionSettingsPage() {
   const [collectionType, setCollectionType] = useState('spring-summer');
   const [collectionYear, setCollectionYear] = useState('2025');
   const [collectionInformation, setCollectionInformation] = useState('');
+
+  // Collection Items - View toggle and filters
+  const [collectionItemsView, setCollectionItemsView] = useState('list');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [bulkAction, setBulkAction] = useState('none');
 
   const collectionTypeOptions = [
     { value: 'spring-summer', label: 'Spring/Summer' },
@@ -850,14 +860,193 @@ function CollectionSettingsPage() {
               backgroundColor: 'var(--background-white)',
               border: '1px solid var(--border-light)',
               borderRadius: 'var(--border-radius-md)',
-              padding: 'var(--spacing-4)',
-              textAlign: 'center',
-              color: 'var(--text-secondary)'
+              marginBottom: 'var(--spacing-4)'
             }}>
-              <h2 style={{ color: 'var(--text-brand)', marginBottom: 'var(--spacing-2)' }}>
-                Collection Items
-              </h2>
-              <p>Content coming soon...</p>
+              {/* Collection Items Header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: 'var(--spacing-3)',
+                borderBottom: '1px solid var(--border-light)'
+              }}>
+                {/* Left: Title + Item Counter */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px'
+                }}>
+                  <h2 style={{
+                    margin: 0,
+                    fontFamily: 'var(--font-family-heading)',
+                    fontSize: 'var(--font-size-md)',
+                    fontWeight: 'var(--font-weight-semi-bold)',
+                    lineHeight: 'var(--line-height-md)',
+                    color: 'var(--text-brand)'
+                  }}>
+                    Collection Items
+                  </h2>
+                  <PillCounter variant="default">
+                    80 items
+                  </PillCounter>
+                </div>
+
+                {/* Right: View Toggle + Buttons */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px'
+                }}>
+                  <ViewToggle
+                    activeView={collectionItemsView}
+                    onViewChange={setCollectionItemsView}
+                  />
+                  <Button
+                    variant="dark"
+                    onClick={() => {
+                      console.log('Sync Purchase Order clicked');
+                      // TODO: Add sync logic
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M10.5 6C10.5 8.48528 8.48528 10.5 6 10.5C3.51472 10.5 1.5 8.48528 1.5 6C1.5 3.51472 3.51472 1.5 6 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      <path d="M10.5 1.5V6H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Sync Purchase Order
+                  </Button>
+                  <Button
+                    variant="primary"
+                    disabled={true}
+                    onClick={() => {
+                      console.log('Save Changes clicked');
+                      // TODO: Add save logic
+                    }}
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search and Filters Section */}
+              <div style={{
+                display: 'flex',
+                gap: 'var(--spacing-2)',
+                alignItems: 'center',
+                padding: 'var(--spacing-3)'
+              }}>
+                {/* Search Bar - Grows to fill space */}
+                <div style={{ flex: '1 1 0', minWidth: '0' }}>
+                  <SearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search by SKU, name, color..."
+                  />
+                </div>
+
+                {/* Category Filter Dropdown */}
+                <div style={{ width: '154px' }}>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      padding: '4px 8px',
+                      fontFamily: 'var(--font-family-body)',
+                      fontSize: 'var(--font-size-sm)',
+                      fontWeight: 'var(--font-weight-regular)',
+                      lineHeight: 'var(--line-height-sm)',
+                      color: 'var(--text-brand)',
+                      backgroundColor: 'var(--background-white)',
+                      border: '1px solid var(--border-medium)',
+                      borderRadius: 'var(--border-radius-md)',
+                      cursor: 'pointer',
+                      appearance: 'none',
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'14\' height=\'14\' viewBox=\'0 0 14 14\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M3.5 5.25L7 8.75L10.5 5.25\' stroke=\'%239ca3af\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 8px center',
+                      paddingRight: '30px'
+                    }}
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="outerwear">Outerwear</option>
+                    <option value="knitwear">Knitwear</option>
+                    <option value="accessories">Accessories</option>
+                  </select>
+                </div>
+
+                {/* Status Filter Dropdown */}
+                <div style={{ width: '121px' }}>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      padding: '4px 8px',
+                      fontFamily: 'var(--font-family-body)',
+                      fontSize: 'var(--font-size-sm)',
+                      fontWeight: 'var(--font-weight-regular)',
+                      lineHeight: 'var(--line-height-sm)',
+                      color: 'var(--text-brand)',
+                      backgroundColor: 'var(--background-white)',
+                      border: '1px solid var(--border-medium)',
+                      borderRadius: 'var(--border-radius-md)',
+                      cursor: 'pointer',
+                      appearance: 'none',
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'14\' height=\'14\' viewBox=\'0 0 14 14\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M3.5 5.25L7 8.75L10.5 5.25\' stroke=\'%239ca3af\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 8px center',
+                      paddingRight: '30px'
+                    }}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="included">Included</option>
+                    <option value="excluded">Excluded</option>
+                  </select>
+                </div>
+
+                {/* Bulk Actions Dropdown */}
+                <div style={{ width: '152px' }}>
+                  <select
+                    value={bulkAction}
+                    onChange={(e) => setBulkAction(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      padding: '4px 8px',
+                      fontFamily: 'var(--font-family-body)',
+                      fontSize: 'var(--font-size-sm)',
+                      fontWeight: 'var(--font-weight-regular)',
+                      lineHeight: 'var(--line-height-sm)',
+                      color: 'var(--text-brand)',
+                      backgroundColor: 'var(--background-white)',
+                      border: '1px solid var(--border-medium)',
+                      borderRadius: 'var(--border-radius-md)',
+                      cursor: 'pointer',
+                      appearance: 'none',
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'14\' height=\'14\' viewBox=\'0 0 14 14\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M3.5 5.25L7 8.75L10.5 5.25\' stroke=\'%239ca3af\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 8px center',
+                      paddingRight: '30px'
+                    }}
+                  >
+                    <option value="none">Bulk Actions</option>
+                    <option value="include">Include Selected</option>
+                    <option value="exclude">Exclude Selected</option>
+                    <option value="delete">Delete Selected</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Collection Items Content - Coming Soon */}
+              <div style={{
+                padding: 'var(--spacing-4)',
+                textAlign: 'center',
+                color: 'var(--text-secondary)'
+              }}>
+                <p>Content coming soon...</p>
+              </div>
             </div>
           )}
           
