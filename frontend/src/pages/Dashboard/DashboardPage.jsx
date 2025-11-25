@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopNav from '../../components/features/TopNav/TopNav';
 import Sidebar from '../../components/features/Sidebar/Sidebar';
 import Footer from '../../components/features/Footer/Footer';
 import Button from '../../components/ui/Button/Button';
 import BrandCard from '../../components/features/BrandCard/BrandCard';
-import { getAuthToken } from '../../utils/auth';
+import { useBrands } from '../../hooks/useBrands';
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -17,65 +17,21 @@ function DashboardPage() {
     { path: '/settings', label: 'Settings' }
   ];
 
-  // State for brands data
-  const [brands, setBrands] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Fetch brands with React Query
+  const { data: brands = [], isLoading: loading, isError, error, refetch } = useBrands();
   
   const [activeBrand, setActiveBrand] = useState(null);
   const [activeCollection, setActiveCollection] = useState(null);
 
-  // Fetch brands with collections
-  const fetchBrandsWithCollections = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await getAuthToken();
-      const response = await fetch('http://localhost:8000/api/brands/with-collections', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch brands');
+  // Set first brand and collection as active when data loads
+  React.useEffect(() => {
+    if (brands.length > 0 && !activeBrand) {
+      setActiveBrand(brands[0].id);
+      if (brands[0].collections.length > 0) {
+        setActiveCollection(brands[0].collections[0].id);
       }
-      
-      const data = await response.json();
-      
-      // Transform data to match Sidebar format
-      const transformedBrands = data.map(brand => ({
-        id: brand.brand_id,
-        name: brand.name,
-        logo: brand.logo_url,
-        collections: brand.collections.map(col => ({
-          id: col.collection_id,
-          name: col.name
-        }))
-      }));
-      
-      setBrands(transformedBrands);
-      
-      // Set first brand and collection as active if available
-      if (transformedBrands.length > 0) {
-        setActiveBrand(transformedBrands[0].id);
-        if (transformedBrands[0].collections.length > 0) {
-          setActiveCollection(transformedBrands[0].collections[0].id);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching brands:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  // Fetch data on mount
-  useEffect(() => {
-    fetchBrandsWithCollections();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [brands, activeBrand]);
 
   const handleBrandChange = (brandId) => {
     setActiveBrand(brandId);
@@ -138,25 +94,20 @@ function DashboardPage() {
           )}
 
           {/* Error State */}
-          {error && !loading && (
+          {isError && (
             <div style={{
-              backgroundColor: 'var(--background-white)',
-              border: '1px solid var(--border-light)',
+              padding: 'var(--spacing-3)',
+              marginBottom: 'var(--spacing-3)',
+              backgroundColor: '#fee',
+              border: '1px solid #fcc',
               borderRadius: 'var(--border-radius-md)',
-              padding: 'var(--spacing-4)',
-              textAlign: 'center'
+              color: '#c00'
             }}>
-              <p style={{
-                fontFamily: 'var(--font-family-body)',
-                fontSize: 'var(--font-size-md)',
-                color: 'var(--text-error)',
-                marginBottom: 'var(--spacing-2)'
-              }}>
-                Error: {error}
-              </p>
-              <Button
-                variant="primary"
-                onClick={fetchBrandsWithCollections}
+              <p style={{ margin: 0, marginBottom: 'var(--spacing-2)' }}>Error: {error?.message || 'Failed to load brands'}</p>
+              <Button 
+                variant="secondary" 
+                size="small"
+                onClick={() => refetch()}
               >
                 Retry
               </Button>
@@ -164,7 +115,7 @@ function DashboardPage() {
           )}
 
           {/* Empty State - No Brands */}
-          {!loading && !error && brands.length === 0 && (
+          {!loading && !isError && brands.length === 0 && (
             <div style={{
               display: 'flex',
               flexDirection: 'column',

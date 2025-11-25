@@ -5,7 +5,8 @@ import Sidebar from '../../components/features/Sidebar/Sidebar';
 import Footer from '../../components/features/Footer/Footer';
 import SectionHeader from '../../components/ui/SectionHeader/SectionHeader';
 import Button from '../../components/ui/Button/Button';
-import { getAuthToken } from '../../utils/auth';
+import { useBrands, useBrand } from '../../hooks/useBrands';
+import { useUpdateBrand, useUploadLogo } from '../../hooks/useBrandMutations';
 import styles from './BrandEditPage.module.css';
 
 function BrandEditPage() {
@@ -19,12 +20,18 @@ function BrandEditPage() {
     { path: '/settings', label: 'Settings' }
   ];
 
-  // State
-  const [brands, setBrands] = useState([]);
-  const [brandData, setBrandData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  // Fetch brands for sidebar and brand details with React Query
+  const { data: brands = [], isLoading: brandsLoading } = useBrands();
+  const { data: brandData, isLoading: brandLoading, isError, error: fetchError } = useBrand(brandId);
+  
+  // Mutations
+  const updateBrand = useUpdateBrand();
+  const uploadLogo = useUploadLogo();
+  
+  // Local state
   const [error, setError] = useState(null);
+  const loading = brandsLoading || brandLoading;
+  const saving = updateBrand.isLoading || uploadLogo.isLoading;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -34,78 +41,17 @@ function BrandEditPage() {
     logoPreview: null
   });
 
-  // Fetch brands for sidebar
-  const fetchBrandsWithCollections = async () => {
-    try {
-      const token = await getAuthToken();
-      const response = await fetch('http://localhost:8000/api/brands/with-collections', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch brands');
-      }
-      
-      const data = await response.json();
-      
-      // Transform data to match Sidebar format
-      const transformedBrands = data.map(brand => ({
-        id: brand.brand_id,
-        name: brand.name,
-        logo: brand.logo_url,
-        collections: brand.collections.map(col => ({
-          id: col.collection_id,
-          name: col.name
-        }))
-      }));
-      
-      setBrands(transformedBrands);
-    } catch (err) {
-      console.error('Error fetching brands:', err);
-    }
-  };
-
-  // Fetch specific brand data
-  const fetchBrandData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/brands/${brandId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch brand');
-      }
-      
-      const data = await response.json();
-      setBrandData(data);
-      
-      // Set form data
-      setFormData({
-        name: data.name || '',
-        website_url: data.website_url || '',
-        logo: null,
-        logoPreview: data.logo_url || null
-      });
-    } catch (err) {
-      console.error('Error fetching brand:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Populate form when brand data loads
   useEffect(() => {
-    fetchBrandsWithCollections();
-    fetchBrandData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandId]);
+    if (brandData) {
+      setFormData({
+        name: brandData.name || '',
+        website_url: brandData.website_url || '',
+        logo: null,
+        logoPreview: brandData.logo_url || null
+      });
+    }
+  }, [brandData]);
 
   // Handle form changes
   const handleInputChange = (e) => {
@@ -128,54 +74,32 @@ function BrandEditPage() {
     }
   };
 
-  // Handle save
+  // Handle save with React Query mutations
   const handleSave = async () => {
-    setSaving(true);
+    setError(null);
     try {
-      const token = await getAuthToken();
-      
       // Update brand basic info
-      const updateResponse = await fetch(`http://localhost:8000/api/brands/${brandId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      await updateBrand.mutateAsync({
+        brandId,
+        data: {
           name: formData.name,
           website_url: formData.website_url || null
-        })
+        }
       });
-
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update brand');
-      }
 
       // Upload logo if changed
       if (formData.logo) {
-        const logoFormData = new FormData();
-        logoFormData.append('file', formData.logo);
-
-        const logoResponse = await fetch(`http://localhost:8000/api/brands/${brandId}/logo`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: logoFormData
+        await uploadLogo.mutateAsync({
+          brandId,
+          file: formData.logo
         });
-
-        if (!logoResponse.ok) {
-          throw new Error('Failed to upload logo');
-        }
       }
 
       // Success - navigate back to dashboard
       navigate('/');
     } catch (err) {
       console.error('Error saving brand:', err);
-      setError(err.message);
-    } finally {
-      setSaving(false);
+      setError(err.message || 'Failed to save brand');
     }
   };
 
@@ -236,9 +160,9 @@ function BrandEditPage() {
           {/* Page title */}
           <h1 className={styles.pageTitle}>Edit Brand: {brandData?.name}</h1>
 
-          {error && (
+          {(error || isError) && (
             <div className={styles.errorMessage}>
-              Error: {error}
+              Error: {error || fetchError?.message || 'Failed to load brand'}
             </div>
           )}
 
