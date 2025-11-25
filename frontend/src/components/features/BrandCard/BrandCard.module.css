@@ -38,6 +38,20 @@
   object-fit: cover;
 }
 
+.logoPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #7D3B51 0%, #9B4F66 100%);
+  color: white;
+  font-family: var(--font-family-heading);
+  font-size: 28px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+}
+
 .brandName {
   margin: 0;
   font-family: var(--font-family-heading);

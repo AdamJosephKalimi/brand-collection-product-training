@@ -178,13 +178,25 @@ class BrandService:
             
             for doc in docs:
                 brand_data = doc.to_dict()
+                
+                # Generate fresh logo_url from logo_storage_path if it exists
+                logo_url = None
+                logo_storage_path = brand_data.get("logo_storage_path")
+                if logo_storage_path:
+                    try:
+                        from .storage_service import storage_service
+                        logo_url = storage_service.generate_signed_url(logo_storage_path, expiration_hours=24)
+                    except Exception as e:
+                        logger.warning(f"Failed to generate signed URL for logo: {e}")
+                        logo_url = None
+                
                 brands.append(BrandResponse(
                     brand_id=brand_data["brand_id"],
                     owner_id=brand_data["owner_id"],
                     name=brand_data["name"],
                     tagline=brand_data.get("tagline"),
                     description=brand_data.get("description"),
-                    logo_url=brand_data.get("logo_url"),
+                    logo_url=logo_url,
                     brand_colors=brand_data.get("brand_colors"),
                     website_url=brand_data.get("website_url"),
                     social_media=brand_data.get("social_media"),
@@ -241,13 +253,24 @@ class BrandService:
             # Update last accessed
             doc_ref.update({"last_accessed": datetime.utcnow()})
             
+            # Generate fresh logo_url from logo_storage_path if it exists
+            logo_url = None
+            logo_storage_path = brand_data.get("logo_storage_path")
+            if logo_storage_path:
+                try:
+                    from .storage_service import storage_service
+                    logo_url = storage_service.generate_signed_url(logo_storage_path, expiration_hours=24)
+                except Exception as e:
+                    logger.warning(f"Failed to generate signed URL for logo: {e}")
+                    logo_url = None
+            
             return BrandResponse(
                 brand_id=brand_data["brand_id"],
                 owner_id=brand_data["owner_id"],
                 name=brand_data["name"],
                 tagline=brand_data.get("tagline"),
                 description=brand_data.get("description"),
-                logo_url=brand_data.get("logo_url"),
+                logo_url=logo_url,
                 brand_colors=brand_data.get("brand_colors"),
                 website_url=brand_data.get("website_url"),
                 social_media=brand_data.get("social_media"),
@@ -450,9 +473,8 @@ class BrandService:
             from .storage_service import storage_service
             logo_url = await storage_service.upload_file(file, storage_path)
             
-            # Update brand document
+            # Update brand document - only store the stable path, not the expiring URL
             doc_ref.update({
-                "logo_url": logo_url,
                 "logo_storage_path": storage_path,
                 "updated_at": datetime.utcnow()
             })
@@ -519,7 +541,6 @@ class BrandService:
             
             # Update brand document
             doc_ref.update({
-                "logo_url": None,
                 "logo_storage_path": None,
                 "updated_at": datetime.utcnow()
             })

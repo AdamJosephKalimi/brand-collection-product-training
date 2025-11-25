@@ -126,6 +126,23 @@
   object-fit: contain;
 }
 
+/* Logo placeholder */
+.logoPlaceholder {
+  width: 120px;
+  height: 120px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #7D3B51 0%, #9B4F66 100%);
+  color: white;
+  font-family: var(--font-family-heading);
+  font-size: 48px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+}
+
 /* File input (hidden) */
 .fileInput {
   display: none;

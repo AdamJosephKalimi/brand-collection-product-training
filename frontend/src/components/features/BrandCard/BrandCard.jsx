@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styles from './BrandCard.module.css';
 
 /**
@@ -21,17 +21,31 @@ function BrandCard({
   onAddCollection,
   onCollectionClick
 }) {
+  const [logoError, setLogoError] = useState(false);
+  const showPlaceholder = !brandLogo || logoError;
+  
+  // Get first letter of brand name for placeholder
+  const brandInitial = brandName ? brandName.charAt(0).toUpperCase() : '?';
+  
   return (
     <div className={styles.brandCard}>
       {/* Top Section: Logo, Name, Edit Icon */}
       <div className={styles.brandTop}>
         <div className={styles.brandTitle}>
           {/* Brand Logo */}
-          {brandLogo && (
-            <div className={styles.brandLogo}>
-              <img src={brandLogo} alt={`${brandName} logo`} />
-            </div>
-          )}
+          <div className={styles.brandLogo}>
+            {showPlaceholder ? (
+              <div className={styles.logoPlaceholder}>
+                {brandInitial}
+              </div>
+            ) : (
+              <img 
+                src={brandLogo} 
+                alt={`${brandName} logo`}
+                onError={() => setLogoError(true)}
+              />
+            )}
+          </div>
           
           {/* Brand Name */}
           <h3 className={styles.brandName}>{brandName}</h3>

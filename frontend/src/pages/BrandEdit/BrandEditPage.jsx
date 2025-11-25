@@ -30,6 +30,7 @@ function BrandEditPage() {
   
   // Local state
   const [error, setError] = useState(null);
+  const [logoError, setLogoError] = useState(false);
   const loading = brandsLoading || brandLoading;
   const saving = updateBrand.isLoading || uploadLogo.isLoading;
 
@@ -50,6 +51,7 @@ function BrandEditPage() {
         logo: null,
         logoPreview: brandData.logo_url || null
       });
+      setLogoError(false); // Reset logo error when new brand data loads
     }
   }, [brandData]);
 
@@ -201,11 +203,19 @@ function BrandEditPage() {
             <SectionHeader title="Brand Logo" />
             <div className={styles.sectionContent}>
               <div className={styles.logoUpload}>
-                {formData.logoPreview && (
+                {formData.logoPreview && !logoError ? (
                   <div className={styles.logoPreview}>
-                    <img src={formData.logoPreview} alt="Brand logo" />
+                    <img 
+                      src={formData.logoPreview} 
+                      alt="Brand logo"
+                      onError={() => setLogoError(true)}
+                    />
                   </div>
-                )}
+                ) : formData.name && (logoError || !formData.logoPreview) ? (
+                  <div className={styles.logoPlaceholder}>
+                    {formData.name.charAt(0).toUpperCase()}
+                  </div>
+                ) : null}
                 <input
                   type="file"
                   accept="image/*"
