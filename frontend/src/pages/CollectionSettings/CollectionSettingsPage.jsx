@@ -19,6 +19,7 @@ import LayoutOptions from '../../components/features/LayoutOptions/LayoutOptions
 import Footer from '../../components/features/Footer/Footer';
 import { useBrands } from '../../hooks/useBrands';
 import { useCollection } from '../../hooks/useCollection';
+import { useUpdateCollection } from '../../hooks/useCollectionMutations';
 
 function CollectionSettingsPage() {
   const { collectionId } = useParams();
@@ -29,6 +30,9 @@ function CollectionSettingsPage() {
   
   // Fetch collection details
   const { data: collectionData, isLoading: collectionLoading, isError: collectionError } = useCollection(collectionId);
+  
+  // Collection update mutation
+  const updateCollectionMutation = useUpdateCollection();
 
   // Top nav links
   const navLinks = [
@@ -73,15 +77,62 @@ function CollectionSettingsPage() {
   const [collectionYear, setCollectionYear] = useState('2025');
   const [collectionInformation, setCollectionInformation] = useState('');
   
+  // Track original values for change detection
+  const [originalValues, setOriginalValues] = useState(null);
+  
   // Populate form fields when collection data loads
   useEffect(() => {
     if (collectionData) {
-      setCollectionName(collectionData.name || '');
-      setCollectionType(collectionData.season || 'spring_summer');
-      setCollectionYear(String(collectionData.year || new Date().getFullYear()));
-      setCollectionInformation(collectionData.description || '');
+      const name = collectionData.name || '';
+      const season = collectionData.season || 'spring_summer';
+      const year = String(collectionData.year || new Date().getFullYear());
+      const description = collectionData.description || '';
+      
+      setCollectionName(name);
+      setCollectionType(season);
+      setCollectionYear(year);
+      setCollectionInformation(description);
+      
+      // Store original values for change detection
+      setOriginalValues({ name, season, year, description });
     }
   }, [collectionData]);
+  
+  // Check if form has been modified
+  const hasChanges = originalValues && (
+    collectionName !== originalValues.name ||
+    collectionType !== originalValues.season ||
+    collectionYear !== originalValues.year ||
+    collectionInformation !== originalValues.description
+  );
+  
+  // Handle save collection label
+  const handleSaveCollectionLabel = async () => {
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: {
+          name: collectionName,
+          season: collectionType,
+          year: Number(collectionYear),
+          description: collectionInformation
+        }
+      });
+    } catch (error) {
+      console.error('Failed to update collection:', error);
+    }
+  };
+  
+  // Auto-dismiss success message after 3 seconds
+  useEffect(() => {
+    if (updateCollectionMutation.isSuccess) {
+      const timer = setTimeout(() => {
+        updateCollectionMutation.reset();
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [updateCollectionMutation.isSuccess]);
 
   // Collection Items - View toggle and filters
   const [collectionItemsView, setCollectionItemsView] = useState('list');
@@ -282,12 +333,38 @@ function CollectionSettingsPage() {
               }}>
                 <SectionHeader
                   title="Collection Label"
-                  buttonText="Save Changes"
-                  onButtonClick={() => {
-                    console.log('Save Collection Label clicked');
-                    // TODO: Add save logic
-                  }}
+                  buttonText={updateCollectionMutation.isPending ? "Saving..." : "Save Changes"}
+                  onButtonClick={handleSaveCollectionLabel}
+                  buttonDisabled={!hasChanges || updateCollectionMutation.isPending}
                 />
+                
+                {/* Success Message */}
+                {updateCollectionMutation.isSuccess && (
+                  <div style={{
+                    padding: 'var(--spacing-2) var(--spacing-3)',
+                    backgroundColor: '#d4edda',
+                    borderBottom: '1px solid #c3e6cb',
+                    color: '#155724',
+                    fontFamily: 'var(--font-family-body)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}>
+                    ✓ Collection updated successfully
+                  </div>
+                )}
+                
+                {/* Error Message */}
+                {updateCollectionMutation.isError && (
+                  <div style={{
+                    padding: 'var(--spacing-2) var(--spacing-3)',
+                    backgroundColor: '#f8d7da',
+                    borderBottom: '1px solid #f5c6cb',
+                    color: '#721c24',
+                    fontFamily: 'var(--font-family-body)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}>
+                    ✗ {updateCollectionMutation.error?.message || 'Failed to update collection'}
+                  </div>
+                )}
                 
                 {/* Section Content - Form Fields */}
                 <div style={{
