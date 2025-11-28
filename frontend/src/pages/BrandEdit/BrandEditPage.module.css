@@ -12,12 +12,20 @@
   flex: 1;
 }
 
-/* Main content area */
+/* Main content area - full width with grey background */
 .mainContent {
   flex: 1;
-  padding: var(--spacing-4);
   overflow-y: auto;
-  background-color: var(--background-page);
+  background-color: var(--background-light);
+  padding: var(--spacing-4) 0;
+}
+
+/* Content container - constrained width, centered */
+.contentContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 var(--spacing-4);
 }
 
 /* Back button */
@@ -99,39 +107,200 @@
   color: var(--text-tertiary);
 }
 
-/* Logo upload container */
-.logoUpload {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2);
-  align-items: flex-start;
+/* Brand Name Section */
+.brandNameSection {
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: var(--spacing-3);
 }
 
-/* Logo preview */
-.logoPreview {
-  width: 120px;
-  height: 120px;
+/* Brand Name Header */
+.brandNameHeader {
+  margin: 0;
+  font-family: 'Inter', var(--font-family-body);
+  font-size: 18px;
+  font-weight: 500;
+  color: #2c2f29;
+  line-height: normal;
+  height: 28px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+/* Brand Name Input */
+.brandNameInput {
+  width: 100%;
+  height: 38px;
+  padding: 0 11px;
+  font-family: 'Inter', var(--font-family-body);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-primary);
+  background-color: var(--background-white);
   border: 1px solid var(--border-light);
-  border-radius: var(--border-radius-md);
-  overflow: hidden;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.brandNameInput:focus {
+  border-color: var(--border-dark);
+}
+
+.brandNameInput::placeholder {
+  color: #ADAEBC;
+  line-height: 20px;
+}
+
+/* Website URL Section */
+.websiteSection {
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: var(--spacing-3);
+}
+
+/* Website Header */
+.websiteHeader {
+  margin: 0;
+  font-family: 'Inter', var(--font-family-body);
+  font-size: 18px;
+  font-weight: 500;
+  color: #2c2f29;
+  line-height: normal;
+  height: 28px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+/* Website Input Wrapper */
+.websiteInputWrapper {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+/* Website Icon Prefix */
+.websiteIconPrefix {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--background-page);
+  width: 39px;
+  height: 38px;
+  background-color: #F9FAFB;
+  border: 1px solid var(--border-light);
+  border-right: none;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  flex-shrink: 0;
 }
 
-.logoPreview img {
+/* Website Input */
+.websiteInput {
+  flex: 1;
+  height: 38px;
+  padding: 0 11px;
+  font-family: 'Inter', var(--font-family-body);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-primary);
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-left: none;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.websiteInput:focus {
+  border-color: var(--border-dark);
+}
+
+.websiteInput::placeholder {
+  color: #ADAEBC;
+  line-height: 20px;
+}
+
+/* Logo Section Container */
+.logoSection {
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: var(--spacing-3);
+}
+
+/* Logo Header */
+.logoHeader {
+  margin: 0;
+  font-family: 'Inter', var(--font-family-body);
+  font-size: 18px;
+  font-weight: 500;
+  color: #2c2f29;
+  line-height: normal;
+  height: 28px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+/* Logo Content Container */
+.logoContent {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* Upload Area - Container for POFileUpload */
+.logoUploadArea {
+  width: 934px;
+  height: 188px;
+}
+
+/* Logo File Upload Component Override */
+.logoFileUpload {
+  width: 100%;
+  height: 100%;
+}
+
+/* Logo Preview Box */
+.logoPreviewBox {
+  width: 128px;
+  height: 128px;
+  background-color: #F9FAFB;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Preview Label */
+.previewLabel {
+  font-family: 'Inter', var(--font-family-body);
+  font-size: 12px;
+  font-weight: 400;
+  color: #6B7280;
+  text-align: center;
+}
+
+/* Logo Preview Image */
+.logoPreviewImage {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-/* Logo placeholder */
-.logoPlaceholder {
-  width: 120px;
-  height: 120px;
-  border: 1px solid var(--border-light);
-  border-radius: var(--border-radius-md);
+/* Logo Placeholder in Preview */
+.logoPlaceholderPreview {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -141,33 +310,6 @@
   font-size: 48px;
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-}
-
-/* File input (hidden) */
-.fileInput {
-  display: none;
-}
-
-/* Upload button (label) */
-.uploadButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--spacing-2) var(--spacing-3);
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-brand);
-  background-color: var(--background-white);
-  border: 1px solid var(--border-light);
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.uploadButton:hover {
-  background-color: var(--background-page);
-  border-color: var(--border-dark);
 }
 
 /* Placeholder text */
@@ -183,6 +325,6 @@
 .actions {
   display: flex;
   gap: var(--spacing-2);
-  justify-content: flex-end;
+  justify-content: center;
   padding-top: var(--spacing-3);
 }

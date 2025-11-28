@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import TopNav from '../../components/features/TopNav/TopNav';
 import Sidebar from '../../components/features/Sidebar/Sidebar';
 import Tabs from '../../components/ui/Tabs/Tabs';
@@ -17,9 +17,18 @@ import ViewToggle from '../../components/ui/ViewToggle/ViewToggle';
 import SearchBar from '../../components/ui/SearchBar/SearchBar';
 import LayoutOptions from '../../components/features/LayoutOptions/LayoutOptions';
 import Footer from '../../components/features/Footer/Footer';
+import { useBrands } from '../../hooks/useBrands';
+import { useCollection } from '../../hooks/useCollection';
 
 function CollectionSettingsPage() {
   const { collectionId } = useParams();
+  const navigate = useNavigate();
+  
+  // Fetch brands with React Query
+  const { data: brands = [], isLoading, isError, error } = useBrands();
+  
+  // Fetch collection details
+  const { data: collectionData, isLoading: collectionLoading, isError: collectionError } = useCollection(collectionId);
 
   // Top nav links
   const navLinks = [
@@ -28,30 +37,25 @@ function CollectionSettingsPage() {
     { path: '/settings', label: 'Settings' }
   ];
 
-  // Sidebar data
-  const [brands] = useState([
-    {
-      id: 'mackage',
-      name: 'Mackage',
-      collections: [
-        { id: 'fw2024', name: 'FW2024' },
-        { id: 'ss2024', name: 'SS2024' }
-      ]
-    },
-    {
-      id: 'theory',
-      name: 'Theory',
-      collections: []
-    },
-    {
-      id: 'r13',
-      name: 'R13',
-      collections: []
-    }
-  ]);
+  // Sidebar state
+  const [activeBrand, setActiveBrand] = useState(null);
+  const [activeCollection, setActiveCollection] = useState(null);
   
-  const [activeBrand, setActiveBrand] = useState('mackage');
-  const [activeCollection, setActiveCollection] = useState('fw2024');
+  // Set activeCollection from URL and find parent brand
+  useEffect(() => {
+    if (collectionId && brands.length > 0) {
+      setActiveCollection(collectionId);
+      
+      // Find which brand contains this collection
+      const parentBrand = brands.find(brand => 
+        brand.collections.some(col => col.id === collectionId)
+      );
+      
+      if (parentBrand) {
+        setActiveBrand(parentBrand.id);
+      }
+    }
+  }, [collectionId, brands]);
 
   // Tabs configuration
   const [activeTab, setActiveTab] = useState(1); // Default to Collection Info
@@ -65,9 +69,19 @@ function CollectionSettingsPage() {
 
   // Collection Info - Collection Name, Type and Year
   const [collectionName, setCollectionName] = useState('');
-  const [collectionType, setCollectionType] = useState('spring-summer');
+  const [collectionType, setCollectionType] = useState('spring_summer');
   const [collectionYear, setCollectionYear] = useState('2025');
   const [collectionInformation, setCollectionInformation] = useState('');
+  
+  // Populate form fields when collection data loads
+  useEffect(() => {
+    if (collectionData) {
+      setCollectionName(collectionData.name || '');
+      setCollectionType(collectionData.season || 'spring_summer');
+      setCollectionYear(String(collectionData.year || new Date().getFullYear()));
+      setCollectionInformation(collectionData.description || '');
+    }
+  }, [collectionData]);
 
   // Collection Items - View toggle and filters
   const [collectionItemsView, setCollectionItemsView] = useState('list');
@@ -77,17 +91,18 @@ function CollectionSettingsPage() {
   const [bulkAction, setBulkAction] = useState('none');
 
   const collectionTypeOptions = [
-    { value: 'spring-summer', label: 'Spring/Summer' },
-    { value: 'fall-winter', label: 'Fall/Winter' },
+    { value: 'spring_summer', label: 'Spring/Summer' },
+    { value: 'fall_winter', label: 'Fall/Winter' },
     { value: 'resort', label: 'Resort' },
-    { value: 'pre-fall', label: 'Pre-Fall' }
+    { value: 'pre_fall', label: 'Pre-Fall' }
   ];
 
-  const yearOptions = [
-    { value: '2025', label: '2025' },
-    { value: '2024', label: '2024' },
-    { value: '2023', label: '2023' }
-  ];
+  // Generate dynamic year range (5 years future, 5 years past from current year)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 11 }, (_, i) => {
+    const year = String(currentYear + 5 - i);
+    return { value: year, label: year };
+  });
 
   // Intro slides checkbox states
   const [introSlides, setIntroSlides] = useState({
@@ -212,9 +227,17 @@ function CollectionSettingsPage() {
           activeBrand={activeBrand}
           activeCollection={activeCollection}
           onBrandClick={(brandId) => setActiveBrand(brandId)}
-          onCollectionClick={(collectionId) => setActiveCollection(collectionId)}
-          onNewBrand={() => alert('New Brand clicked')}
-          onNewCollection={(brandId) => alert(`New Collection for ${brandId}`)}
+          onCollectionClick={(collection) => {
+            navigate(`/collection-settings/${collection.id}`);
+          }}
+          onNewBrand={() => {
+            console.log('New Brand clicked');
+            // TODO: Add create brand logic
+          }}
+          onNewCollection={(brandId) => {
+            console.log('New Collection for brand:', brandId);
+            // TODO: Add create collection logic
+          }}
         />
         
         {/* Main Content Wrapper */}
@@ -223,15 +246,22 @@ function CollectionSettingsPage() {
           display: 'flex',
           flexDirection: 'column'
         }}>
-          {/* Scrollable Content */}
+          {/* Scrollable Content - Full width grey background */}
           <div style={{ 
             flex: 1, 
             backgroundColor: 'var(--background-light)',
-            padding: 'var(--spacing-4) var(--spacing-3)',
+            padding: 'var(--spacing-4) 0',
+            overflowY: 'auto'
+          }}>
+          {/* Content Container - Constrained width */}
+          <div style={{
+            maxWidth: '1200px',
+            margin: '0 auto',
+            width: '100%',
+            padding: '0 var(--spacing-3)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 'var(--spacing-3)',
-            overflowY: 'auto'
+            gap: 'var(--spacing-3)'
           }}>
           {/* Tabs */}
           <Tabs
@@ -1066,6 +1096,7 @@ function CollectionSettingsPage() {
               <p>Content coming soon...</p>
             </div>
           )}
+          </div>
           </div>
           
           {/* Footer */}

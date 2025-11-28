@@ -103,7 +103,7 @@ function Sidebar({
                         className={`${styles.collectionItem} ${
                           activeCollection === collection.id ? styles.active : ''
                         }`}
-                        onClick={() => onCollectionClick?.(collection.id)}
+                        onClick={() => onCollectionClick?.(collection)}
                       >
                         <div className={styles.collectionLeft}>
                           {/* Folder Icon */}

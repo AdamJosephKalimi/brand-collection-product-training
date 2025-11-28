@@ -63,9 +63,19 @@ function DashboardPage() {
         <Sidebar
           brands={brands}
           activeBrand={activeBrand}
-          activeCollection={activeCollection}
-          onBrandChange={handleBrandChange}
-          onCollectionChange={handleCollectionChange}
+          activeCollection={null}
+          onBrandClick={handleBrandChange}
+          onCollectionClick={(collection) => {
+            navigate(`/collection-settings/${collection.id}`);
+          }}
+          onNewBrand={() => {
+            console.log('New Brand clicked');
+            // TODO: Add create brand logic
+          }}
+          onNewCollection={(brandId) => {
+            console.log('New Collection for brand:', brandId);
+            // TODO: Add create collection logic
+          }}
         />
         
         {/* Main Content */}
@@ -75,8 +85,8 @@ function DashboardPage() {
           overflowY: 'auto',
           backgroundColor: 'var(--background-page)'
         }}>
-          {/* Loading State */}
-          {loading && (
+          {/* Loading State - Only show when no cached data exists */}
+          {loading && brands.length === 0 && (
             <div style={{
               display: 'flex',
               alignItems: 'center',

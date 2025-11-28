@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Tabs from '../../components/ui/Tabs/Tabs';
 import Checkbox from '../../components/ui/Checkbox/Checkbox';
 import CategoryGroup from '../../components/ui/CategoryGroup/CategoryGroup';
@@ -23,10 +23,15 @@ import Toggle from '../../components/ui/Toggle/Toggle';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
 import BrandCard from '../../components/features/BrandCard/BrandCard';
+import { useBrands } from '../../hooks/useBrands';
 
 function DeckSettingsPage() {
   const { collectionId } = useParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('deck-settings');
+  
+  // Fetch brands with React Query
+  const { data: brands = [], isLoading, isError, error } = useBrands();
   
   // Checkbox states
   const [checkboxStates, setCheckboxStates] = useState({
@@ -170,30 +175,25 @@ function DeckSettingsPage() {
     { value: 'accessories', label: 'Accessories' }
   ];
   
-  // Sidebar data
-  const [brands] = useState([
-    {
-      id: 'mackage',
-      name: 'Mackage',
-      collections: [
-        { id: 'fw2024', name: 'FW2024' },
-        { id: 'ss2024', name: 'SS2024' }
-      ]
-    },
-    {
-      id: 'theory',
-      name: 'Theory',
-      collections: []
-    },
-    {
-      id: 'r13',
-      name: 'R13',
-      collections: []
-    }
-  ]);
+  // Sidebar state
+  const [activeBrand, setActiveBrand] = useState(null);
+  const [activeCollection, setActiveCollection] = useState(null);
   
-  const [activeBrand, setActiveBrand] = useState('mackage');
-  const [activeCollection, setActiveCollection] = useState('fw2024');
+  // Set activeCollection from URL and find parent brand
+  useEffect(() => {
+    if (collectionId && brands.length > 0) {
+      setActiveCollection(collectionId);
+      
+      // Find which brand contains this collection
+      const parentBrand = brands.find(brand => 
+        brand.collections.some(col => col.id === collectionId)
+      );
+      
+      if (parentBrand) {
+        setActiveBrand(parentBrand.id);
+      }
+    }
+  }, [collectionId, brands]);
   
   // Top nav links
   const navLinks = [
@@ -252,13 +252,33 @@ function DeckSettingsPage() {
           activeBrand={activeBrand}
           activeCollection={activeCollection}
           onBrandClick={(brandId) => setActiveBrand(brandId)}
-          onCollectionClick={(collectionId) => setActiveCollection(collectionId)}
-          onNewBrand={() => alert('New Brand clicked')}
-          onNewCollection={(brandId) => alert(`New Collection for ${brandId}`)}
+          onCollectionClick={(collection) => {
+            navigate(`/collection-settings/${collection.id}`);
+          }}
+          onNewBrand={() => {
+            console.log('New Brand clicked');
+            // TODO: Add create brand logic
+          }}
+          onNewCollection={(brandId) => {
+            console.log('New Collection for brand:', brandId);
+            // TODO: Add create collection logic
+          }}
         />
         
-        {/* Main Content */}
-        <div style={{ flex: 1, padding: '40px', backgroundColor: 'var(--background-white)' }}>
+        {/* Main Content - Full width grey background */}
+        <div style={{ 
+          flex: 1, 
+          backgroundColor: 'var(--background-light)',
+          padding: '40px 0',
+          overflowY: 'auto'
+        }}>
+        {/* Content Container - Constrained width */}
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          width: '100%',
+          padding: '0 40px'
+        }}>
         <h1 style={{ 
           fontFamily: 'var(--font-family-heading)', 
           fontSize: 'var(--font-size-xl)',
@@ -1031,6 +1051,7 @@ function DeckSettingsPage() {
           }}>
             ✨ Clean slate - No Bootstrap here! ✨
           </p>
+        </div>
         </div>
         
         {/* Footer */}
