@@ -1,0 +1,115 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getAuthToken } from '../utils/auth';
+
+/**
+ * Fetch all documents for a collection
+ * 
+ * @param {string} collectionId - The collection ID
+ * @returns {Object} Query result with documents array
+ */
+export const useCollectionDocuments = (collectionId) => {
+  return useQuery({
+    queryKey: ['collectionDocuments', collectionId],
+    queryFn: async () => {
+      const token = await getAuthToken();
+      const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch collection documents');
+      }
+      
+      return await response.json();
+    },
+    enabled: !!collectionId,
+  });
+};
+
+/**
+ * Upload a document to a collection
+ * 
+ * @param {string} collectionId - The collection ID
+ * @param {File} file - The file to upload
+ * @param {string} type - Document type (LINESHEET, PURCHASE_ORDER, OTHER)
+ * @returns {Promise<Object>} Uploaded document data
+ */
+const uploadDocument = async (collectionId, file, type) => {
+  const token = await getAuthToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  if (type) {
+    formData.append('type', type);
+  }
+  
+  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to upload document');
+  }
+  
+  return await response.json();
+};
+
+/**
+ * Delete a document from a collection
+ * 
+ * @param {string} collectionId - The collection ID
+ * @param {string} documentId - The document ID to delete
+ * @returns {Promise<Object>} Delete response
+ */
+const deleteDocument = async (collectionId, documentId) => {
+  const token = await getAuthToken();
+  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents/${documentId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to delete document');
+  }
+  
+  return await response.json();
+};
+
+/**
+ * Hook for uploading documents
+ */
+export const useUploadDocument = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ collectionId, file, type }) => uploadDocument(collectionId, file, type),
+    onSuccess: (data, variables) => {
+      // Invalidate documents list to refetch
+      queryClient.invalidateQueries({ queryKey: ['collectionDocuments', variables.collectionId] });
+    },
+  });
+};
+
+/**
+ * Hook for deleting documents
+ */
+export const useDeleteDocument = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ collectionId, documentId }) => deleteDocument(collectionId, documentId),
+    onSuccess: (data, variables) => {
+      // Invalidate documents list to refetch
+      queryClient.invalidateQueries({ queryKey: ['collectionDocuments', variables.collectionId] });
+    },
+  });
+};

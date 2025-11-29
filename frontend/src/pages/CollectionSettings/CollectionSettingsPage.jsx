@@ -20,6 +20,7 @@ import Footer from '../../components/features/Footer/Footer';
 import { useBrands } from '../../hooks/useBrands';
 import { useCollection } from '../../hooks/useCollection';
 import { useUpdateCollection } from '../../hooks/useCollectionMutations';
+import { useCollectionDocuments, useUploadDocument, useDeleteDocument } from '../../hooks/useCollectionDocuments';
 
 function CollectionSettingsPage() {
   const { collectionId } = useParams();
@@ -31,8 +32,19 @@ function CollectionSettingsPage() {
   // Fetch collection details
   const { data: collectionData, isLoading: collectionLoading, isError: collectionError } = useCollection(collectionId);
   
+  // Fetch collection documents
+  const { data: documents = [], isLoading: documentsLoading } = useCollectionDocuments(collectionId);
+  
   // Collection update mutation
   const updateCollectionMutation = useUpdateCollection();
+  
+  // Document mutations
+  const uploadDocumentMutation = useUploadDocument();
+  const deleteDocumentMutation = useDeleteDocument();
+  
+  // Filter documents by type
+  const linesheetDocuments = documents.filter(doc => doc.type === 'line_sheet');
+  const purchaseOrderDocuments = documents.filter(doc => doc.type === 'purchase_order');
 
   // Top nav links
   const navLinks = [
@@ -518,9 +530,31 @@ function CollectionSettingsPage() {
                     
                     {/* FileUpload Component */}
                     <FileUpload
-                      onFilesSelected={(files) => {
-                        console.log('Linesheet files selected:', files);
-                        // TODO: Handle file upload
+                      initialFiles={linesheetDocuments}
+                      onFilesSelected={async (files) => {
+                        // Upload each file immediately
+                        for (const file of files) {
+                          try {
+                            await uploadDocumentMutation.mutateAsync({
+                              collectionId,
+                              file,
+                              type: 'line_sheet'
+                            });
+                          } catch (error) {
+                            console.error('Failed to upload linesheet:', error);
+                          }
+                        }
+                      }}
+                      onFileRemove={async (documentId) => {
+                        // Delete file immediately
+                        try {
+                          await deleteDocumentMutation.mutateAsync({
+                            collectionId,
+                            documentId
+                          });
+                        } catch (error) {
+                          console.error('Failed to delete linesheet:', error);
+                        }
                       }}
                     />
                   </div>
@@ -575,9 +609,31 @@ function CollectionSettingsPage() {
                     
                     {/* POFileUpload Component */}
                     <POFileUpload
-                      onFilesSelected={(files) => {
-                        console.log('Purchase Order files selected:', files);
-                        // TODO: Handle file upload
+                      initialFiles={purchaseOrderDocuments}
+                      onFilesSelected={async (files) => {
+                        // Upload each file immediately
+                        for (const file of files) {
+                          try {
+                            await uploadDocumentMutation.mutateAsync({
+                              collectionId,
+                              file,
+                              type: 'purchase_order'
+                            });
+                          } catch (error) {
+                            console.error('Failed to upload purchase order:', error);
+                          }
+                        }
+                      }}
+                      onFileRemove={async (documentId) => {
+                        // Delete file immediately
+                        try {
+                          await deleteDocumentMutation.mutateAsync({
+                            collectionId,
+                            documentId
+                          });
+                        } catch (error) {
+                          console.error('Failed to delete purchase order:', error);
+                        }
                       }}
                     />
                   </div>

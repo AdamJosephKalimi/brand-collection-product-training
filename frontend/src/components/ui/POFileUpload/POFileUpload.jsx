@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import styles from './POFileUpload.module.css';
 
 /**
@@ -8,6 +8,8 @@ import styles from './POFileUpload.module.css';
  * Shows empty state when no files, filled state with file list when files uploaded
  * 
  * @param {function} onFilesSelected - Callback when files are selected (receives File array)
+ * @param {function} onFileRemove - Callback when file is removed (receives file id)
+ * @param {Array} initialFiles - Initial files to display (from DB)
  * @param {string} title - Main title text (empty state)
  * @param {string} subtitle - Subtitle/description text (empty state)
  * @param {string} buttonText - Button text (empty state)
@@ -17,6 +19,8 @@ import styles from './POFileUpload.module.css';
  */
 function POFileUpload({ 
   onFilesSelected,
+  onFileRemove,
+  initialFiles = [],
   title = 'Upload Purchase Order Files',
   subtitle = 'Required for deck generation',
   buttonText = 'Choose PO Files',
@@ -28,6 +32,21 @@ function POFileUpload({
   const fileInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  
+  // Initialize with existing files from DB
+  useEffect(() => {
+    if (initialFiles && initialFiles.length > 0) {
+      const formattedFiles = initialFiles.map(doc => ({
+        id: doc.document_id,
+        name: doc.name,
+        size: doc.file_size_bytes,
+        type: doc.file_type,
+        url: doc.url,
+        isExisting: true // Flag to identify DB files vs newly selected files
+      }));
+      setUploadedFiles(formattedFiles);
+    }
+  }, [initialFiles]);
 
   const handleFileSelect = (files) => {
     if (files && files.length > 0) {
@@ -47,6 +66,11 @@ function POFileUpload({
 
   const handleRemoveFile = (fileId) => {
     setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+    // Notify parent if this is an existing file from DB
+    const fileToRemove = uploadedFiles.find(f => f.id === fileId);
+    if (fileToRemove?.isExisting && onFileRemove) {
+      onFileRemove(fileId);
+    }
   };
 
   const getFileTypeLabel = (filename) => {
