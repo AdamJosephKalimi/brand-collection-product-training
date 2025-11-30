@@ -354,49 +354,63 @@ useEffect(() => {
 
 ## Implementation Steps
 
-### **Phase 1: Backend Infrastructure**
+### **Phase 1: Backend Infrastructure** ✅ COMPLETE
 1. ✅ Create background task service file (`background_tasks.py`)
-2. ✅ Add processing_status schema to Firestore
+2. ✅ Add processing_status schema to Firestore (documented, will be created on first use)
 3. ✅ Implement progress update helpers
 4. ✅ Implement cancellation check helpers
 5. ✅ Add stale job detection on server startup
 
-### **Phase 2: Backend API Endpoints**
-1. ✅ Update upload endpoint to support `process=false`
+### **Phase 2: Backend API Endpoints** ✅ COMPLETE
+1. ✅ Update upload endpoint to support `process=false` (parameter added, TODO in service)
 2. ✅ Create `/documents/process` endpoint
 3. ✅ Create `/processing-status` endpoint
 4. ✅ Create `/documents/process/cancel` endpoint
 5. ✅ Create `/items/generate/cancel` endpoint
-6. ✅ Update existing `/items/generate` to use background jobs
+6. ✅ Update existing `/items/generate` to use background tasks
 
-### **Phase 3: Background Task Implementation**
-1. ✅ Extract document processing logic to background task
-2. ✅ Add progress updates at each phase
-3. ✅ Add cancellation checks between phases
-4. ✅ Extract item generation logic to background task
-5. ✅ Add progress updates at each step
-6. ✅ Add cancellation checks between steps
-7. ✅ Implement error handling and cleanup
+### **Phase 3: Background Task Implementation** ✅ COMPLETE
+1. ✅ Refactored `_parse_and_store_text()` with progress callback
+2. ✅ Wired up document processing background task
+3. ✅ Add progress updates at each phase (6 phases)
+4. ✅ Add cancellation checks between phases and documents
+5. ✅ Wired up item generation background task
+6. ✅ Add progress updates at each step (7 steps)
+7. ✅ Add cancellation checks between steps
+8. ✅ Implement cleanup functions for partial data
+9. ✅ Error handling with Firestore status updates
+10. 📝 TODO: Support multiple linesheets in item generation
 
-### **Phase 4: Frontend Hooks**
-1. ✅ Create `useProcessingStatus` hook
-2. ✅ Create `useProcessDocuments` mutation hook
-3. ✅ Create `useGenerateItems` mutation hook
-4. ✅ Create `useCancelProcessing` mutation hook
+### **Phase 4: Frontend Hooks** ✅ COMPLETE
+1. ✅ Created `useProcessingStatus` hook with automatic polling
+2. ✅ Created `useProcessDocuments` mutation hook
+3. ✅ Created `useCancelDocumentProcessing` mutation hook
+4. ✅ Created `useGenerateItems` mutation hook
+5. ✅ Created `useCancelItemGeneration` mutation hook
+6. ✅ All hooks follow React Query patterns with proper invalidation
 
-### **Phase 5: Frontend UI Components**
-1. ✅ Create `ProcessingProgress` component
-2. ✅ Update `FileUpload` to stage files without processing
-3. ✅ Add "Process Documents" button to Collection Info
-4. ✅ Add "Generate Items" button to Collection Items
-5. ✅ Add "Cancel Processing" buttons
-6. ✅ Add "Retry Processing" buttons
+### **Phase 5: Frontend UI Components** ✅ COMPLETE
+1. ✅ Created `ProcessingProgress` component with progress bar, status icons, and cancel button
+2. ✅ Updated upload service to support `process=false` parameter
+3. ✅ Updated `CollectionSettingsPage` to upload with `process=false` (staging only)
+4. ✅ Added "Process Documents" button to Upload Collection Assets section header
+5. ✅ Added `ProcessingProgress` component for document processing
+6. ✅ Document processing button disabled when no documents or processing active
+7. ✅ Cancel button integrated with `useCancelDocumentProcessing` hook
+8. ✅ Added "Generate Items" button to Collection Items tab header
+9. ✅ Added `ProcessingProgress` component for item generation
+10. ✅ Item generation button disabled when no categories or processing active
+11. ✅ Cancel button integrated with `useCancelItemGeneration` hook
 
-### **Phase 6: Tab Access Control**
-1. ✅ Implement tab visibility/enablement logic
-2. ✅ Add state detection on page load
-3. ✅ Add "Continue to Deck Settings" button
-4. ✅ Update tab styling for disabled state
+### **Phase 6: Tab Access Control** ✅ COMPLETE
+1. ✅ Updated `Tabs` component to support disabled state
+2. ✅ Added disabled tab styling (opacity 0.5, not clickable)
+3. ✅ Implemented tab enablement logic based on processing completion
+4. ✅ Deck Settings & Collection Items tabs: Enabled when `document_processing.status === 'completed'` AND categories exist
+5. ✅ Generate Deck tab: Enabled when `item_generation.status === 'completed'` AND items exist
+6. ✅ Added state detection on page load to resume polling if processing active
+7. ✅ Disabled "Continue to Deck Settings" button until categories ready
+8. ✅ Automatic tab enablement when processing completes
 
 ### **Phase 7: Error Handling**
 1. ✅ Display error messages with details

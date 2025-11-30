@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import TopNav from '../../components/features/TopNav/TopNav';
 import Sidebar from '../../components/features/Sidebar/Sidebar';
 import Tabs from '../../components/ui/Tabs/Tabs';
@@ -21,19 +22,27 @@ import { useBrands } from '../../hooks/useBrands';
 import { useCollection } from '../../hooks/useCollection';
 import { useUpdateCollection } from '../../hooks/useCollectionMutations';
 import { useCollectionDocuments, useUploadDocument, useDeleteDocument } from '../../hooks/useCollectionDocuments';
+import { useProcessingStatus } from '../../hooks/useProcessingStatus';
+import { useProcessDocuments, useCancelDocumentProcessing } from '../../hooks/useDocumentProcessing';
+import { useGenerateItems, useCancelItemGeneration } from '../../hooks/useItemGeneration';
+import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
 
 function CollectionSettingsPage() {
   const { collectionId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   // Fetch brands with React Query
-  const { data: brands = [], isLoading, isError, error } = useBrands();
+  const { data: brands = [] } = useBrands();
   
   // Fetch collection details
-  const { data: collectionData, isLoading: collectionLoading, isError: collectionError } = useCollection(collectionId);
+  const { data: collectionData } = useCollection(collectionId);
   
   // Fetch collection documents
-  const { data: documents = [], isLoading: documentsLoading } = useCollectionDocuments(collectionId);
+  const { data: documents = [] } = useCollectionDocuments(collectionId);
+  
+  // Fetch processing status
+  const { data: processingStatus } = useProcessingStatus(collectionId);
   
   // Collection update mutation
   const updateCollectionMutation = useUpdateCollection();
@@ -41,6 +50,12 @@ function CollectionSettingsPage() {
   // Document mutations
   const uploadDocumentMutation = useUploadDocument();
   const deleteDocumentMutation = useDeleteDocument();
+  
+  // Processing mutations
+  const processDocumentsMutation = useProcessDocuments();
+  const cancelDocProcessingMutation = useCancelDocumentProcessing();
+  const generateItemsMutation = useGenerateItems();
+  const cancelItemGenMutation = useCancelItemGeneration();
   
   // Filter documents by type
   const linesheetDocuments = documents.filter(doc => doc.type === 'line_sheet');
@@ -76,11 +91,20 @@ function CollectionSettingsPage() {
   // Tabs configuration
   const [activeTab, setActiveTab] = useState(1); // Default to Collection Info
   
+  // Compute tab enablement based on processing completion
+  const hasCategories = 
+    processingStatus?.document_processing?.status === 'completed' &&
+    collectionData?.categories?.length > 0;
+  
+  const hasItems = 
+    processingStatus?.item_generation?.status === 'completed' &&
+    collectionData?.items?.length > 0;
+  
   const tabs = [
-    { id: 1, number: 1, label: 'Collection Info' },
-    { id: 2, number: 2, label: 'Deck Settings' },
-    { id: 3, number: 3, label: 'Collection Items' },
-    { id: 4, number: 4, label: 'Generate Deck' }
+    { id: 1, number: 1, label: 'Collection Info', enabled: true },
+    { id: 2, number: 2, label: 'Deck Settings', enabled: hasCategories },
+    { id: 3, number: 3, label: 'Collection Items', enabled: hasCategories },
+    { id: 4, number: 4, label: 'Generate Deck', enabled: hasItems }
   ];
 
   // Collection Info - Collection Name, Type and Year
@@ -144,7 +168,49 @@ function CollectionSettingsPage() {
       
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateCollectionMutation.isSuccess]);
+  
+  // State detection on page load - handle processing resumption
+  useEffect(() => {
+    if (!processingStatus || !collectionData) return;
+    
+    // If processing is active, polling will automatically resume via useProcessingStatus
+    const isProcessing = 
+      processingStatus.document_processing?.status === 'processing' ||
+      processingStatus.item_generation?.status === 'processing';
+    
+    if (isProcessing) {
+      console.log('Processing in progress, polling active');
+    }
+    
+    // If processing completed, tabs will automatically enable via hasCategories/hasItems
+    if (hasCategories) {
+      console.log('Categories available, Deck Settings and Collection Items tabs enabled');
+    }
+    
+    if (hasItems) {
+      console.log('Items available, Generate Deck tab enabled');
+    }
+  }, [processingStatus, collectionData, hasCategories, hasItems]);
+  
+  // Invalidate collection query when processing completes
+  useEffect(() => {
+    if (!processingStatus) return;
+    
+    const docCompleted = processingStatus.document_processing?.status === 'completed';
+    const itemCompleted = processingStatus.item_generation?.status === 'completed';
+    
+    if (docCompleted || itemCompleted) {
+      // Refetch collection data to get updated categories/items
+      queryClient.invalidateQueries({ queryKey: ['collection', collectionId] });
+    }
+  }, [processingStatus?.document_processing?.status, processingStatus?.item_generation?.status, collectionId, queryClient]);
+
+  // Debug: Log processing status changes
+  useEffect(() => {
+    console.log('[CollectionSettingsPage] processingStatus changed:', processingStatus);
+  }, [processingStatus]);
 
   // Collection Items - View toggle and filters
   const [collectionItemsView, setCollectionItemsView] = useState('list');
@@ -484,7 +550,26 @@ function CollectionSettingsPage() {
               }}>
                 <SectionHeader
                   title="Upload Collection Assets"
+                  buttonText={processingStatus?.document_processing?.status === 'completed' ? 'Reprocess Documents' : 'Process Documents'}
+                  onButtonClick={() => {
+                    console.log('[CollectionSettingsPage] Process Documents clicked');
+                    const docIds = linesheetDocuments.map(doc => doc.document_id);
+                    processDocumentsMutation.mutate({ collectionId, documentIds: docIds });
+                  }}
+                  buttonDisabled={linesheetDocuments.length === 0 || processingStatus?.document_processing?.status === 'processing'}
                 />
+                
+                {/* Processing Progress */}
+                <div style={{ padding: '0 var(--spacing-3)' }}>
+                  <ProcessingProgress
+                    type="document"
+                    status={processingStatus?.document_processing?.status || 'idle'}
+                    currentPhase={processingStatus?.document_processing?.current_phase}
+                    progress={processingStatus?.document_processing?.progress}
+                    error={processingStatus?.document_processing?.error}
+                    onCancel={() => cancelDocProcessingMutation.mutate({ collectionId })}
+                  />
+                </div>
                 
                 {/* Section Content */}
                 <div style={{
@@ -532,13 +617,14 @@ function CollectionSettingsPage() {
                     <FileUpload
                       initialFiles={linesheetDocuments}
                       onFilesSelected={async (files) => {
-                        // Upload each file immediately
+                        // Upload each file (staged, not processed)
                         for (const file of files) {
                           try {
                             await uploadDocumentMutation.mutateAsync({
                               collectionId,
                               file,
-                              type: 'line_sheet'
+                              type: 'line_sheet',
+                              process: false
                             });
                           } catch (error) {
                             console.error('Failed to upload linesheet:', error);
@@ -611,13 +697,14 @@ function CollectionSettingsPage() {
                     <POFileUpload
                       initialFiles={purchaseOrderDocuments}
                       onFilesSelected={async (files) => {
-                        // Upload each file immediately
+                        // Upload each file (staged, not processed)
                         for (const file of files) {
                           try {
                             await uploadDocumentMutation.mutateAsync({
                               collectionId,
                               file,
-                              type: 'purchase_order'
+                              type: 'purchase_order',
+                              process: false
                             });
                           } catch (error) {
                             console.error('Failed to upload purchase order:', error);
@@ -724,9 +811,12 @@ function CollectionSettingsPage() {
                 <Button
                   variant="highlight"
                   size="lg"
+                  disabled={!hasCategories}
                   onClick={() => {
-                    console.log('Continue to Deck Settings clicked');
-                    setActiveTab(2); // Navigate to Deck Settings tab
+                    if (hasCategories) {
+                      console.log('Continue to Deck Settings clicked');
+                      setActiveTab(2); // Navigate to Deck Settings tab
+                    }
                   }}
                 >
                   Continue to Deck Settings
@@ -1025,69 +1115,26 @@ function CollectionSettingsPage() {
               borderRadius: 'var(--border-radius-md)',
               marginBottom: 'var(--spacing-4)'
             }}>
-              {/* Collection Items Header */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: 'var(--spacing-3)',
-                borderBottom: '1px solid var(--border-light)'
-              }}>
-                {/* Left: Title + Item Counter */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px'
-                }}>
-                  <h2 style={{
-                    margin: 0,
-                    fontFamily: 'var(--font-family-heading)',
-                    fontSize: 'var(--font-size-md)',
-                    fontWeight: 'var(--font-weight-semi-bold)',
-                    lineHeight: 'var(--line-height-md)',
-                    color: 'var(--text-brand)'
-                  }}>
-                    Collection Items
-                  </h2>
-                  <PillCounter variant="default">
-                    80 items
-                  </PillCounter>
-                </div>
-
-                {/* Right: View Toggle + Buttons */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px'
-                }}>
-                  <ViewToggle
-                    activeView={collectionItemsView}
-                    onViewChange={setCollectionItemsView}
-                  />
-                  <Button
-                    variant="dark"
-                    onClick={() => {
-                      console.log('Sync Purchase Order clicked');
-                      // TODO: Add sync logic
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M10.5 6C10.5 8.48528 8.48528 10.5 6 10.5C3.51472 10.5 1.5 8.48528 1.5 6C1.5 3.51472 3.51472 1.5 6 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      <path d="M10.5 1.5V6H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Sync Purchase Order
-                  </Button>
-                  <Button
-                    variant="primary"
-                    disabled={true}
-                    onClick={() => {
-                      console.log('Save Changes clicked');
-                      // TODO: Add save logic
-                    }}
-                  >
-                    Save Changes
-                  </Button>
-                </div>
+              <SectionHeader
+                title="Collection Items"
+                buttonText={processingStatus?.item_generation?.status === 'completed' ? 'Regenerate Items' : 'Generate Items'}
+                onButtonClick={() => {
+                  console.log('[CollectionSettingsPage] Generate Items clicked');
+                  generateItemsMutation.mutate({ collectionId });
+                }}
+                buttonDisabled={!hasCategories || processingStatus?.item_generation?.status === 'processing'}
+              />
+              
+              {/* Processing Progress */}
+              <div style={{ padding: '0 var(--spacing-3)' }}>
+                <ProcessingProgress
+                  type="item"
+                  status={processingStatus?.item_generation?.status || 'idle'}
+                  currentPhase={processingStatus?.item_generation?.current_step}
+                  progress={processingStatus?.item_generation?.progress}
+                  error={processingStatus?.item_generation?.error}
+                  onCancel={() => cancelItemGenMutation.mutate({ collectionId })}
+                />
               </div>
 
               {/* Search and Filters Section */}

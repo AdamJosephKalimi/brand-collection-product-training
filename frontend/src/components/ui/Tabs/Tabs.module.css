@@ -52,9 +52,16 @@
 }
 
 /* Hover state for inactive tabs */
-.tab:not(.active):hover {
+.tab:not(.active):not(.disabled):hover {
   background-color: var(--background-active);
   border-color: var(--border-medium);
+}
+
+/* Disabled tab state */
+.tab.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* Focus state for accessibility */

@@ -2,10 +2,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
+import logging
 from .routers import auth, pinecone_test, storage_test, parser_test, ocr_test, chunking_test, embedding_test, brand_management, collection_management, brand_collection_test, item_management, brand_document_management, collection_document_management, llm_test, category_generation, item_generation, intro_slides, presentation
+from .services.firebase_service import FirebaseService
+from .services.background_tasks import detect_and_restart_stale_jobs
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Product Training AI API",
@@ -41,6 +47,29 @@ app.include_router(category_generation.router)
 app.include_router(item_generation.router)
 app.include_router(intro_slides.router)
 app.include_router(presentation.router)
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Startup event handler.
+    Detects and handles stale processing jobs from previous server sessions.
+    """
+    try:
+        logger.info("Server starting up...")
+        
+        # Initialize Firebase service and get Firestore client
+        firebase_service = FirebaseService()
+        db = firebase_service.db
+        
+        # Detect and restart stale jobs
+        await detect_and_restart_stale_jobs(db)
+        
+        logger.info("Startup complete")
+        
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+        # Don't raise - allow server to start even if stale job detection fails
+
 
 @app.get("/")
 async def root():

@@ -34,15 +34,17 @@ export const useCollectionDocuments = (collectionId) => {
  * @param {string} collectionId - The collection ID
  * @param {File} file - The file to upload
  * @param {string} type - Document type (LINESHEET, PURCHASE_ORDER, OTHER)
+ * @param {boolean} process - Whether to process immediately (default: false for staging)
  * @returns {Promise<Object>} Uploaded document data
  */
-const uploadDocument = async (collectionId, file, type) => {
+const uploadDocument = async (collectionId, file, type, process = false) => {
   const token = await getAuthToken();
   const formData = new FormData();
   formData.append('file', file);
   if (type) {
     formData.append('type', type);
   }
+  formData.append('process', process);
   
   const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents`, {
     method: 'POST',
@@ -91,7 +93,7 @@ export const useUploadDocument = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ collectionId, file, type }) => uploadDocument(collectionId, file, type),
+    mutationFn: ({ collectionId, file, type, process }) => uploadDocument(collectionId, file, type, process),
     onSuccess: (data, variables) => {
       // Invalidate documents list to refetch
       queryClient.invalidateQueries({ queryKey: ['collectionDocuments', variables.collectionId] });

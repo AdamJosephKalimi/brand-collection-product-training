@@ -5,13 +5,15 @@ import styles from './Tabs.module.css';
  * Tab Item Component
  * Individual tab with number badge and label
  */
-function TabItem({ number, label, active, onClick }) {
+function TabItem({ number, label, active, disabled, onClick }) {
   return (
     <button
-      className={`${styles.tab} ${active ? styles.active : ''}`}
-      onClick={onClick}
+      className={`${styles.tab} ${active ? styles.active : ''} ${disabled ? styles.disabled : ''}`}
+      onClick={disabled ? undefined : onClick}
       aria-selected={active}
+      aria-disabled={disabled}
       role="tab"
+      disabled={disabled}
     >
       <div className={styles.badge}>
         <span className={styles.badgeNumber}>{number}</span>
@@ -25,7 +27,7 @@ function TabItem({ number, label, active, onClick }) {
  * Tabs Component
  * Numbered tab navigation with active state
  * 
- * @param {Array} tabs - Array of {number, label, id} objects
+ * @param {Array} tabs - Array of {number, label, id, enabled} objects
  * @param {string} activeTab - ID of the active tab
  * @param {function} onTabChange - Callback when tab is clicked
  */
@@ -38,6 +40,7 @@ function Tabs({ tabs, activeTab, onTabChange, className = '' }) {
           number={tab.number}
           label={tab.label}
           active={activeTab === tab.id}
+          disabled={tab.enabled === false}
           onClick={() => onTabChange(tab.id)}
         />
       ))}
