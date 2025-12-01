@@ -78,10 +78,21 @@ function ProcessingProgress({
     if (isCompleted) return 'Completed';
     if (isFailed) return 'Failed';
     if (isCancelled) return 'Cancelled';
-    return currentPhase || 'Processing...';
+    // Ensure currentPhase is a string, not an object
+    if (currentPhase && typeof currentPhase === 'string') {
+      return currentPhase;
+    }
+    return 'Processing...';
   };
 
-  const percentage = progress?.percentage || 0;
+  // Safely extract percentage - handle both number and nested object cases
+  const percentage = typeof progress?.percentage === 'number' ? progress.percentage : 0;
+  
+  // Safely extract phase/step counts - ensure they're numbers
+  const currentStep = typeof progress?.phase === 'number' ? progress.phase : 
+                      typeof progress?.step === 'number' ? progress.step : 0;
+  const totalSteps = typeof progress?.total_phases === 'number' ? progress.total_phases :
+                     typeof progress?.total_steps === 'number' ? progress.total_steps : 0;
 
   return (
     <div className={styles.container}>
@@ -92,9 +103,9 @@ function ProcessingProgress({
           <span className={styles.statusText} style={{ color: getStatusColor() }}>
             {getStatusText()}
           </span>
-          {progress && isProcessing && (
+          {progress && isProcessing && totalSteps > 0 && (
             <span className={styles.progressText}>
-              ({progress.phase || progress.step}/{progress.total_phases || progress.total_steps})
+              ({currentStep}/{totalSteps})
             </span>
           )}
         </div>
@@ -131,7 +142,7 @@ function ProcessingProgress({
             <path d="M8 4V9" stroke="var(--color-error)" strokeWidth="1.5" strokeLinecap="round"/>
             <circle cx="8" cy="11.5" r="0.75" fill="var(--color-error)"/>
           </svg>
-          <span>{error}</span>
+          <span>{typeof error === 'string' ? error : error?.message || 'An error occurred'}</span>
         </div>
       )}
     </div>

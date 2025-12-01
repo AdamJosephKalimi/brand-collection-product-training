@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import TopNav from '../../components/features/TopNav/TopNav';
@@ -41,8 +41,8 @@ function CollectionSettingsPage() {
   // Fetch collection documents
   const { data: documents = [] } = useCollectionDocuments(collectionId);
   
-  // Fetch processing status
-  const { data: processingStatus } = useProcessingStatus(collectionId);
+  // Fetch processing status (with refetch for manual polling)
+  const { data: processingStatus, refetch: refetchProcessingStatus } = useProcessingStatus(collectionId);
   
   // Collection update mutation
   const updateCollectionMutation = useUpdateCollection();
@@ -211,6 +211,48 @@ function CollectionSettingsPage() {
   useEffect(() => {
     console.log('[CollectionSettingsPage] processingStatus changed:', processingStatus);
   }, [processingStatus]);
+
+  // Manual polling for processing status
+  // React Query's refetchInterval doesn't work reliably with optimistic updates,
+  // so we handle polling manually with setInterval
+  // Use a ref to ensure only ONE interval exists at a time
+  const pollingIntervalRef = useRef(null);
+  
+  useEffect(() => {
+    const isDocProcessing = processingStatus?.document_processing?.status === 'processing';
+    const isItemProcessing = processingStatus?.item_generation?.status === 'processing';
+    const shouldPoll = isDocProcessing || isItemProcessing;
+    
+    // Always clear existing interval first to prevent duplicates
+    if (pollingIntervalRef.current) {
+      console.log('[CollectionSettingsPage] Clearing existing polling interval');
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    
+    if (shouldPoll) {
+      console.log('[CollectionSettingsPage] Starting manual polling (every 2 seconds)');
+      
+      pollingIntervalRef.current = setInterval(() => {
+        console.log('[CollectionSettingsPage] Polling - calling refetch');
+        refetchProcessingStatus();
+      }, 2000);
+    } else {
+      console.log('[CollectionSettingsPage] Not polling - status:', {
+        docStatus: processingStatus?.document_processing?.status,
+        itemStatus: processingStatus?.item_generation?.status
+      });
+    }
+    
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      if (pollingIntervalRef.current) {
+        console.log('[CollectionSettingsPage] Cleanup - stopping polling');
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [processingStatus?.document_processing?.status, processingStatus?.item_generation?.status, refetchProcessingStatus]);
 
   // Collection Items - View toggle and filters
   const [collectionItemsView, setCollectionItemsView] = useState('list');

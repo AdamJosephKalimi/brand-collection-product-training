@@ -10,10 +10,13 @@ from ..services.background_tasks import (
     process_collection_documents_task,
     initialize_processing_status,
     update_progress,
-    cleanup_for_reprocessing
+    cleanup_for_reprocessing,
+    background_executor,
+    run_async_task_in_thread
 )
 from ..utils.auth import get_current_user
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 firebase_service = FirebaseService()
@@ -320,8 +323,12 @@ async def process_collection_documents(
         initialize_processing_status(firebase_service.db, collection_id, 'document_processing')
         logger.info(f"Initialized processing status for collection {collection_id}")
         
-        # Start background task (cleanup already done, status already set)
-        background_tasks.add_task(
+        # Start background task in thread pool (cleanup already done, status already set)
+        # Using run_in_executor with wrapper to run async task in separate thread/event loop
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(
+            background_executor,
+            run_async_task_in_thread,
             process_collection_documents_task,
             collection_id,
             document_ids,
@@ -394,9 +401,8 @@ async def get_processing_status(
     try:
         user_id = current_user["uid"]
         
-        # Verify user has access to collection
-        # (This will raise 404 if collection doesn't exist or user doesn't have access)
-        await collection_document_service.get_collection_documents(collection_id, user_id)
+        # Verify user has access to collection (lightweight check - no document fetching)
+        await collection_document_service.validate_collection_ownership(collection_id, user_id)
         
         # Get processing status from Firestore
         collection_ref = firebase_service.db.collection('collections').document(collection_id)
@@ -410,6 +416,9 @@ async def get_processing_status(
         
         data = collection_doc.to_dict()
         processing_status = data.get('processing_status', {})
+        
+        # Debug log to see what we're returning
+        logger.info(f"GET /processing-status returning: {processing_status}")
         
         # Return default status if not set
         if not processing_status:

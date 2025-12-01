@@ -8,10 +8,13 @@ from ..services.firebase_service import FirebaseService
 from ..services.background_tasks import (
     generate_collection_items_task,
     initialize_processing_status,
-    cleanup_partial_items
+    cleanup_partial_items,
+    background_executor,
+    run_async_task_in_thread
 )
 from ..utils.auth import get_current_user
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 firebase_service = FirebaseService()
@@ -102,8 +105,12 @@ async def generate_items_for_collection(
         initialize_processing_status(firebase_service.db, collection_id, 'item_generation')
         logger.info(f"Initialized item generation status for collection {collection_id}")
         
-        # Start background task (cleanup already done, status already set)
-        background_tasks.add_task(
+        # Start background task in thread pool (cleanup already done, status already set)
+        # Using run_in_executor with wrapper to run async task in separate thread/event loop
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(
+            background_executor,
+            run_async_task_in_thread,
             generate_collection_items_task,
             collection_id,
             firebase_service.db

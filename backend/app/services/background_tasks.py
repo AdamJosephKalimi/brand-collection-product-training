@@ -9,11 +9,41 @@ This module provides:
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+import asyncio
+from typing import List, Dict, Any, Optional, Callable, Coroutine
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
+
+# Thread pool for running background tasks without blocking the event loop
+background_executor = ThreadPoolExecutor(max_workers=2)
+
+
+def run_async_task_in_thread(async_func: Callable[..., Coroutine], *args, **kwargs) -> None:
+    """
+    Wrapper to run an async function in a thread pool executor.
+    
+    Creates a new event loop in the thread and runs the async function to completion.
+    This allows async background tasks to run without blocking the main FastAPI event loop.
+    
+    Args:
+        async_func: The async function to run
+        *args: Positional arguments to pass to the function
+        **kwargs: Keyword arguments to pass to the function
+    """
+    try:
+        # Create a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            # Run the async function to completion
+            loop.run_until_complete(async_func(*args, **kwargs))
+        finally:
+            loop.close()
+    except Exception as e:
+        logger.error(f"Error running async task in thread: {e}")
 
 
 # ============================================================================

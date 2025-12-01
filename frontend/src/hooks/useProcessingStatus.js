@@ -59,26 +59,9 @@ export const useProcessingStatus = (collectionId) => {
       return result;
     },
     enabled: !!collectionId,
-    refetchInterval: (query) => {
-      // Poll every 2 seconds if either process is active
-      const data = query.state.data;
-      if (!data) {
-        console.log('[useProcessingStatus] refetchInterval: no data, not polling');
-        return false;
-      }
-      
-      const docProcessing = data.document_processing?.status === 'processing';
-      const itemGeneration = data.item_generation?.status === 'processing';
-      const shouldPoll = (docProcessing || itemGeneration) ? 2000 : false;
-      
-      console.log('[useProcessingStatus] refetchInterval:', {
-        docStatus: data.document_processing?.status,
-        itemStatus: data.item_generation?.status,
-        shouldPoll
-      });
-      
-      return shouldPoll;
-    },
+    // NOTE: We removed refetchInterval here because React Query's interval mechanism
+    // doesn't work reliably with optimistic updates. Polling is now handled manually
+    // in the component using useEffect + setInterval with the refetch function.
     retry: (failureCount, error) => {
       // Retry up to 3 times for auth errors (token refresh)
       // Retry up to 2 times for other errors
@@ -92,6 +75,6 @@ export const useProcessingStatus = (collectionId) => {
       // Exponential backoff for other errors
       return Math.min(500 * (2 ** attemptIndex), 3000);
     },
-    refetchOnWindowFocus: false, // Don't refetch on window focus during polling
+    refetchOnWindowFocus: false,
   });
 };
