@@ -51,6 +51,29 @@ const cancelDocumentProcessing = async (collectionId) => {
 };
 
 /**
+ * Mark document processing results as stale
+ * 
+ * @param {string} collectionId - The collection ID
+ * @returns {Promise<Object>} Mark stale response
+ */
+const markDocumentsStale = async (collectionId) => {
+  const token = await getAuthToken();
+  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents/mark-stale`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to mark documents as stale');
+  }
+  
+  return await response.json();
+};
+
+/**
  * Hook for starting document processing
  * 
  * @returns {Object} Mutation object with mutate function and state
@@ -143,6 +166,43 @@ export const useCancelDocumentProcessing = () => {
     onSuccess: (data, variables) => {
       // Invalidate processing status to reflect cancellation
       queryClient.invalidateQueries({ queryKey: ['processingStatus', variables.collectionId] });
+    },
+  });
+};
+
+/**
+ * Hook for marking document processing as stale
+ * 
+ * Called when staged documents change after processing has completed.
+ * This enables the "Process Documents" button without deleting any data.
+ * 
+ * @returns {Object} Mutation object with mutate function and state
+ * 
+ * @example
+ * const markStaleMutation = useMarkDocumentsStale();
+ * 
+ * markStaleMutation.mutate(
+ *   { collectionId: '123' },
+ *   {
+ *     onSuccess: () => console.log('Marked as stale'),
+ *     onError: (error) => console.error(error.message)
+ *   }
+ * );
+ */
+export const useMarkDocumentsStale = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ collectionId }) => markDocumentsStale(collectionId),
+    onSuccess: (data, variables) => {
+      // Update processing status to reflect stale state
+      queryClient.setQueryData(['processingStatus', variables.collectionId], (old) => ({
+        ...old,
+        document_processing: {
+          ...old?.document_processing,
+          is_stale: true
+        }
+      }));
     },
   });
 };

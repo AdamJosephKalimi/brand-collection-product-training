@@ -127,7 +127,8 @@ def initialize_processing_status(
     db: firestore.Client,
     collection_id: str,
     process_type: str,
-    task_id: Optional[str] = None
+    task_id: Optional[str] = None,
+    document_ids: Optional[List[str]] = None
 ) -> None:
     """
     Initialize processing status when starting a new process.
@@ -137,6 +138,7 @@ def initialize_processing_status(
         collection_id: Collection ID
         process_type: Type of process ("document_processing" or "item_generation")
         task_id: Optional task identifier
+        document_ids: Optional list of document IDs being processed (for document_processing)
     """
     try:
         collection_ref = db.collection('collections').document(collection_id)
@@ -156,7 +158,9 @@ def initialize_processing_status(
                 'total_steps': 7 if process_type == 'item_generation' else 0,
                 'percentage': 0
             },
-            'error': None
+            'error': None,
+            'is_stale': False,  # Results are fresh when processing starts
+            'processed_document_ids': document_ids if process_type == 'document_processing' else None
         }
         
         collection_ref.update({
@@ -189,10 +193,36 @@ def mark_completed(
         process_type,
         status='completed',
         completed_at=datetime.utcnow().isoformat() + 'Z',
+        is_stale=False,  # Results are fresh on completion
         progress={
             'percentage': 100
         }
     )
+
+
+def mark_stale(
+    db: firestore.Client,
+    collection_id: str,
+    process_type: str
+) -> None:
+    """
+    Mark processing results as stale (outdated).
+    Called when staged documents change after processing.
+    
+    Args:
+        db: Firestore client
+        collection_id: Collection ID
+        process_type: Type of process ("document_processing" or "item_generation")
+    """
+    try:
+        collection_ref = db.collection('collections').document(collection_id)
+        collection_ref.update({
+            f'processing_status.{process_type}.is_stale': True,
+            f'processing_status.{process_type}.last_updated': datetime.utcnow().isoformat() + 'Z'
+        })
+        logger.info(f"Marked {process_type} as stale for collection {collection_id}")
+    except Exception as e:
+        logger.error(f"Error marking {process_type} as stale: {e}")
 
 
 def mark_failed(
@@ -375,16 +405,18 @@ async def cleanup_partial_document_data(
 async def cleanup_for_reprocessing(
     db: firestore.Client,
     collection_id: str,
-    document_ids: List[str]
+    current_document_ids: List[str]
 ) -> None:
     """
     Clean up all data from previous processing to allow fresh reprocessing.
-    Deletes categories, structured_products, and document processing fields.
+    - Deletes categories from collection
+    - Cleans up processing fields from current documents
+    - Deletes orphaned documents (documents no longer in staging)
     
     Args:
         db: Firestore client
         collection_id: Collection ID
-        document_ids: List of document IDs to clean up
+        current_document_ids: List of currently staged document IDs
     """
     try:
         logger.info(f"Cleaning up previous processing data for reprocessing collection {collection_id}")
@@ -396,8 +428,26 @@ async def cleanup_for_reprocessing(
         })
         logger.info("Deleted categories from collection")
         
-        # 2. Clean up document processing fields
-        await cleanup_partial_document_data(db, collection_id, document_ids)
+        # 2. Get all existing documents and find orphans
+        docs_ref = db.collection('collections').document(collection_id).collection('documents')
+        all_docs = docs_ref.stream()
+        
+        orphaned_doc_ids = []
+        for doc in all_docs:
+            if doc.id not in current_document_ids:
+                orphaned_doc_ids.append(doc.id)
+        
+        # 3. Delete orphaned documents entirely (no longer staged)
+        for orphan_id in orphaned_doc_ids:
+            doc_ref = docs_ref.document(orphan_id)
+            doc_ref.delete()
+            logger.info(f"Deleted orphaned document: {orphan_id}")
+        
+        if orphaned_doc_ids:
+            logger.info(f"Deleted {len(orphaned_doc_ids)} orphaned documents")
+        
+        # 4. Clean up processing fields from current documents
+        await cleanup_partial_document_data(db, collection_id, current_document_ids)
         
         logger.info(f"Cleanup for reprocessing complete for collection {collection_id}")
         

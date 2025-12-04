@@ -23,7 +23,7 @@ import { useCollection } from '../../hooks/useCollection';
 import { useUpdateCollection } from '../../hooks/useCollectionMutations';
 import { useCollectionDocuments, useUploadDocument, useDeleteDocument } from '../../hooks/useCollectionDocuments';
 import { useProcessingStatus } from '../../hooks/useProcessingStatus';
-import { useProcessDocuments, useCancelDocumentProcessing } from '../../hooks/useDocumentProcessing';
+import { useProcessDocuments, useCancelDocumentProcessing, useMarkDocumentsStale } from '../../hooks/useDocumentProcessing';
 import { useGenerateItems, useCancelItemGeneration } from '../../hooks/useItemGeneration';
 import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
 
@@ -54,12 +54,36 @@ function CollectionSettingsPage() {
   // Processing mutations
   const processDocumentsMutation = useProcessDocuments();
   const cancelDocProcessingMutation = useCancelDocumentProcessing();
+  const markDocumentsStaleMutation = useMarkDocumentsStale();
   const generateItemsMutation = useGenerateItems();
   const cancelItemGenMutation = useCancelItemGeneration();
   
   // Filter documents by type
   const linesheetDocuments = documents.filter(doc => doc.type === 'line_sheet');
   const purchaseOrderDocuments = documents.filter(doc => doc.type === 'purchase_order');
+  
+  // Compute Process Documents button state
+  // Button should be ENABLED when:
+  // - At least 1 Line Sheet AND at least 1 PO exist AND (never processed OR failed OR cancelled OR stale)
+  // Button should be DISABLED when:
+  // - Missing Line Sheet OR missing PO OR processing in progress OR (completed AND not stale)
+  const docProcessingStatus = processingStatus?.document_processing;
+  const stagedDocIds = [...linesheetDocuments, ...purchaseOrderDocuments].map(d => d.document_id);
+  const hasLineSheet = linesheetDocuments.length > 0;
+  const hasPurchaseOrder = purchaseOrderDocuments.length > 0;
+  const hasRequiredDocuments = hasLineSheet && hasPurchaseOrder;
+  const isProcessing = docProcessingStatus?.status === 'processing';
+  const isCompleted = docProcessingStatus?.status === 'completed';
+  const isFailed = docProcessingStatus?.status === 'failed';
+  const isCancelled = docProcessingStatus?.status === 'cancelled';
+  const isStale = docProcessingStatus?.is_stale === true;
+  
+  const shouldEnableProcessButton = hasRequiredDocuments && !isProcessing && (
+    !isCompleted ||  // Never completed (idle, failed, cancelled)
+    isFailed ||
+    isCancelled ||
+    isStale  // Completed but stale (docs changed)
+  );
 
   // Top nav links
   const navLinks = [
@@ -592,26 +616,24 @@ function CollectionSettingsPage() {
               }}>
                 <SectionHeader
                   title="Upload Collection Assets"
-                  buttonText={processingStatus?.document_processing?.status === 'completed' ? 'Reprocess Documents' : 'Process Documents'}
+                  buttonText="Process Documents"
                   onButtonClick={() => {
                     console.log('[CollectionSettingsPage] Process Documents clicked');
-                    const docIds = linesheetDocuments.map(doc => doc.document_id);
-                    processDocumentsMutation.mutate({ collectionId, documentIds: docIds });
+                    processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds });
                   }}
-                  buttonDisabled={linesheetDocuments.length === 0 || processingStatus?.document_processing?.status === 'processing'}
+                  buttonDisabled={!shouldEnableProcessButton}
                 />
                 
                 {/* Processing Progress */}
-                <div style={{ padding: '0 var(--spacing-3)' }}>
-                  <ProcessingProgress
-                    type="document"
-                    status={processingStatus?.document_processing?.status || 'idle'}
-                    currentPhase={processingStatus?.document_processing?.current_phase}
-                    progress={processingStatus?.document_processing?.progress}
-                    error={processingStatus?.document_processing?.error}
-                    onCancel={() => cancelDocProcessingMutation.mutate({ collectionId })}
-                  />
-                </div>
+                <ProcessingProgress
+                  title="Document Processing Progress"
+                  status={processingStatus?.document_processing?.status || 'idle'}
+                  currentPhase={processingStatus?.document_processing?.current_phase}
+                  progress={processingStatus?.document_processing?.progress}
+                  error={processingStatus?.document_processing?.error}
+                  isStale={isStale}
+                  onCancel={() => cancelDocProcessingMutation.mutate({ collectionId })}
+                />
                 
                 {/* Section Content */}
                 <div style={{
@@ -672,6 +694,10 @@ function CollectionSettingsPage() {
                             console.error('Failed to upload linesheet:', error);
                           }
                         }
+                        // Mark processing as stale if previously completed
+                        if (isCompleted) {
+                          markDocumentsStaleMutation.mutate({ collectionId });
+                        }
                       }}
                       onFileRemove={async (documentId) => {
                         // Delete file immediately
@@ -680,6 +706,10 @@ function CollectionSettingsPage() {
                             collectionId,
                             documentId
                           });
+                          // Mark processing as stale if previously completed
+                          if (isCompleted) {
+                            markDocumentsStaleMutation.mutate({ collectionId });
+                          }
                         } catch (error) {
                           console.error('Failed to delete linesheet:', error);
                         }
@@ -693,7 +723,7 @@ function CollectionSettingsPage() {
                     flexDirection: 'column',
                     gap: '16px'
                   }}>
-                    {/* Title with Optional Tag */}
+                    {/* Title with Required Tag */}
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -710,15 +740,15 @@ function CollectionSettingsPage() {
                         Purchase Order Files
                       </h3>
                       <span style={{
-                        backgroundColor: 'var(--background-active)',
-                        color: 'var(--text-brand)',
+                        backgroundColor: 'rgba(125, 59, 81, 0.1)',
+                        color: 'var(--color-brand-wine)',
                         padding: '4px 8px',
                         borderRadius: '4px',
                         fontSize: '12px',
                         fontWeight: 'var(--font-weight-regular)',
                         lineHeight: '16px'
                       }}>
-                        Optional
+                        Required
                       </span>
                     </div>
                     
@@ -752,6 +782,10 @@ function CollectionSettingsPage() {
                             console.error('Failed to upload purchase order:', error);
                           }
                         }
+                        // Mark processing as stale if previously completed
+                        if (isCompleted) {
+                          markDocumentsStaleMutation.mutate({ collectionId });
+                        }
                       }}
                       onFileRemove={async (documentId) => {
                         // Delete file immediately
@@ -760,6 +794,10 @@ function CollectionSettingsPage() {
                             collectionId,
                             documentId
                           });
+                          // Mark processing as stale if previously completed
+                          if (isCompleted) {
+                            markDocumentsStaleMutation.mutate({ collectionId });
+                          }
                         } catch (error) {
                           console.error('Failed to delete purchase order:', error);
                         }
@@ -1168,16 +1206,14 @@ function CollectionSettingsPage() {
               />
               
               {/* Processing Progress */}
-              <div style={{ padding: '0 var(--spacing-3)' }}>
-                <ProcessingProgress
-                  type="item"
-                  status={processingStatus?.item_generation?.status || 'idle'}
-                  currentPhase={processingStatus?.item_generation?.current_step}
-                  progress={processingStatus?.item_generation?.progress}
-                  error={processingStatus?.item_generation?.error}
-                  onCancel={() => cancelItemGenMutation.mutate({ collectionId })}
-                />
-              </div>
+              <ProcessingProgress
+                title="Item Generation Progress"
+                status={processingStatus?.item_generation?.status || 'idle'}
+                currentPhase={processingStatus?.item_generation?.current_step}
+                progress={processingStatus?.item_generation?.progress}
+                error={processingStatus?.item_generation?.error}
+                onCancel={() => cancelItemGenMutation.mutate({ collectionId })}
+              />
 
               {/* Search and Filters Section */}
               <div style={{

@@ -109,8 +109,29 @@ export const useDeleteDocument = () => {
   
   return useMutation({
     mutationFn: ({ collectionId, documentId }) => deleteDocument(collectionId, documentId),
-    onSuccess: (data, variables) => {
-      // Invalidate documents list to refetch
+    onMutate: async (variables) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['collectionDocuments', variables.collectionId] });
+      
+      // Snapshot previous value
+      const previousDocuments = queryClient.getQueryData(['collectionDocuments', variables.collectionId]);
+      
+      // Optimistically remove the document from cache
+      queryClient.setQueryData(['collectionDocuments', variables.collectionId], (old) => {
+        if (!old) return old;
+        return old.filter(doc => doc.document_id !== variables.documentId);
+      });
+      
+      return { previousDocuments };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousDocuments) {
+        queryClient.setQueryData(['collectionDocuments', variables.collectionId], context.previousDocuments);
+      }
+    },
+    onSettled: (data, error, variables) => {
+      // Always refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['collectionDocuments', variables.collectionId] });
     },
   });

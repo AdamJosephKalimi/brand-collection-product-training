@@ -12,7 +12,8 @@ from ..services.background_tasks import (
     update_progress,
     cleanup_for_reprocessing,
     background_executor,
-    run_async_task_in_thread
+    run_async_task_in_thread,
+    mark_stale
 )
 from ..utils.auth import get_current_user
 import logging
@@ -320,7 +321,13 @@ async def process_collection_documents(
         
         # Initialize processing status BEFORE starting background task
         # This ensures frontend sees 'processing' status immediately
-        initialize_processing_status(firebase_service.db, collection_id, 'document_processing')
+        # Pass document_ids so we can track which documents were processed
+        initialize_processing_status(
+            firebase_service.db, 
+            collection_id, 
+            'document_processing',
+            document_ids=document_ids
+        )
         logger.info(f"Initialized processing status for collection {collection_id}")
         
         # Start background task in thread pool (cleanup already done, status already set)
@@ -516,4 +523,49 @@ async def cancel_document_processing(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to cancel processing"
+        )
+
+
+@router.post("/{collection_id}/documents/mark-stale")
+async def mark_documents_stale(
+    collection_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Mark document processing results as stale (outdated).
+    
+    Called when staged documents change after processing has completed.
+    This enables the "Process Documents" button without deleting any data.
+    
+    **Use cases:**
+    - User uploads a new document after processing
+    - User deletes a document after processing
+    
+    **Returns:**
+    - Success message with updated status
+    """
+    try:
+        user_id = current_user["uid"]
+        
+        # Verify user has access to collection
+        await collection_document_service.validate_collection_ownership(collection_id, user_id)
+        
+        # Mark as stale
+        mark_stale(firebase_service.db, collection_id, 'document_processing')
+        
+        logger.info(f"Marked document processing as stale for collection {collection_id}")
+        
+        return {
+            "message": "Processing results marked as stale",
+            "collection_id": collection_id,
+            "is_stale": True
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking processing as stale: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to mark processing as stale"
         )

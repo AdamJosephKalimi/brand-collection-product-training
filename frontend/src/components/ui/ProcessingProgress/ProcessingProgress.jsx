@@ -5,85 +5,46 @@ import Button from '../Button/Button';
 /**
  * ProcessingProgress Component
  * 
- * Displays processing progress with phase/step information, progress bar, and cancel button
+ * Displays processing progress with phase/step information, progress bar, and cancel button.
+ * Designed to sit at the top of a section, showing real-time processing status.
  * 
- * @param {string} type - Type of processing ('document' or 'item')
+ * Visibility rules:
+ * - Idle: Hidden
+ * - Stale (completed but docs changed): Hidden
+ * - Completed (not stale): Show only success message, no title/progress bar
+ * - Processing: Show full UI with title, progress bar, cancel button
+ * - Failed/Cancelled: Show status with error message
+ * 
+ * @param {string} title - Title text (e.g., "Document Processing Progress" or "Item Generation Progress")
  * @param {string} status - Processing status ('processing', 'completed', 'failed', 'cancelled', 'idle')
- * @param {string} currentPhase - Current phase/step name
+ * @param {string} currentPhase - Current phase/step name (e.g., "Extracting Structured Products")
  * @param {object} progress - Progress object with { phase/step, total_phases/total_steps, percentage }
- * @param {string} error - Error message if status is 'failed'
+ * @param {string|object} error - Error message if status is 'failed' (can be string or {message: string})
+ * @param {boolean} isStale - Whether the processing results are outdated
+ * @param {string} successMessage - Custom success message (default: "Documents Successfully Processed")
  * @param {function} onCancel - Callback when cancel button is clicked
  */
 function ProcessingProgress({ 
-  type = 'document',
+  title = 'Processing Progress',
   status = 'idle',
   currentPhase = '',
   progress = null,
   error = null,
+  isStale = false,
+  successMessage = 'Documents Successfully Processed',
   onCancel
 }) {
-  // Don't render if idle
-  if (status === 'idle') {
-    return null;
-  }
-
   const isProcessing = status === 'processing';
   const isCompleted = status === 'completed';
   const isFailed = status === 'failed';
   const isCancelled = status === 'cancelled';
 
-  const getStatusColor = () => {
-    if (isCompleted) return 'var(--color-success)';
-    if (isFailed) return 'var(--color-error)';
-    if (isCancelled) return 'var(--color-grey-40)';
-    return 'var(--color-brand-forest)';
-  };
-
-  const getStatusIcon = () => {
-    if (isCompleted) {
-      return (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="10" r="10" fill="var(--color-success)"/>
-          <path d="M6 10L9 13L14 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      );
-    }
-    if (isFailed) {
-      return (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="10" r="10" fill="var(--color-error)"/>
-          <path d="M7 7L13 13M7 13L13 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      );
-    }
-    if (isCancelled) {
-      return (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="10" r="10" fill="var(--color-grey-40)"/>
-          <rect x="6" y="9" width="8" height="2" fill="white"/>
-        </svg>
-      );
-    }
-    // Processing - spinning loader
-    return (
-      <div className={styles.spinner}>
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="10" r="8" stroke="var(--color-brand-forest)" strokeWidth="2" strokeLinecap="round" strokeDasharray="12 38"/>
-        </svg>
-      </div>
-    );
-  };
-
-  const getStatusText = () => {
-    if (isCompleted) return 'Completed';
-    if (isFailed) return 'Failed';
-    if (isCancelled) return 'Cancelled';
-    // Ensure currentPhase is a string, not an object
-    if (currentPhase && typeof currentPhase === 'string') {
-      return currentPhase;
-    }
-    return 'Processing...';
-  };
+  // Hide component when:
+  // - Idle (never processed)
+  // - Stale (completed but docs changed - user needs to reprocess)
+  if (status === 'idle' || (isCompleted && isStale)) {
+    return null;
+  }
 
   // Safely extract percentage - handle both number and nested object cases
   const percentage = typeof progress?.percentage === 'number' ? progress.percentage : 0;
@@ -94,57 +55,104 @@ function ProcessingProgress({
   const totalSteps = typeof progress?.total_phases === 'number' ? progress.total_phases :
                      typeof progress?.total_steps === 'number' ? progress.total_steps : 0;
 
-  return (
-    <div className={styles.container}>
-      {/* Status Header */}
-      <div className={styles.header}>
-        <div className={styles.statusInfo}>
-          {getStatusIcon()}
-          <span className={styles.statusText} style={{ color: getStatusColor() }}>
-            {getStatusText()}
-          </span>
-          {progress && isProcessing && totalSteps > 0 && (
-            <span className={styles.progressText}>
-              ({currentStep}/{totalSteps})
-            </span>
-          )}
+  // Get status text for display during processing
+  const getProcessingText = () => {
+    // Ensure currentPhase is a string, not an object
+    if (currentPhase && typeof currentPhase === 'string') {
+      return currentPhase;
+    }
+    return 'Processing...';
+  };
+
+  // COMPLETED STATE: Show only success message on right side (no title, no progress bar)
+  if (isCompleted && !isStale) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <div className={styles.titleSection} />
+          <div className={styles.actionsSection}>
+            <span className={styles.statusText}>{successMessage}</span>
+          </div>
         </div>
-        
-        {isProcessing && onCancel && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onCancel}
-          >
-            Cancel
-          </Button>
-        )}
       </div>
+    );
+  }
 
-      {/* Progress Bar - show during processing OR show full bar when completed */}
-      {(isProcessing || isCompleted) && (
-        <div className={styles.progressBarContainer}>
-          <div 
-            className={styles.progressBar} 
-            style={{ 
-              width: isCompleted ? '100%' : `${percentage}%`,
-              backgroundColor: isCompleted ? 'var(--color-success)' : undefined
-            }}
-          />
-        </div>
-      )}
-
-      {/* Error Message */}
-      {isFailed && error && (
+  // FAILED STATE: Show error message
+  if (isFailed) {
+    return (
+      <div className={styles.container}>
         <div className={styles.errorMessage}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="7" stroke="var(--color-error)" strokeWidth="1.5"/>
-            <path d="M8 4V9" stroke="var(--color-error)" strokeWidth="1.5" strokeLinecap="round"/>
-            <circle cx="8" cy="11.5" r="0.75" fill="var(--color-error)"/>
+            <circle cx="8" cy="8" r="8" fill="var(--color-error)"/>
+            <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span>{typeof error === 'string' ? error : error?.message || 'An error occurred'}</span>
+          <span>Processing Failed{error ? `: ${typeof error === 'string' ? error : error?.message || ''}` : ''}</span>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  // CANCELLED STATE: Show cancelled message
+  if (isCancelled) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.cancelledMessage}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="8" fill="var(--color-grey-40)"/>
+            <rect x="5" y="7.25" width="6" height="1.5" fill="white"/>
+          </svg>
+          <span>Processing Cancelled</span>
+        </div>
+      </div>
+    );
+  }
+
+  // PROCESSING STATE: Show full UI with title, progress bar, cancel button
+  return (
+    <div className={styles.container}>
+      {/* Header Row: Title on left, Status + Cancel on right */}
+      <div className={styles.header}>
+        {/* Left side: Title with spinner */}
+        <div className={styles.titleSection}>
+          <span className={styles.title}>
+            {title}
+          </span>
+          <div className={styles.spinner}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6" stroke="var(--color-brand-wine)" strokeWidth="2" strokeLinecap="round" strokeDasharray="10 30"/>
+            </svg>
+          </div>
+        </div>
+        
+        {/* Right side: Status text and Cancel button */}
+        <div className={styles.actionsSection}>
+          {/* Status text with step count */}
+          <span className={styles.statusText}>
+            {getProcessingText()}
+            {totalSteps > 0 && ` (${currentStep}/${totalSteps})`}
+          </span>
+          
+          {/* Cancel button */}
+          {onCancel && (
+            <Button 
+              variant="primary"
+              size="sm"
+              onClick={onCancel}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className={styles.progressBarContainer}>
+        <div 
+          className={styles.progressBar} 
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
     </div>
   );
 }
