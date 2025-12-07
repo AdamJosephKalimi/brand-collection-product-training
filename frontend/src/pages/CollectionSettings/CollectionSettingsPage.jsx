@@ -131,6 +131,35 @@ function CollectionSettingsPage() {
     { id: 4, number: 4, label: 'Generate Deck', enabled: hasItems }
   ];
 
+  // Track previous collectionId to detect collection switches
+  const prevCollectionIdRef = useRef(collectionId);
+  
+  // Reset to Tab 1 when switching to a collection where current tab is locked
+  useEffect(() => {
+    // Only act when collectionId actually changes
+    if (prevCollectionIdRef.current !== collectionId) {
+      // Wait for processingStatus to be defined for the new collection
+      // Only update the ref AFTER we have data to evaluate
+      if (processingStatus !== undefined) {
+        prevCollectionIdRef.current = collectionId;
+        
+        // Check if current tab is accessible
+        const isTab2Or3Accessible = hasCategories;
+        const isTab4Accessible = hasItems;
+        
+        const shouldReset = 
+          (activeTab === 2 && !isTab2Or3Accessible) ||
+          (activeTab === 3 && !isTab2Or3Accessible) ||
+          (activeTab === 4 && !isTab4Accessible);
+        
+        if (shouldReset) {
+          console.log(`[CollectionSettingsPage] Tab ${activeTab} not accessible for new collection, resetting to Tab 1`);
+          setActiveTab(1);
+        }
+      }
+    }
+  }, [collectionId, processingStatus, hasCategories, hasItems, activeTab]);
+
   // Collection Info - Collection Name, Type and Year
   const [collectionName, setCollectionName] = useState('');
   const [collectionType, setCollectionType] = useState('spring_summer');
@@ -299,23 +328,72 @@ function CollectionSettingsPage() {
     return { value: year, label: year };
   });
 
-  // Intro slides checkbox states
+  // Intro slides checkbox states - synced with collection.settings in DB
   const [introSlides, setIntroSlides] = useState({
     coverPage: true,
-    brandIntro: false,
-    brandHistory: false,
-    brandPersonality: false,
+    brandIntro: true,
+    brandHistory: true,
+    brandPersonality: true,
     brandValues: true,
     coreCollections: true,
-    flagshipStores: true,
-    productCategories: false
+    flagshipStores: true
   });
 
-  const handleIntroSlideChange = (key) => {
+  // Mapping between local state keys and Firestore field names
+  const introSlideFieldMap = {
+    coverPage: 'include_cover_page_slide',
+    brandIntro: 'include_brand_introduction_slide',
+    brandHistory: 'include_brand_history_slide',
+    brandPersonality: 'include_brand_personality_slide',
+    brandValues: 'include_brand_values_slide',
+    coreCollections: 'include_core_collection_and_signature_categories_slide',
+    flagshipStores: 'include_flagship_store_and_experiences_slide'
+  };
+
+  // Initialize intro slides from collection settings when data loads
+  useEffect(() => {
+    if (collectionData?.settings) {
+      const settings = collectionData.settings;
+      setIntroSlides({
+        coverPage: settings.include_cover_page_slide !== false,
+        brandIntro: settings.include_brand_introduction_slide !== false,
+        brandHistory: settings.include_brand_history_slide !== false,
+        brandPersonality: settings.include_brand_personality_slide !== false,
+        brandValues: settings.include_brand_values_slide !== false,
+        coreCollections: settings.include_core_collection_and_signature_categories_slide !== false,
+        flagshipStores: settings.include_flagship_store_and_experiences_slide !== false
+      });
+    }
+  }, [collectionData?.settings]);
+
+  // Handle intro slide checkbox change with optimistic update and DB save
+  const handleIntroSlideChange = async (key) => {
+    const newValue = !introSlides[key];
+    const firestoreField = introSlideFieldMap[key];
+    
+    // Optimistic update
     setIntroSlides(prev => ({
       ...prev,
-      [key]: !prev[key]
+      [key]: newValue
     }));
+
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: {
+          settings: {
+            [firestoreField]: newValue
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Failed to save intro slide setting:', error);
+      // Revert on error
+      setIntroSlides(prev => ({
+        ...prev,
+        [key]: !newValue
+      }));
+    }
   };
 
   // Category management
@@ -472,8 +550,7 @@ function CollectionSettingsPage() {
               <div style={{ 
                 backgroundColor: 'var(--background-white)',
                 border: '1px solid var(--border-light)',
-                borderRadius: 'var(--border-radius-md)',
-                marginBottom: 'var(--spacing-4)'
+                borderRadius: 'var(--border-radius-md)'
               }}>
                 <SectionHeader
                   title="Collection Label"
@@ -522,7 +599,7 @@ function CollectionSettingsPage() {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 'var(--spacing-1)',
-                    maxWidth: '535px'
+                    maxWidth: '540px'
                   }}>
                     <label style={{
                       fontFamily: 'var(--font-family-body)',
@@ -611,8 +688,7 @@ function CollectionSettingsPage() {
               <div style={{ 
                 backgroundColor: 'var(--background-white)',
                 border: '1px solid var(--border-light)',
-                borderRadius: 'var(--border-radius-md)',
-                marginBottom: 'var(--spacing-4)'
+                borderRadius: 'var(--border-radius-md)'
               }}>
                 <SectionHeader
                   title="Upload Collection Assets"
@@ -624,7 +700,7 @@ function CollectionSettingsPage() {
                   buttonDisabled={!shouldEnableProcessButton}
                 />
                 
-                {/* Processing Progress */}
+                {/* Processing Progress - shown during processing, failed, or cancelled */}
                 <ProcessingProgress
                   title="Document Processing Progress"
                   status={processingStatus?.document_processing?.status || 'idle'}
@@ -634,6 +710,28 @@ function CollectionSettingsPage() {
                   isStale={isStale}
                   onCancel={() => cancelDocProcessingMutation.mutate({ collectionId })}
                 />
+                
+                {/* Success Message - shown when completed and not stale */}
+                {isCompleted && !isStale && (
+                  <div style={{
+                    textAlign: 'center',
+                    paddingTop: 'var(--spacing-3)',
+                    paddingBottom: 0,
+                    paddingLeft: 'var(--spacing-3)',
+                    paddingRight: 'var(--spacing-3)'
+                  }}>
+                    <h3 style={{
+                      fontFamily: 'var(--font-family-body)',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      lineHeight: '20px',
+                      color: 'var(--color-brand-wine)',
+                      margin: 0
+                    }}>
+                      Documents Successfully Processed
+                    </h3>
+                  </div>
+                )}
                 
                 {/* Section Content */}
                 <div style={{
@@ -807,7 +905,7 @@ function CollectionSettingsPage() {
                 </div>
               </div>
 
-              {/* Collection Information Section */}
+              {/* Collection Information Section - HIDDEN FOR NOW
               <div style={{ 
                 backgroundColor: 'var(--background-white)',
                 border: '1px solid var(--border-light)',
@@ -819,14 +917,12 @@ function CollectionSettingsPage() {
                   description="Auto-generated content from uploaded documents. Edit for additional context. This information will be used to create better content in the deck you create. The more relevant information, the better the output will be."
                 />
                 
-                {/* Section Content - Textarea and Save Button */}
                 <div style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 'var(--spacing-3)',
                   padding: 'var(--spacing-3)'
                 }}>
-                  {/* Large Textarea */}
                   <textarea
                     value={collectionInformation}
                     onChange={(e) => setCollectionInformation(e.target.value)}
@@ -857,7 +953,6 @@ function CollectionSettingsPage() {
                     }}
                   />
                   
-                  {/* Save Button - Right Aligned */}
                   <div style={{
                     display: 'flex',
                     justifyContent: 'flex-end'
@@ -866,7 +961,6 @@ function CollectionSettingsPage() {
                       variant="primary"
                       onClick={() => {
                         console.log('Save Collection Information:', collectionInformation);
-                        // TODO: Add save logic
                       }}
                     >
                       Save Changes
@@ -874,6 +968,7 @@ function CollectionSettingsPage() {
                   </div>
                 </div>
               </div>
+              */}
 
               {/* Continue to Deck Settings Button */}
               <div style={{
@@ -885,8 +980,7 @@ function CollectionSettingsPage() {
                 paddingRight: '433px',
                 paddingTop: 0,
                 paddingBottom: 0,
-                gap: '10px',
-                marginBottom: 'var(--spacing-4)'
+                gap: '10px'
               }}>
                 <Button
                   variant="highlight"
@@ -920,8 +1014,6 @@ function CollectionSettingsPage() {
             <SectionHeader
               title="Intro Slides"
               description="These are the slides that appear at the beginning of the deck. Select which ones to generate and include."
-              buttonText="Save Changes"
-              onButtonClick={() => alert('Save Changes clicked')}
             />
             
             {/* Checkboxes */}
@@ -985,14 +1077,6 @@ function CollectionSettingsPage() {
                 label="Flagship Stores & Experiences"
                 showInfo={true}
                 onInfoClick={() => alert('Info about Flagship Stores')}
-              />
-              
-              <Checkbox
-                checked={introSlides.productCategories}
-                onChange={() => handleIntroSlideChange('productCategories')}
-                label="Product Categories"
-                showInfo={true}
-                onInfoClick={() => alert('Info about Product Categories')}
               />
             </div>
           </div>

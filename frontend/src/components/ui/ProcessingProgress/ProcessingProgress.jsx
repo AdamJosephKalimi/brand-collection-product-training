@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './ProcessingProgress.module.css';
 import Button from '../Button/Button';
 
@@ -39,10 +39,41 @@ function ProcessingProgress({
   const isFailed = status === 'failed';
   const isCancelled = status === 'cancelled';
 
+  // State for cancelled message fade-out
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [isFading, setIsFading] = useState(false);
+
+  // Handle cancelled state - show for 5 seconds then fade out
+  useEffect(() => {
+    if (isCancelled) {
+      setShowCancelled(true);
+      setIsFading(false);
+      
+      // Start fade after 5 seconds
+      const fadeTimer = setTimeout(() => {
+        setIsFading(true);
+      }, 5000);
+      
+      // Hide completely after fade animation (1 second)
+      const hideTimer = setTimeout(() => {
+        setShowCancelled(false);
+      }, 6000);
+      
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(hideTimer);
+      };
+    } else {
+      setShowCancelled(false);
+      setIsFading(false);
+    }
+  }, [isCancelled]);
+
   // Hide component when:
   // - Idle (never processed)
-  // - Stale (completed but docs changed - user needs to reprocess)
-  if (status === 'idle' || (isCompleted && isStale)) {
+  // - Completed (success message shown separately in parent)
+  // - Cancelled and fade animation complete
+  if (status === 'idle' || isCompleted || (isCancelled && !showCancelled)) {
     return null;
   }
 
@@ -64,20 +95,6 @@ function ProcessingProgress({
     return 'Processing...';
   };
 
-  // COMPLETED STATE: Show only success message on right side (no title, no progress bar)
-  if (isCompleted && !isStale) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <div className={styles.titleSection} />
-          <div className={styles.actionsSection}>
-            <span className={styles.statusText}>{successMessage}</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // FAILED STATE: Show error message
   if (isFailed) {
     return (
@@ -93,10 +110,10 @@ function ProcessingProgress({
     );
   }
 
-  // CANCELLED STATE: Show cancelled message
-  if (isCancelled) {
+  // CANCELLED STATE: Show cancelled message with fade-out
+  if (isCancelled && showCancelled) {
     return (
-      <div className={styles.container}>
+      <div className={`${styles.container} ${isFading ? styles.fadeOut : ''}`}>
         <div className={styles.cancelledMessage}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <circle cx="8" cy="8" r="8" fill="var(--color-grey-40)"/>
