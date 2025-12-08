@@ -85,7 +85,7 @@
 .icon1 {
   width: 32px;
   height: 32px;
-  background-color: var(--background-primary);
+  background-color: var(--color-grey-30);
   border-radius: 4px;
 }
 
@@ -125,6 +125,17 @@
   height: 16px;
   background-color: var(--color-grey-30);
   border-radius: 4px;
+}
+
+/* Selected state - make icons black */
+.selected .icon1 {
+  background-color: var(--background-primary);
+}
+
+.selected .icon2 .square,
+.selected .icon3 .square,
+.selected .icon4 .square {
+  background-color: var(--background-primary);
 }
 
 /* Card label */

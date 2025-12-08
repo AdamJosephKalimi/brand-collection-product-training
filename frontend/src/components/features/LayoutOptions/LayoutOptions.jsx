@@ -1,5 +1,4 @@
 import React from 'react';
-import Button from '../../ui/Button/Button';
 import styles from './LayoutOptions.module.css';
 
 /**
@@ -48,15 +47,14 @@ function LayoutOptionCard({ value, label, icon, selected, onClick }) {
  * LayoutOptions Component
  * 
  * Section for selecting deck layout (1, 2, 3, or 4 products per slide)
+ * Auto-saves on selection change.
  * 
  * @param {number} selectedLayout - Currently selected layout (1, 2, 3, or 4)
- * @param {function} onLayoutChange - Handler for layout change
- * @param {function} onSave - Handler for save button
+ * @param {function} onLayoutChange - Handler for layout change (should handle saving)
  */
 function LayoutOptions({ 
-  selectedLayout = 1, 
+  selectedLayout = 2, 
   onLayoutChange,
-  onSave,
   className = ''
 }) {
   const layoutOptions = [
@@ -105,9 +103,6 @@ function LayoutOptions({
       {/* Section Header */}
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Deck Layout Options</h2>
-        <Button variant="primary" onClick={onSave}>
-          Save Changes
-        </Button>
       </div>
       
       {/* Layout Options */}

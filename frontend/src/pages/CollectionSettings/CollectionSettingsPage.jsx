@@ -139,8 +139,9 @@ function CollectionSettingsPage() {
     // Only act when collectionId actually changes
     if (prevCollectionIdRef.current !== collectionId) {
       // Wait for processingStatus to be defined for the new collection
-      // Only update the ref AFTER we have data to evaluate
+      // If undefined, we're still loading - don't update ref yet, let effect re-run when data arrives
       if (processingStatus !== undefined) {
+        // Now we have data for the new collection - update ref
         prevCollectionIdRef.current = collectionId;
         
         // Check if current tab is accessible
@@ -350,9 +351,13 @@ function CollectionSettingsPage() {
     flagshipStores: 'include_flagship_store_and_experiences_slide'
   };
 
+  // Track pending saves to prevent sync overwrites during rapid changes
+  const pendingIntroSlideSavesRef = useRef(0);
+
   // Initialize intro slides from collection settings when data loads
+  // Skip sync if saves are in progress to prevent flicker
   useEffect(() => {
-    if (collectionData?.settings) {
+    if (collectionData?.settings && pendingIntroSlideSavesRef.current === 0) {
       const settings = collectionData.settings;
       setIntroSlides({
         coverPage: settings.include_cover_page_slide !== false,
@@ -377,6 +382,7 @@ function CollectionSettingsPage() {
       [key]: newValue
     }));
 
+    pendingIntroSlideSavesRef.current += 1;
     try {
       await updateCollectionMutation.mutateAsync({
         collectionId,
@@ -393,51 +399,121 @@ function CollectionSettingsPage() {
         ...prev,
         [key]: !newValue
       }));
+    } finally {
+      pendingIntroSlideSavesRef.current -= 1;
     }
   };
 
-  // Category management
-  const [categories, setCategories] = useState([
-    { name: 'Outerwear', subcategories: ['Coats', 'Jackets'] },
-    { name: 'Knitwear', subcategories: ['Sweaters'] },
-    { name: 'Accessories', subcategories: [] }
-  ]);
-
+  // Category management - synced with collection.categories in DB
+  const [categories, setCategories] = useState([]);
   const [newCategoryName, setNewCategoryName] = useState('');
+  
+  // Track pending saves to prevent sync overwrites during rapid changes
+  const pendingSavesRef = useRef(0);
 
-  const handleAddCategory = () => {
-    if (newCategoryName.trim()) {
-      setCategories(prev => [...prev, { name: newCategoryName, subcategories: [] }]);
-      setNewCategoryName('');
+  // Initialize categories from collection data when it loads
+  // Skip sync if saves are in progress to prevent flicker
+  useEffect(() => {
+    if (collectionData?.categories && pendingSavesRef.current === 0) {
+      setCategories(collectionData.categories);
     }
-  };
+  }, [collectionData?.categories]);
 
-  const handleAddSubcategory = (categoryIndex) => {
-    const subcategoryName = window.prompt('Enter subcategory name:');
-    if (subcategoryName) {
-      setCategories(prev => {
-        const updated = [...prev];
-        updated[categoryIndex].subcategories.push(subcategoryName);
-        return updated;
+  // Helper to save categories to DB
+  const saveCategories = async (newCategories) => {
+    pendingSavesRef.current += 1;
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: { categories: newCategories }
       });
+    } catch (error) {
+      console.error('Failed to save categories:', error);
+      // Revert to previous state from DB
+      if (collectionData?.categories) {
+        setCategories(collectionData.categories);
+      }
+    } finally {
+      pendingSavesRef.current -= 1;
     }
   };
 
-  const handleDeleteSubcategory = (categoryIndex, subcategoryIndex) => {
-    setCategories(prev => {
-      const updated = [...prev];
-      updated[categoryIndex].subcategories.splice(subcategoryIndex, 1);
-      return updated;
+  const handleAddCategory = async () => {
+    if (newCategoryName.trim()) {
+      const newCategory = {
+        name: newCategoryName.trim(),
+        display_order: categories.length,
+        product_count: 0,
+        subcategories: []
+      };
+      const newCategories = [...categories, newCategory];
+      
+      // Optimistic update
+      setCategories(newCategories);
+      setNewCategoryName('');
+      
+      // Save to DB
+      await saveCategories(newCategories);
+    }
+  };
+
+  const handleAddSubcategory = async (categoryIndex) => {
+    const subcategoryName = window.prompt('Enter subcategory name:');
+    if (subcategoryName && subcategoryName.trim()) {
+      const newCategories = categories.map((cat, i) => {
+        if (i === categoryIndex) {
+          const newSubcategory = {
+            name: subcategoryName.trim(),
+            display_order: cat.subcategories?.length || 0,
+            product_count: 0
+          };
+          return {
+            ...cat,
+            subcategories: [...(cat.subcategories || []), newSubcategory]
+          };
+        }
+        return cat;
+      });
+      
+      // Optimistic update
+      setCategories(newCategories);
+      
+      // Save to DB
+      await saveCategories(newCategories);
+    }
+  };
+
+  const handleDeleteSubcategory = async (categoryIndex, subcategoryIndex) => {
+    const newCategories = categories.map((cat, i) => {
+      if (i === categoryIndex) {
+        return {
+          ...cat,
+          subcategories: cat.subcategories.filter((_, j) => j !== subcategoryIndex)
+        };
+      }
+      return cat;
     });
+    
+    // Optimistic update
+    setCategories(newCategories);
+    
+    // Save to DB
+    await saveCategories(newCategories);
   };
 
-  const handleDeleteCategory = (categoryIndex) => {
+  const handleDeleteCategory = async (categoryIndex) => {
     if (window.confirm(`Delete ${categories[categoryIndex].name} category?`)) {
-      setCategories(prev => prev.filter((_, i) => i !== categoryIndex));
+      const newCategories = categories.filter((_, i) => i !== categoryIndex);
+      
+      // Optimistic update
+      setCategories(newCategories);
+      
+      // Save to DB
+      await saveCategories(newCategories);
     }
   };
 
-  // Product details selection
+  // Product details selection - synced with collection.settings in DB
   const [productDetails, setProductDetails] = useState([
     { id: 'productName', label: 'Product Name', checked: true },
     { id: 'sku', label: 'SKU', checked: true },
@@ -446,40 +522,146 @@ function CollectionSettingsPage() {
     { id: 'material', label: 'Material', checked: true },
     { id: 'sizes', label: 'Sizes', checked: true },
     { id: 'origin', label: 'Origin', checked: true },
-    { id: 'wholesalePrice', label: 'Wholesale Price', checked: true },
+    { id: 'wholesalePrice', label: 'Wholesale Price', checked: false },
     { id: 'rrp', label: 'RRP', checked: true }
   ]);
 
-  const handleDetailChange = (id, checked) => {
+  // Mapping between local IDs and Firestore field names
+  const productDetailFieldMap = {
+    productName: 'show_product_name',
+    sku: 'show_sku',
+    description: 'show_descriptions',
+    colour: 'show_color',
+    material: 'show_material',
+    sizes: 'show_sizes',
+    origin: 'show_origin',
+    wholesalePrice: 'show_wholesale_price',
+    rrp: 'show_rrp'
+  };
+
+  // Track pending saves to prevent sync overwrites during rapid changes
+  const pendingDetailSavesRef = useRef(0);
+
+  // Initialize product details from collection settings when data loads
+  // Skip sync if saves are in progress to prevent flicker
+  useEffect(() => {
+    if (collectionData?.settings && pendingDetailSavesRef.current === 0) {
+      const settings = collectionData.settings;
+      setProductDetails(prev => prev.map(item => ({
+        ...item,
+        checked: settings[productDetailFieldMap[item.id]] !== false
+      })));
+    }
+  }, [collectionData?.settings]);
+
+  // Handle product detail checkbox change with optimistic update and DB save
+  const handleDetailChange = async (id, checked) => {
+    const firestoreField = productDetailFieldMap[id];
+    
+    // Optimistic update
     setProductDetails(prev => 
       prev.map(item => 
         item.id === id ? { ...item, checked } : item
       )
     );
+
+    pendingDetailSavesRef.current += 1;
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: {
+          settings: {
+            [firestoreField]: checked
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Failed to save product detail setting:', error);
+      // Revert on error
+      setProductDetails(prev => 
+        prev.map(item => 
+          item.id === id ? { ...item, checked: !checked } : item
+        )
+      );
+    } finally {
+      pendingDetailSavesRef.current -= 1;
+    }
   };
 
-  // Language selection
-  const [selectedLanguage, setSelectedLanguage] = useState('english');
+  // Language selection - synced with collection.settings.selected_language in DB
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
   
   const languageOptions = [
-    { value: 'english', label: 'English' },
-    { value: 'french', label: 'French' },
-    { value: 'spanish', label: 'Spanish' },
-    { value: 'german', label: 'German' },
-    { value: 'italian', label: 'Italian' },
-    { value: 'portuguese', label: 'Portuguese' }
+    { value: 'en', label: 'English' },
+    { value: 'zh', label: 'Chinese' },
+    { value: 'fr', label: 'French' },
+    { value: 'es', label: 'Spanish' },
+    { value: 'de', label: 'German' },
+    { value: 'it', label: 'Italian' },
+    { value: 'pt', label: 'Portuguese' }
   ];
 
-  // Layout selection
-  const [selectedLayout, setSelectedLayout] = useState(1);
+  // Initialize language from collection settings when data loads
+  useEffect(() => {
+    if (collectionData?.settings?.selected_language) {
+      setSelectedLanguage(collectionData.settings.selected_language);
+    }
+  }, [collectionData?.settings?.selected_language]);
 
-  const handleLayoutChange = (layout) => {
-    setSelectedLayout(layout);
-    console.log(`Layout changed to: ${layout} products per slide`);
+  // Handle language change with optimistic update and DB save
+  const handleLanguageChange = async (newLanguage) => {
+    const previousLanguage = selectedLanguage;
+    
+    // Optimistic update
+    setSelectedLanguage(newLanguage);
+
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: {
+          settings: {
+            selected_language: newLanguage
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Failed to save language setting:', error);
+      // Revert on error
+      setSelectedLanguage(previousLanguage);
+    }
   };
 
-  const handleSaveLayout = () => {
-    alert(`Saved! Layout: ${selectedLayout} products per slide`);
+  // Layout selection - synced with collection.settings.products_per_slide in DB
+  const [selectedLayout, setSelectedLayout] = useState(2);
+
+  // Initialize layout from collection settings when data loads
+  useEffect(() => {
+    if (collectionData?.settings?.products_per_slide) {
+      setSelectedLayout(collectionData.settings.products_per_slide);
+    }
+  }, [collectionData?.settings?.products_per_slide]);
+
+  // Handle layout change with optimistic update and DB save
+  const handleLayoutChange = async (layout) => {
+    const previousLayout = selectedLayout;
+    
+    // Optimistic update
+    setSelectedLayout(layout);
+
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: {
+          settings: {
+            products_per_slide: layout
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Failed to save layout setting:', error);
+      // Revert on error
+      setSelectedLayout(previousLayout);
+    }
   };
 
   return (
@@ -1090,8 +1272,6 @@ function CollectionSettingsPage() {
             <SectionHeader
               title="Collection Categories"
               description="Edit the categories in this collection. You can organize collection items into these categories in the collection items tab."
-              buttonText="Save Changes"
-              onButtonClick={() => alert('Save Categories clicked')}
             />
             
             {/* Add Category Input */}
@@ -1133,7 +1313,7 @@ function CollectionSettingsPage() {
                 <CategoryGroup
                   key={index}
                   categoryName={category.name}
-                  subcategories={category.subcategories}
+                  subcategories={(category.subcategories || []).map(sub => sub.name)}
                   onAddSubcategory={() => handleAddSubcategory(index)}
                   onDeleteSubcategory={(subIndex) => handleDeleteSubcategory(index, subIndex)}
                   onDeleteCategory={() => handleDeleteCategory(index)}
@@ -1151,8 +1331,6 @@ function CollectionSettingsPage() {
             <SectionHeader
               title="Collection Item Details"
               description="Select which of the collection item details to have showing in the deck."
-              buttonText="Save Changes"
-              onButtonClick={() => alert('Save Item Details clicked')}
             />
             
             {/* CheckboxList and Product Preview side-by-side */}
@@ -1191,17 +1369,28 @@ function CollectionSettingsPage() {
                   Preview Output
                 </h3>
                 <ProductPreview
-                  productName="You're Weird Boy T"
-                  sku="R13WK001-K128B"
-                  material="Cotton Cashmere"
-                  color="Ecru White"
-                  composition="95% Cotton, 5% Cashmere"
-                  sizes="XS - L"
-                  origin="China"
-                  wholesale={140.00}
-                  rrp={325.00}
+                  productName="Essential Crew Tee"
+                  sku="TEE-WHT-001"
+                  description="Classic relaxed fit crewneck t-shirt"
+                  color="White"
+                  material="100% Organic Cotton"
+                  sizes="XS - XXL"
+                  origin="Portugal"
+                  wholesale={28.00}
+                  rrp={65.00}
                   currency="$"
-                  imageUrl="https://via.placeholder.com/128x160/7d3b51/ffffff?text=Product"
+                  imageUrl="/images/essential_white_tee.png"
+                  visibility={{
+                    showProductName: productDetails.find(d => d.id === 'productName')?.checked ?? true,
+                    showSku: productDetails.find(d => d.id === 'sku')?.checked ?? true,
+                    showDescription: productDetails.find(d => d.id === 'description')?.checked ?? true,
+                    showColor: productDetails.find(d => d.id === 'colour')?.checked ?? true,
+                    showMaterial: productDetails.find(d => d.id === 'material')?.checked ?? true,
+                    showSizes: productDetails.find(d => d.id === 'sizes')?.checked ?? true,
+                    showOrigin: productDetails.find(d => d.id === 'origin')?.checked ?? true,
+                    showWholesale: productDetails.find(d => d.id === 'wholesalePrice')?.checked ?? false,
+                    showRrp: productDetails.find(d => d.id === 'rrp')?.checked ?? true
+                  }}
                 />
               </div>
             </div>
@@ -1216,9 +1405,6 @@ function CollectionSettingsPage() {
             <SectionHeader
               title="Deck Localization"
               description="Generated deck content will be translated to the selected language"
-              buttonText="Save Changes"
-              onButtonClick={() => {}}
-              buttonDisabled={true}
             />
             
             {/* Language Dropdown */}
@@ -1227,7 +1413,7 @@ function CollectionSettingsPage() {
                 label="Select Language"
                 value={selectedLanguage}
                 options={languageOptions}
-                onChange={setSelectedLanguage}
+                onChange={handleLanguageChange}
               />
             </div>
           </div>
@@ -1236,7 +1422,6 @@ function CollectionSettingsPage() {
           <LayoutOptions
             selectedLayout={selectedLayout}
             onLayoutChange={handleLayoutChange}
-            onSave={handleSaveLayout}
           />
 
           {/* Continue to Collection Items Button */}

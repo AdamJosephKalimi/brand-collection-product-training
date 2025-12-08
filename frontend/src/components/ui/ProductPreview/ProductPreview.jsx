@@ -4,34 +4,50 @@ import styles from './ProductPreview.module.css';
 /**
  * ProductPreview Component
  * 
- * Displays a preview of a collection item with image and details
+ * Displays a preview of a collection item with image and details.
+ * Each field can be shown/hidden via visibility props.
  * 
  * @param {string} productName - Product name
  * @param {string} sku - Product SKU
- * @param {string} material - Material type
+ * @param {string} description - Product description
  * @param {string} color - Color name
- * @param {string} composition - Material composition
+ * @param {string} material - Material composition (e.g., "95% Cotton, 5% Cashmere")
  * @param {string} sizes - Available sizes
  * @param {string} origin - Country of origin
  * @param {number} wholesale - Wholesale price
  * @param {number} rrp - Recommended retail price
  * @param {string} currency - Currency symbol (default: $)
  * @param {string} imageUrl - Product image URL
+ * @param {object} visibility - Object controlling which fields are visible
  */
 function ProductPreview({ 
   productName = 'Product Name',
   sku,
-  material,
+  description,
   color,
-  composition,
+  material,
   sizes,
   origin,
   wholesale,
   rrp,
   currency = '$',
   imageUrl,
+  visibility = {},
   className = ''
 }) {
+  // Default all visibility to true if not specified
+  const {
+    showProductName = true,
+    showSku = true,
+    showDescription = true,
+    showColor = true,
+    showMaterial = true,
+    showSizes = true,
+    showOrigin = true,
+    showWholesale = true,
+    showRrp = true
+  } = visibility;
+
   return (
     <div className={`${styles.previewCard} ${className}`}>
       {/* Product Image */}
@@ -51,39 +67,41 @@ function ProductPreview({
       
       {/* Product Details */}
       <div className={styles.details}>
-        <h3 className={styles.productName}>{productName}</h3>
+        {showProductName && (
+          <h3 className={styles.productName}>{productName}</h3>
+        )}
         
-        {sku && (
+        {showSku && sku && (
           <p className={styles.detailText}>SKU: {sku}</p>
         )}
         
-        {material && (
-          <p className={styles.detailText}>{material}</p>
+        {showDescription && description && (
+          <p className={styles.detailText}>{description}</p>
         )}
         
-        {color && (
+        {showColor && color && (
           <p className={styles.detailText}>{color}</p>
         )}
         
-        {composition && (
-          <p className={styles.detailText}>{composition}</p>
+        {showMaterial && material && (
+          <p className={styles.detailText}>{material}</p>
         )}
         
-        {sizes && (
+        {showSizes && sizes && (
           <p className={styles.detailText}>Sizes: {sizes}</p>
         )}
         
-        {origin && (
+        {showOrigin && origin && (
           <p className={styles.detailText}>Origin: {origin}</p>
         )}
         
-        {wholesale !== undefined && (
+        {showWholesale && wholesale !== undefined && (
           <p className={styles.detailText}>
             Wholesale: {currency}{wholesale.toFixed(2)}
           </p>
         )}
         
-        {rrp !== undefined && (
+        {showRrp && rrp !== undefined && (
           <p className={styles.rrpText}>
             RRP: {currency}{rrp.toFixed(2)}
           </p>
