@@ -23,6 +23,7 @@ function CategorySection({
   onFilterClick,
   defaultExpanded = true,
   onToggle,
+  children,
   className = ''
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -95,6 +96,13 @@ function CategorySection({
         {/* Right side - Filters (categorized only) */}
         {type === 'categorized' && filters.length > 0 && (
           <div className={styles.filters}>
+            {/* View All button */}
+            <button
+              className={`${styles.filterButton} ${styles.viewAll} ${!filters.some(f => f.active) ? styles.active : ''}`}
+              onClick={() => onFilterClick && onFilterClick(null)}
+            >
+              View All
+            </button>
             {filters.map((filter, index) => (
               <button
                 key={index}
@@ -107,6 +115,13 @@ function CategorySection({
           </div>
         )}
       </div>
+      
+      {/* Children content (shown when expanded) */}
+      {isExpanded && children && (
+        <div className={styles.content}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

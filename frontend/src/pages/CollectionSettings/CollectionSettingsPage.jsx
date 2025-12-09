@@ -25,7 +25,10 @@ import { useCollectionDocuments, useUploadDocument, useDeleteDocument } from '..
 import { useProcessingStatus } from '../../hooks/useProcessingStatus';
 import { useProcessDocuments, useCancelDocumentProcessing, useMarkDocumentsStale } from '../../hooks/useDocumentProcessing';
 import { useGenerateItems, useCancelItemGeneration } from '../../hooks/useItemGeneration';
+import { useCollectionItems, useUpdateItem } from '../../hooks/useItems';
 import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
+import CategorySection from '../../components/ui/CategorySection/CategorySection';
+import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
 
 function CollectionSettingsPage() {
   const { collectionId } = useParams();
@@ -57,6 +60,10 @@ function CollectionSettingsPage() {
   const markDocumentsStaleMutation = useMarkDocumentsStale();
   const generateItemsMutation = useGenerateItems();
   const cancelItemGenMutation = useCancelItemGeneration();
+  
+  // Fetch collection items
+  const { data: items = [] } = useCollectionItems(collectionId);
+  const updateItemMutation = useUpdateItem();
   
   // Filter documents by type
   const linesheetDocuments = documents.filter(doc => doc.type === 'line_sheet');
@@ -314,6 +321,85 @@ function CollectionSettingsPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [bulkAction, setBulkAction] = useState('none');
+  
+  // Collection Items - Active subcategory filter per category
+  const [activeSubcategoryFilters, setActiveSubcategoryFilters] = useState({});
+  // Collection Items - Selected items for bulk actions
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  
+  // Group items by category for display
+  const groupedItems = React.useMemo(() => {
+    const groups = {
+      categorized: {},  // { categoryName: { items: [], subcategories: {} } }
+      uncategorized: [],
+      unmatched: []
+    };
+    
+    items.forEach(item => {
+      // Unmatched: items without product_name or rrp (missing linesheet data)
+      if (!item.product_name || item.product_name === item.sku) {
+        groups.unmatched.push(item);
+      }
+      // Uncategorized: items with no category
+      else if (!item.category) {
+        groups.uncategorized.push(item);
+      }
+      // Categorized: items with a category
+      else {
+        if (!groups.categorized[item.category]) {
+          groups.categorized[item.category] = { items: [], subcategories: {} };
+        }
+        groups.categorized[item.category].items.push(item);
+        
+        // Track subcategories
+        const subcat = item.subcategory || 'Uncategorized';
+        if (!groups.categorized[item.category].subcategories[subcat]) {
+          groups.categorized[item.category].subcategories[subcat] = [];
+        }
+        groups.categorized[item.category].subcategories[subcat].push(item);
+      }
+    });
+    
+    return groups;
+  }, [items]);
+  
+  // Get category options for dropdowns (from collection categories)
+  const categoryOptions = React.useMemo(() => {
+    return (collectionData?.categories || []).map(cat => ({
+      value: cat.name,
+      label: cat.name
+    }));
+  }, [collectionData?.categories]);
+  
+  // Handle item update (highlight, include, category, subcategory)
+  const handleItemUpdate = (itemId, updateData) => {
+    updateItemMutation.mutate({
+      collectionId,
+      itemId,
+      updateData
+    });
+  };
+  
+  // Handle subcategory filter click
+  const handleSubcategoryFilterClick = (categoryName, subcategoryName) => {
+    setActiveSubcategoryFilters(prev => {
+      // If null (View All) or already active, clear the filter
+      if (subcategoryName === null || prev[categoryName] === subcategoryName) {
+        const { [categoryName]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [categoryName]: subcategoryName };
+    });
+  };
+  
+  // Get filtered items for a category based on active subcategory filter
+  const getFilteredCategoryItems = (categoryName, categoryData) => {
+    const activeFilter = activeSubcategoryFilters[categoryName];
+    if (!activeFilter) {
+      return categoryData.items;
+    }
+    return categoryData.subcategories[activeFilter] || [];
+  };
 
   const collectionTypeOptions = [
     { value: 'spring_summer', label: 'Spring/Summer' },
@@ -1596,13 +1682,167 @@ function CollectionSettingsPage() {
                 </div>
               </div>
 
-              {/* Collection Items Content - Coming Soon */}
+              {/* Collection Items Content */}
               <div style={{
-                padding: 'var(--spacing-4)',
-                textAlign: 'center',
-                color: 'var(--text-secondary)'
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0
               }}>
-                <p>Content coming soon...</p>
+                {/* Unmatched PO Items Section */}
+                {groupedItems.unmatched.length > 0 && (
+                  <CategorySection
+                    type="unmatched"
+                    title="Unmatched Purchase Order Items"
+                    itemCount={groupedItems.unmatched.length}
+                    defaultExpanded={true}
+                  >
+                    {groupedItems.unmatched.map(item => (
+                      <CollectionListItem
+                        key={item.item_id}
+                        variant="unmatched"
+                        item={{
+                          name: item.sku,
+                          sku: item.sku,
+                          color: item.color || '',
+                          material: item.materials?.join(', ') || '',
+                          price: item.rrp ? `$${item.rrp}` : '',
+                          origin: item.origin || '',
+                          description: item.description || '',
+                          image: item.images?.[0]?.url || null
+                        }}
+                        checked={selectedItems.has(item.item_id)}
+                        onCheckChange={() => {
+                          setSelectedItems(prev => {
+                            const next = new Set(prev);
+                            if (next.has(item.item_id)) {
+                              next.delete(item.item_id);
+                            } else {
+                              next.add(item.item_id);
+                            }
+                            return next;
+                          });
+                        }}
+                        onAddDetails={() => console.log('Add details for', item.item_id)}
+                        onIgnore={() => handleItemUpdate(item.item_id, { included: false })}
+                      />
+                    ))}
+                  </CategorySection>
+                )}
+
+                {/* Uncategorized Items Section */}
+                {groupedItems.uncategorized.length > 0 && (
+                  <CategorySection
+                    type="uncategorized"
+                    title="Uncategorized"
+                    itemCount={groupedItems.uncategorized.length}
+                    defaultExpanded={true}
+                  >
+                    {groupedItems.uncategorized.map(item => (
+                      <CollectionListItem
+                        key={item.item_id}
+                        variant="uncategorized"
+                        item={{
+                          name: item.product_name || item.sku,
+                          sku: item.sku,
+                          color: item.color || '',
+                          material: item.materials?.join(', ') || '',
+                          price: item.rrp ? `$${item.rrp}` : '',
+                          origin: item.origin || '',
+                          description: item.description || '',
+                          image: item.images?.[0]?.url || null
+                        }}
+                        checked={selectedItems.has(item.item_id)}
+                        onCheckChange={() => {
+                          setSelectedItems(prev => {
+                            const next = new Set(prev);
+                            if (next.has(item.item_id)) {
+                              next.delete(item.item_id);
+                            } else {
+                              next.add(item.item_id);
+                            }
+                            return next;
+                          });
+                        }}
+                        category={item.category || ''}
+                        categoryOptions={categoryOptions}
+                        onCategoryChange={(newCategory) => handleItemUpdate(item.item_id, { category: newCategory })}
+                      />
+                    ))}
+                  </CategorySection>
+                )}
+
+                {/* Categorized Items Sections */}
+                {Object.entries(groupedItems.categorized).map(([categoryName, categoryData]) => {
+                  const subcategoryNames = Object.keys(categoryData.subcategories);
+                  const filters = subcategoryNames.map(subName => ({
+                    label: subName,
+                    active: activeSubcategoryFilters[categoryName] === subName
+                  }));
+                  const displayItems = getFilteredCategoryItems(categoryName, categoryData);
+                  
+                  // Get subcategory options for this category
+                  const subcategoryOptions = ((collectionData?.categories || []).find(c => c.name === categoryName)?.subcategories || [])
+                    .map(sub => ({ value: sub.name, label: sub.name }));
+
+                  return (
+                    <CategorySection
+                      key={categoryName}
+                      type="categorized"
+                      title={categoryName}
+                      itemCount={categoryData.items.length}
+                      filters={filters}
+                      onFilterClick={(subName) => handleSubcategoryFilterClick(categoryName, subName)}
+                      defaultExpanded={true}
+                    >
+                      {displayItems.map(item => (
+                        <CollectionListItem
+                          key={item.item_id}
+                          variant={item.included === false ? 'inactive' : 'default'}
+                          item={{
+                            name: item.product_name || item.sku,
+                            sku: item.sku,
+                            color: item.color || '',
+                            material: item.materials?.join(', ') || '',
+                            price: item.rrp ? `$${item.rrp}` : '',
+                            origin: item.origin || '',
+                            description: item.description || '',
+                            image: item.images?.[0]?.url || null
+                          }}
+                          checked={selectedItems.has(item.item_id)}
+                          onCheckChange={() => {
+                            setSelectedItems(prev => {
+                              const next = new Set(prev);
+                              if (next.has(item.item_id)) {
+                                next.delete(item.item_id);
+                              } else {
+                                next.add(item.item_id);
+                              }
+                              return next;
+                            });
+                          }}
+                          category={item.subcategory || ''}
+                          categoryOptions={subcategoryOptions}
+                          onCategoryChange={(newSubcategory) => handleItemUpdate(item.item_id, { subcategory: newSubcategory })}
+                          highlighted={item.highlighted_item || false}
+                          onHighlightChange={(checked) => handleItemUpdate(item.item_id, { highlighted_item: checked })}
+                          included={item.included !== false}
+                          onIncludeChange={(checked) => handleItemUpdate(item.item_id, { included: checked })}
+                        />
+                      ))}
+                    </CategorySection>
+                  );
+                })}
+
+                {/* Empty state */}
+                {items.length === 0 && (
+                  <div style={{
+                    padding: 'var(--spacing-4)',
+                    textAlign: 'center',
+                    color: 'var(--text-secondary)'
+                  }}>
+                    <p>No items yet. Generate items from your uploaded documents.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

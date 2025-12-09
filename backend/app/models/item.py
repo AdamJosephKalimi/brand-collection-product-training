@@ -72,8 +72,9 @@ class Item(BaseModel):
     rrp: Optional[float] = Field(None, ge=0, description="Recommended retail price")
     currency: Currency = Field(..., description="Currency for prices")
     
-    # Highlighting
+    # Highlighting and Inclusion
     highlighted_item: bool = Field(default=False, description="Whether this is a featured/hero item")
+    included: bool = Field(default=True, description="Whether to include this item in the final deck")
     
     # Media
     images: List[ItemImage] = Field(default_factory=list, description="Product images")
@@ -118,6 +119,7 @@ class ItemCreate(BaseModel):
     rrp: Optional[float] = Field(None, ge=0)
     currency: Currency
     highlighted_item: Optional[bool] = False
+    included: Optional[bool] = True
     images: Optional[List[ItemImage]] = None
     sizes: Optional[Dict[str, int]] = None
     tags: Optional[List[str]] = None
@@ -144,6 +146,7 @@ class ItemUpdate(BaseModel):
     rrp: Optional[float] = Field(None, ge=0)
     currency: Optional[Currency] = None
     highlighted_item: Optional[bool] = None
+    included: Optional[bool] = None
     images: Optional[List[ItemImage]] = None
     sizes: Optional[Dict[str, int]] = None
     tags: Optional[List[str]] = None
@@ -173,6 +176,7 @@ class ItemResponse(BaseModel):
     rrp: Optional[float] = None
     currency: Optional[str] = None  # Allow string for flexibility
     highlighted_item: Optional[bool] = False
+    included: Optional[bool] = True
     images: Optional[List[ItemImage]] = None
     sizes: Optional[Dict[str, int]] = None
     tags: Optional[List[str]] = None

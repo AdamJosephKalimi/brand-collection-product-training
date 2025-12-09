@@ -6,8 +6,12 @@
 
 /* Type variants */
 .section.categorized {
-  background-color: #f9fafb;
+  background-color: transparent;
   border-bottom-color: #e5e7eb;
+}
+
+.section.categorized .header {
+  background-color: #e5e7eb;
 }
 
 .section.uncategorized {
@@ -117,4 +121,27 @@
 
 .filterButton.active:hover {
   background-color: #3d4a35;
+}
+
+/* View All button - slightly different styling */
+.filterButton.viewAll {
+  background-color: var(--background-white);
+}
+
+.filterButton.viewAll:hover {
+  background-color: #f3f4f6;
+}
+
+.filterButton.viewAll.active {
+  background-color: var(--background-primary);
+  color: var(--text-white);
+  border-color: var(--background-primary);
+}
+
+/* Content area (children) */
+.content {
+  padding: 0 16px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
