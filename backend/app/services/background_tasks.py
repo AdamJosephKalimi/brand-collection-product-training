@@ -724,7 +724,7 @@ async def generate_collection_items_task(
         update_progress(
             db, collection_id, 'item_generation',
             status='processing',
-            current_step='Generating item objects',
+            current_step='Generating Collection Items',
             progress={'step': 6, 'total_steps': 7, 'percentage': 86}
         )
         if check_cancelled(db, collection_id, 'item_generation'):

@@ -25,10 +25,41 @@ import { useCollectionDocuments, useUploadDocument, useDeleteDocument } from '..
 import { useProcessingStatus } from '../../hooks/useProcessingStatus';
 import { useProcessDocuments, useCancelDocumentProcessing, useMarkDocumentsStale } from '../../hooks/useDocumentProcessing';
 import { useGenerateItems, useCancelItemGeneration } from '../../hooks/useItemGeneration';
-import { useCollectionItems, useUpdateItem } from '../../hooks/useItems';
+import { useCollectionItems, useUpdateItem, useReorderItems } from '../../hooks/useItems';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
+
+// Sortable wrapper for CollectionListItem
+function SortableItem({ id, children }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 1000 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
 
 function CollectionSettingsPage() {
   const { collectionId } = useParams();
@@ -62,8 +93,44 @@ function CollectionSettingsPage() {
   const cancelItemGenMutation = useCancelItemGeneration();
   
   // Fetch collection items
-  const { data: items = [] } = useCollectionItems(collectionId);
+  const { data: fetchedItems = [] } = useCollectionItems(collectionId);
   const updateItemMutation = useUpdateItem();
+  const reorderItemsMutation = useReorderItems();
+  
+  // Local state for items - allows instant reorder without waiting for cache
+  const [localItems, setLocalItems] = useState([]);
+  
+  // Reset local items when collection changes
+  useEffect(() => {
+    setLocalItems([]);
+  }, [collectionId]);
+  
+  // Sync local items with fetched items
+  useEffect(() => {
+    setLocalItems(fetchedItems);
+  }, [fetchedItems]);
+  
+  // Clear items immediately when regeneration starts
+  useEffect(() => {
+    if (processingStatus?.item_generation?.status === 'processing') {
+      setLocalItems([]);
+    }
+  }, [processingStatus?.item_generation?.status]);
+  
+  // Use local items for rendering (instant updates)
+  const items = localItems;
+  
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   
   // Filter documents by type
   const linesheetDocuments = documents.filter(doc => doc.type === 'line_sheet');
@@ -255,16 +322,22 @@ function CollectionSettingsPage() {
     }
   }, [processingStatus, collectionData, hasCategories, hasItems]);
   
-  // Invalidate collection query when processing completes
+  // Invalidate queries when processing completes
   useEffect(() => {
     if (!processingStatus) return;
     
     const docCompleted = processingStatus.document_processing?.status === 'completed';
     const itemCompleted = processingStatus.item_generation?.status === 'completed';
     
-    if (docCompleted || itemCompleted) {
-      // Refetch collection data to get updated categories/items
+    if (docCompleted) {
+      // Refetch collection data to get updated categories
       queryClient.invalidateQueries({ queryKey: ['collection', collectionId] });
+    }
+    
+    if (itemCompleted) {
+      // Refetch collection data and items list
+      queryClient.invalidateQueries({ queryKey: ['collection', collectionId] });
+      queryClient.invalidateQueries({ queryKey: ['collectionItems', collectionId] });
     }
   }, [processingStatus?.document_processing?.status, processingStatus?.item_generation?.status, collectionId, queryClient]);
 
@@ -399,6 +472,58 @@ function CollectionSettingsPage() {
       return categoryData.items;
     }
     return categoryData.subcategories[activeFilter] || [];
+  };
+  
+  // Handle drag end for reordering items within a category
+  const handleDragEnd = (event, categoryName, categoryItems) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) {
+      return;
+    }
+    
+    // Find the indices within the category items
+    const oldIndex = categoryItems.findIndex(item => item.item_id === active.id);
+    const newIndex = categoryItems.findIndex(item => item.item_id === over.id);
+    
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+    
+    // Reorder the category items
+    const reorderedCategoryItems = arrayMove(categoryItems, oldIndex, newIndex);
+    
+    // Update display_order for reordered items
+    const updatedCategoryItems = reorderedCategoryItems.map((item, index) => ({
+      ...item,
+      display_order: index
+    }));
+    
+    // Update local state immediately (instant, no delay)
+    setLocalItems(prevItems => {
+      // Replace items in this category with reordered ones
+      const categoryItemIds = new Set(categoryItems.map(i => i.item_id));
+      const otherItems = prevItems.filter(item => !categoryItemIds.has(item.item_id));
+      const newItems = [...otherItems, ...updatedCategoryItems];
+      // Sort by category, then display_order
+      return newItems.sort((a, b) => {
+        const catCompare = (a.category || 'zzz').localeCompare(b.category || 'zzz');
+        if (catCompare !== 0) return catCompare;
+        return (a.display_order || 0) - (b.display_order || 0);
+      });
+    });
+    
+    // Create the order mapping for API
+    const itemOrders = updatedCategoryItems.map(item => ({
+      item_id: item.item_id,
+      display_order: item.display_order
+    }));
+    
+    // Fire API call (no optimistic update needed, local state already updated)
+    reorderItemsMutation.mutate({
+      collectionId,
+      itemOrders
+    });
   };
 
   const collectionTypeOptions = [
@@ -1785,51 +1910,64 @@ function CollectionSettingsPage() {
                     .map(sub => ({ value: sub.name, label: sub.name }));
 
                   return (
-                    <CategorySection
+                    <DndContext
                       key={categoryName}
-                      type="categorized"
-                      title={categoryName}
-                      itemCount={categoryData.items.length}
-                      filters={filters}
-                      onFilterClick={(subName) => handleSubcategoryFilterClick(categoryName, subName)}
-                      defaultExpanded={true}
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                      onDragEnd={(event) => handleDragEnd(event, categoryName, displayItems)}
                     >
-                      {displayItems.map(item => (
-                        <CollectionListItem
-                          key={item.item_id}
-                          variant={item.included === false ? 'inactive' : 'default'}
-                          item={{
-                            name: item.product_name || item.sku,
-                            sku: item.sku,
-                            color: item.color || '',
-                            material: item.materials?.join(', ') || '',
-                            price: item.rrp ? `$${item.rrp}` : '',
-                            origin: item.origin || '',
-                            description: item.description || '',
-                            image: item.images?.[0]?.url || null
-                          }}
-                          checked={selectedItems.has(item.item_id)}
-                          onCheckChange={() => {
-                            setSelectedItems(prev => {
-                              const next = new Set(prev);
-                              if (next.has(item.item_id)) {
-                                next.delete(item.item_id);
-                              } else {
-                                next.add(item.item_id);
-                              }
-                              return next;
-                            });
-                          }}
-                          category={item.subcategory || ''}
-                          categoryOptions={subcategoryOptions}
-                          onCategoryChange={(newSubcategory) => handleItemUpdate(item.item_id, { subcategory: newSubcategory })}
-                          highlighted={item.highlighted_item || false}
-                          onHighlightChange={(checked) => handleItemUpdate(item.item_id, { highlighted_item: checked })}
-                          included={item.included !== false}
-                          onIncludeChange={(checked) => handleItemUpdate(item.item_id, { included: checked })}
-                        />
-                      ))}
-                    </CategorySection>
+                      <CategorySection
+                        type="categorized"
+                        title={categoryName}
+                        itemCount={categoryData.items.length}
+                        filters={filters}
+                        onFilterClick={(subName) => handleSubcategoryFilterClick(categoryName, subName)}
+                        defaultExpanded={true}
+                      >
+                        <SortableContext
+                          items={displayItems.map(item => item.item_id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {displayItems.map(item => (
+                            <SortableItem key={item.item_id} id={item.item_id}>
+                              <CollectionListItem
+                                variant={item.included === false ? 'inactive' : 'default'}
+                                item={{
+                                  name: item.product_name || item.sku,
+                                  sku: item.sku,
+                                  color: item.color || '',
+                                  material: item.materials?.join(', ') || '',
+                                  price: item.rrp ? `$${item.rrp}` : '',
+                                  origin: item.origin || '',
+                                  description: item.description || '',
+                                  image: item.images?.[0]?.url || null
+                                }}
+                                checked={selectedItems.has(item.item_id)}
+                                onCheckChange={() => {
+                                  setSelectedItems(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(item.item_id)) {
+                                      next.delete(item.item_id);
+                                    } else {
+                                      next.add(item.item_id);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                category={item.subcategory || ''}
+                                categoryOptions={subcategoryOptions}
+                                onCategoryChange={(newSubcategory) => handleItemUpdate(item.item_id, { subcategory: newSubcategory })}
+                                highlighted={item.highlighted_item || false}
+                                onHighlightChange={(checked) => handleItemUpdate(item.item_id, { highlighted_item: checked })}
+                                included={item.included !== false}
+                                onIncludeChange={(checked) => handleItemUpdate(item.item_id, { included: checked })}
+                              />
+                            </SortableItem>
+                          ))}
+                        </SortableContext>
+                      </CategorySection>
+                    </DndContext>
                   );
                 })}
 

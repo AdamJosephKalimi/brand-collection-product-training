@@ -319,8 +319,12 @@ class ItemService:
                 item_data.setdefault('images', [])
                 item_data.setdefault('tags', [])
                 item_data.setdefault('sizes', {})
+                item_data.setdefault('display_order', 0)
                 
                 items.append(ItemResponse(**item_data))
+            
+            # Sort by category (nulls last), then by display_order
+            items.sort(key=lambda x: (x.category or 'zzz', x.display_order or 0))
             
             return items
             
@@ -550,6 +554,64 @@ class ItemService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to delete item: {str(e)}"
+            )
+    
+    async def reorder_items(
+        self,
+        collection_id: str,
+        user_id: str,
+        item_orders: List[Any]
+    ) -> Dict[str, str]:
+        """
+        Batch update display_order for multiple items.
+        
+        Args:
+            collection_id: The collection ID
+            user_id: The authenticated user's ID
+            item_orders: List of ItemOrderEntry objects or dicts
+            
+        Returns:
+            Success message
+        """
+        try:
+            # Validate collection ownership
+            await self.validate_collection_ownership(collection_id, user_id)
+            
+            # Get items subcollection reference
+            items_ref = self.db.collection(self.collections_collection).document(collection_id).collection('items')
+            
+            # Use batch write for efficiency
+            batch = self.db.batch()
+            
+            for item_order in item_orders:
+                # Handle both Pydantic models and dicts
+                if hasattr(item_order, 'item_id'):
+                    item_id = item_order.item_id
+                    display_order = item_order.display_order
+                else:
+                    item_id = item_order.get('item_id')
+                    display_order = item_order.get('display_order', 0)
+                
+                if item_id:
+                    item_ref = items_ref.document(item_id)
+                    batch.update(item_ref, {
+                        'display_order': display_order,
+                        'updated_at': datetime.utcnow()
+                    })
+            
+            # Commit all updates atomically
+            batch.commit()
+            
+            logger.info(f"Successfully reordered {len(item_orders)} items in collection {collection_id}")
+            return {"message": f"Successfully reordered {len(item_orders)} items"}
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error reordering items: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to reorder items: {str(e)}"
             )
 
 

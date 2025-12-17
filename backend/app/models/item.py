@@ -76,6 +76,9 @@ class Item(BaseModel):
     highlighted_item: bool = Field(default=False, description="Whether this is a featured/hero item")
     included: bool = Field(default=True, description="Whether to include this item in the final deck")
     
+    # Ordering (within category)
+    display_order: int = Field(default=0, ge=0, description="Display order within the item's category")
+    
     # Media
     images: List[ItemImage] = Field(default_factory=list, description="Product images")
     
@@ -120,6 +123,7 @@ class ItemCreate(BaseModel):
     currency: Currency
     highlighted_item: Optional[bool] = False
     included: Optional[bool] = True
+    display_order: Optional[int] = Field(default=0, ge=0)
     images: Optional[List[ItemImage]] = None
     sizes: Optional[Dict[str, int]] = None
     tags: Optional[List[str]] = None
@@ -147,12 +151,27 @@ class ItemUpdate(BaseModel):
     currency: Optional[Currency] = None
     highlighted_item: Optional[bool] = None
     included: Optional[bool] = None
+    display_order: Optional[int] = Field(None, ge=0)
     images: Optional[List[ItemImage]] = None
     sizes: Optional[Dict[str, int]] = None
     tags: Optional[List[str]] = None
     manual_review: Optional[bool] = None
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
+
+
+class ItemOrderEntry(BaseModel):
+    """Single item order entry"""
+    item_id: str
+    display_order: int
+
+
+class ItemReorderRequest(BaseModel):
+    """Request model for reordering items within a category"""
+    item_orders: List[ItemOrderEntry] = Field(
+        ..., 
+        description="List of {item_id: str, display_order: int} objects"
+    )
 
 
 class ItemResponse(BaseModel):
@@ -177,6 +196,7 @@ class ItemResponse(BaseModel):
     currency: Optional[str] = None  # Allow string for flexibility
     highlighted_item: Optional[bool] = False
     included: Optional[bool] = True
+    display_order: Optional[int] = 0
     images: Optional[List[ItemImage]] = None
     sizes: Optional[Dict[str, int]] = None
     tags: Optional[List[str]] = None

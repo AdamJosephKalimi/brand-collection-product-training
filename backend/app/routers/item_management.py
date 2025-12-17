@@ -3,7 +3,7 @@ Item Management API Router - CRUD operations for collection items.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Dict, Any, Optional
-from ..models.item import ItemCreate, ItemUpdate, ItemResponse
+from ..models.item import ItemCreate, ItemUpdate, ItemResponse, ItemReorderRequest
 from ..services.item_service import item_service
 from ..utils.auth import get_current_user
 import logging
@@ -126,6 +126,46 @@ async def get_collection_items(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve items"
+        )
+
+
+# NOTE: This must be defined BEFORE /{item_id} routes to avoid "reorder" being matched as an item_id
+@router.patch("/{collection_id}/items/reorder", response_model=Dict[str, str])
+async def reorder_items(
+    collection_id: str,
+    reorder_data: ItemReorderRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, str]:
+    """
+    Batch update display_order for multiple items within a category.
+    
+    **Parameters:**
+    - collection_id: Parent collection ID
+    
+    **Request Body:**
+    - item_orders: List of {item_id: str, display_order: int} objects
+    
+    **Use Case:**
+    - Reorder items after drag-and-drop in the UI
+    - Updates are applied atomically (all or nothing)
+    
+    **Returns:**
+    - Success message with count of items reordered
+    """
+    try:
+        user_id = current_user["uid"]
+        return await item_service.reorder_items(
+            collection_id, 
+            user_id, 
+            reorder_data.item_orders
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in reorder_items endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reorder items"
         )
 
 
