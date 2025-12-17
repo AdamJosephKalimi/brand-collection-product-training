@@ -1,0 +1,57 @@
+/* Checkbox wrapper */
+.checkboxWrapper {
+  display: inline-flex;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Hidden native checkbox */
+.checkboxInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Checkbox box */
+.checkboxBox {
+  width: 14px;
+  height: 14px;
+  border: 0.75px solid var(--border-primary);
+  border-radius: 1px;
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+/* Checked state */
+.checkboxBox.checked {
+  background-color: var(--background-primary);
+  border-color: var(--background-primary);
+}
+
+/* Hover state */
+.checkboxWrapper:hover .checkboxBox:not(.disabled) {
+  border-color: var(--text-brand);
+}
+
+.checkboxWrapper:hover .checkboxBox.checked:not(.disabled) {
+  background-color: #3d4a35;
+  border-color: #3d4a35;
+}
+
+/* Disabled state */
+.checkboxBox.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Check icon */
+.checkIcon {
+  width: 9px;
+  height: 8px;
+  color: white;
+}

@@ -1,0 +1,74 @@
+/**
+ * Design Tokens
+ * Extracted from Figma Design System
+ * DO NOT edit these values directly - update in Figma
+ */
+
+:root {
+  /* Colors */
+  --color-brand-wine: #7d3b51;
+  --color-brand-forest: #2c3528;
+  --color-brand-lime: #a0f26e;
+  --color-grey-0: #ffffff;
+  --color-grey-30: #d1d5db;
+  --color-grey-40: #9ca3af;
+  --color-grey-50: #6b7280;
+  --color-grey-60: #4b5563;
+  
+  /* Background Colors */
+  --background-primary: #2c3528;
+  --background-white: #ffffff;
+  --background-light: #f9fafb;
+  --background-active: #ebf7e6;
+  --background-highlight: #a0f26e;
+  --background-disabled: #adaebc;
+  
+  /* Text Colors */
+  --text-brand: #2c3528;
+  --text-secondary: #4b5563;
+  --text-white: #ffffff;
+  
+  /* Border Colors */
+  --border-primary: #2c3528;
+  --border-medium: #d1d5db;
+  --border-light: #e5e7eb;
+  
+  /* Spacing */
+  --spacing-0: 0px;
+  --spacing-1: 8px;
+  --spacing-2: 16px;
+  --spacing-3: 24px;
+  --spacing-4: 32px;
+  --spacing-5: 40px;
+  --spacing-6: 48px;
+  --spacing-7: 56px;
+  --spacing-8: 64px;
+  
+  /* Border Radius */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  
+  /* Typography */
+  --font-family-heading: 'Inter', sans-serif;
+  --font-family-body: 'Inter', sans-serif;
+  
+  /* Font Sizes */
+  --font-size-xs: 14px;
+  --font-size-sm: 16px;
+  --font-size-md: 18px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  
+  /* Font Weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semi-bold: 600;
+  --font-weight-bold: 700;
+  
+  /* Line Heights */
+  --line-height-xs: 20px;
+  --line-height-sm: 24px;
+  --line-height-md: 28px;
+  --line-height-lg: 32px;
+}

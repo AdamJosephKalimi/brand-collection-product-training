@@ -3,8 +3,9 @@ Brand Management API Router - CRUD operations for brands.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from typing import List, Dict, Any
-from ..models.brand import BrandCreate, BrandUpdate, BrandResponse
+from ..models.brand import BrandCreate, BrandUpdate, BrandResponse, BrandWithCollections, CollectionSummary
 from ..services.brand_service import brand_service
+from ..services.collection_service import collection_service
 from ..utils.auth import get_current_user
 import logging
 
@@ -83,6 +84,102 @@ async def get_user_brands(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve brands"
+        )
+
+
+@router.get("/with-collections", response_model=List[BrandWithCollections])
+async def get_brands_with_collections(
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> List[BrandWithCollections]:
+    """
+    Get all brands with their collections for the authenticated user.
+    
+    This endpoint provides an optimized way to fetch all brands and their collections
+    in a single request, ideal for dashboard views.
+    
+    **Authentication:**
+    - Requires valid Firebase authentication token
+    
+    **Returns:**
+    - List of brands with nested collections
+    - Each brand includes:
+      - `brand_id`: Unique brand identifier
+      - `name`: Brand name
+      - `logo_url`: Brand logo URL (signed URL for Firebase Storage)
+      - `collections`: Array of collection summaries
+    - Each collection includes:
+      - `collection_id`: Unique collection identifier
+      - `name`: Collection name
+      - `season`: Collection season (e.g., 'spring_summer', 'fall_winter')
+      - `year`: Collection year
+    
+    **Behavior:**
+    - Sorted by brand creation date (newest first)
+    - Only returns active brands (not deleted)
+    - Only returns active collections (not deleted)
+    - More efficient than fetching brands and collections separately
+    
+    **Example Response:**
+    ```json
+    [
+      {
+        "brand_id": "uuid-123",
+        "name": "Mackage",
+        "logo_url": "https://storage.googleapis.com/...",
+        "collections": [
+          {
+            "collection_id": "uuid-456",
+            "name": "SS2025",
+            "season": "spring_summer",
+            "year": 2025
+          }
+        ]
+      }
+    ]
+    ```
+    
+    **Errors:**
+    - 401: Unauthorized (invalid or missing token)
+    - 500: Internal server error
+    """
+    try:
+        user_id = current_user["uid"]
+        
+        # Get all brands for the user
+        brands = await brand_service.get_user_brands(user_id)
+        
+        # For each brand, fetch its collections
+        brands_with_collections = []
+        for brand in brands:
+            # Get collections for this brand
+            collections = await collection_service.get_brand_collections(brand.brand_id, user_id)
+            
+            # Format the response using Pydantic models
+            brand_data = BrandWithCollections(
+                brand_id=brand.brand_id,
+                name=brand.name,
+                logo_url=brand.logo_url,
+                collections=[
+                    CollectionSummary(
+                        collection_id=col.collection_id,
+                        name=col.name,
+                        season=col.season,
+                        year=col.year
+                    )
+                    for col in collections
+                ]
+            )
+            brands_with_collections.append(brand_data)
+        
+        return brands_with_collections
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_brands_with_collections endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve brands with collections"
         )
 
 

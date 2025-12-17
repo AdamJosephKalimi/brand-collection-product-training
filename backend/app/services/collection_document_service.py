@@ -90,7 +90,8 @@ class CollectionDocumentService:
         collection_id: str, 
         user_id: str, 
         file: UploadFile,
-        document_data: CollectionDocumentCreate
+        document_data: CollectionDocumentCreate,
+        process: bool = True
     ) -> CollectionDocumentResponse:
         """
         Upload a document to Firebase Storage and create Firestore record.
@@ -100,6 +101,7 @@ class CollectionDocumentService:
             user_id: The authenticated user's ID
             file: The uploaded file
             document_data: Document metadata
+            process: Whether to process document immediately (default: True for backward compatibility)
             
         Returns:
             Created document response
@@ -153,20 +155,21 @@ class CollectionDocumentService:
             doc_ref = docs_ref.document(document_id)
             doc_ref.set(document_doc)
             
-            # Parse and store text (synchronous - wait for completion)
-            try:
-                file.file.seek(0)  # Reset file pointer
-                file_bytes = await file.read()
-                await self._parse_and_store_text(
-                    collection_id, 
-                    document_id, 
-                    file_bytes, 
-                    file.filename,
-                    document_data.type.value  # Pass document type for structured extraction
-                )
-            except Exception as parse_error:
-                logger.error(f"Error parsing document text: {parse_error}")
-                # Don't fail the upload if parsing fails
+            # Parse and store text only if process=True (synchronous - wait for completion)
+            if process:
+                try:
+                    file.file.seek(0)  # Reset file pointer
+                    file_bytes = await file.read()
+                    await self._parse_and_store_text(
+                        collection_id, 
+                        document_id, 
+                        file_bytes, 
+                        file.filename,
+                        document_data.type.value  # Pass document type for structured extraction
+                    )
+                except Exception as parse_error:
+                    logger.error(f"Error parsing document text: {parse_error}")
+                    # Don't fail the upload if parsing fails
             
             # Update collection stats
             collection_ref = self.db.collection(self.collections_collection).document(collection_id)
@@ -443,7 +446,8 @@ class CollectionDocumentService:
         document_id: str, 
         file_bytes: bytes, 
         filename: str,
-        document_type: str
+        document_type: str,
+        progress_callback=None
     ):
         """
         Parse document and store extracted/normalized text in Firestore.
@@ -455,6 +459,7 @@ class CollectionDocumentService:
             file_bytes: File content as bytes
             filename: Original filename
             document_type: Document type (line_sheet, purchase_order, etc.)
+            progress_callback: Optional async callback function(phase, message) for progress updates
         """
         try:
             logger.info(f"Parsing document: {filename}")
@@ -468,6 +473,9 @@ class CollectionDocumentService:
                 pdf = fitz.open(stream=file_bytes, filetype="pdf")
                 
                 # PHASE 1: Extract images from PDF
+                if progress_callback:
+                    await progress_callback(phase=1, message="Extracting images")
+                
                 logger.info("=" * 50)
                 logger.info("PHASE 1: Extracting images from PDF")
                 logger.info("=" * 50)
@@ -479,6 +487,9 @@ class CollectionDocumentService:
                 logger.info("=" * 50)
                 
                 # PHASE 3: Filter product images (remove small images like swatches/logos)
+                if progress_callback:
+                    await progress_callback(phase=3, message="Filtering product images")
+                
                 logger.info("=" * 50)
                 logger.info("PHASE 3: Filtering product images")
                 logger.info("=" * 50)
@@ -491,12 +502,15 @@ class CollectionDocumentService:
                 # Store filtered image metadata for Phase 4 matching
                 image_metadata = product_images
                 
+                # PHASE 2: Extract text blocks with positions (for image matching)
+                if progress_callback:
+                    await progress_callback(phase=2, message="Extracting text")
+                
                 # Extract text using parser_service (for LLM processing)
                 result = await self.parser_service.parse_pdf(file_bytes, filename)
                 parsed_text = result.get('extracted_text', '')
                 logger.info(f"Parsed PDF {filename}: {len(parsed_text)} characters")
                 
-                # PHASE 2: Extract text blocks with positions (for image matching)
                 logger.info("=" * 50)
                 logger.info("PHASE 2: Extracting text blocks with positions")
                 logger.info("=" * 50)
@@ -534,14 +548,20 @@ class CollectionDocumentService:
             # Extract structured products for line sheets
             structured_products = None
             if document_type == 'line_sheet' and normalized_text:
-                # Step 1: Generate and save categories first
+                # PHASE 4: Generate and save categories first
+                if progress_callback:
+                    await progress_callback(phase=4, message="Generating categories")
+                
                 logger.info("Document is a line sheet, generating categories first...")
                 categories = await self._generate_and_save_categories(
                     normalized_text,
                     collection_id
                 )
                 
-                # Step 2: Extract structured products with category assignment
+                # PHASE 5: Extract structured products with category assignment
+                if progress_callback:
+                    await progress_callback(phase=5, message="Extracting structured products")
+                
                 logger.info("Extracting structured products with category assignment...")
                 structured_products = await self._extract_structured_products(
                     normalized_text,
@@ -550,10 +570,13 @@ class CollectionDocumentService:
                     categories
                 )
                 
-                # PHASE 4: Match images to products
+                # PHASE 6: Match images to products
                 if structured_products and 'text_blocks' in locals() and 'image_metadata' in locals():
+                    if progress_callback:
+                        await progress_callback(phase=6, message="Matching images to products")
+                    
                     logger.info("=" * 50)
-                    logger.info("PHASE 4: Matching images to products")
+                    logger.info("PHASE 6: Matching images to products")
                     logger.info("=" * 50)
                     structured_products = self._match_images_to_products(
                         structured_products,

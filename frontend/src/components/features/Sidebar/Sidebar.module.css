@@ -1,0 +1,192 @@
+/* Sidebar container */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-2);
+  background-color: var(--background-white);
+  border-right: 1px solid var(--border-light);
+  min-height: 100vh;
+  width: 255px;
+}
+
+.sidebarInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  width: 223px;
+}
+
+/* New Brand Button */
+.newBrandButton {
+  width: 100%;
+  min-width: 150px;
+}
+
+/* Brand List */
+.brandList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+/* Brand Item */
+.brandItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+/* Brand Header */
+.brandHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-1);
+  background-color: var(--background-white);
+  border: none;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.brandHeader:hover {
+  background-color: var(--background-light);
+}
+
+.brandLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+/* Chevron */
+.chevron {
+  width: 12px;
+  height: 12px;
+  color: var(--color-grey-40);
+  transition: transform 0.2s ease;
+}
+
+.chevron.expanded {
+  transform: rotate(90deg);
+}
+
+/* Brand Name */
+.brandName {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-xs);
+  color: var(--text-brand);
+}
+
+/* Ellipsis Button */
+.ellipsisButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-grey-40);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.ellipsisButton:hover {
+  color: var(--color-grey-60);
+}
+
+/* Collection List */
+.collectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: var(--spacing-2);
+}
+
+/* Collection Item */
+.collectionItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-1);
+  background-color: transparent;
+  border: none;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.collectionItem:hover {
+  background-color: var(--background-light);
+}
+
+.collectionItem.active {
+  background-color: var(--background-active);
+}
+
+.collectionLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-xs);
+  color: var(--text-brand);
+}
+
+.collectionItem.active .collectionLeft {
+  font-weight: var(--font-weight-medium);
+}
+
+.collectionLeft svg {
+  width: 14px;
+  height: 14px;
+  color: var(--color-grey-40);
+  flex-shrink: 0;
+}
+
+.collectionItem.active .collectionLeft svg {
+  color: var(--text-brand);
+}
+
+.collectionItem svg:last-child {
+  width: 14px;
+  height: 14px;
+  color: var(--color-grey-40);
+}
+
+/* New Collection Button */
+.newCollectionButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-xs);
+  color: rgba(125, 59, 81, 0.7);
+  transition: color 0.2s ease;
+}
+
+.newCollectionButton:hover {
+  color: var(--color-brand-wine);
+}
+
+.newCollectionButton svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+}

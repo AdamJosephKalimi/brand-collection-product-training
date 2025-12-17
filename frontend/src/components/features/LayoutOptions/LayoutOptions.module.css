@@ -1,0 +1,161 @@
+/* Section container */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3);
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+}
+
+/* Section header */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semi-bold);
+  line-height: var(--line-height-md);
+  color: var(--text-brand);
+}
+
+/* Layout options grid */
+.layoutGrid {
+  display: flex;
+  gap: var(--spacing-3);
+  width: 100%;
+}
+
+/* Layout card */
+.layoutCard {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  height: 124px;
+  padding: var(--spacing-3);
+  background-color: var(--background-light);
+  border: 2px solid var(--border-medium);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  /* Remove button defaults */
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Selected state */
+.layoutCard.selected {
+  background-color: var(--background-active);
+  border-color: var(--border-primary);
+}
+
+/* Hover state */
+.layoutCard:hover:not(.selected) {
+  border-color: var(--color-grey-50);
+}
+
+/* Focus state */
+.layoutCard:focus-visible {
+  outline: 2px solid var(--color-brand-wine);
+  outline-offset: 2px;
+}
+
+/* Icon wrapper */
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Icon 1 (single large square) */
+.icon1 {
+  width: 32px;
+  height: 32px;
+  background-color: var(--color-grey-30);
+  border-radius: 4px;
+}
+
+/* Icon 2 (2 squares side by side) */
+.icon2 {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Icon 3 (3 squares in a row) */
+.icon3 {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Icon 4 (2x2 grid) */
+.icon4 {
+  display: grid;
+  grid-template-columns: repeat(2, 16px);
+  grid-template-rows: repeat(2, 16px);
+  gap: 4px;
+}
+
+/* Square for icons 2, 3, 4 */
+.icon2 .square,
+.icon3 .square {
+  width: 24px;
+  height: 24px;
+  background-color: var(--color-grey-30);
+  border-radius: 4px;
+}
+
+.icon4 .square {
+  width: 16px;
+  height: 16px;
+  background-color: var(--color-grey-30);
+  border-radius: 4px;
+}
+
+/* Selected state - make icons black */
+.selected .icon1 {
+  background-color: var(--background-primary);
+}
+
+.selected .icon2 .square,
+.selected .icon3 .square,
+.selected .icon4 .square {
+  background-color: var(--background-primary);
+}
+
+/* Card label */
+.cardLabel {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-xs);
+  color: var(--text-brand);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Checkmark (top-right corner) */
+.checkmark {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--color-grey-40);
+}

@@ -1,0 +1,102 @@
+/* Tabs wrapper container */
+.tabsWrapper {
+  display: flex;
+  gap: var(--spacing-1);
+  align-items: center;
+  padding: var(--spacing-2);
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+}
+
+/* Individual tab button */
+.tab {
+  /* Layout */
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--spacing-1);
+  
+  /* Spacing */
+  padding: 12px var(--spacing-2);
+  
+  /* Border & Background */
+  background-color: var(--background-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+  
+  /* Typography */
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-sm);
+  color: var(--color-grey-60);
+  
+  /* Interaction */
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  /* Remove default button styles */
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  white-space: nowrap;
+}
+
+/* Active tab state */
+.tab.active {
+  background-color: var(--background-primary);
+  color: var(--color-grey-0);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Hover state for inactive tabs */
+.tab:not(.active):not(.disabled):hover {
+  background-color: var(--background-active);
+  border-color: var(--border-medium);
+}
+
+/* Disabled tab state */
+.tab.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Focus state for accessibility */
+.tab:focus-visible {
+  outline: 2px solid var(--color-brand-forest);
+  outline-offset: 2px;
+}
+
+/* Number badge */
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: var(--color-grey-0);
+  border: 1px solid var(--border-light);
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.badgeNumber {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-grey-40);
+  line-height: 1;
+}
+
+/* Active tab badge */
+.tab.active .badgeNumber {
+  color: var(--text-brand);
+}
+
+/* Label text */
+.label {
+  flex-shrink: 0;
+}

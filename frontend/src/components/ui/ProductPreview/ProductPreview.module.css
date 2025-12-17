@@ -1,0 +1,80 @@
+/* Preview card container */
+.previewCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 17px;
+  background-color: #f9fafb; /* Light gray background */
+  border: 1px solid var(--border-medium);
+  border-radius: var(--border-radius-md);
+  text-align: center;
+}
+
+/* Image wrapper */
+.imageWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Product image */
+.productImage {
+  width: 128px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: var(--border-radius-md);
+}
+
+/* Image placeholder */
+.imagePlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 128px;
+  height: 160px;
+  background-color: var(--background-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+  color: var(--color-grey-40);
+  font-size: var(--font-size-xs);
+}
+
+/* Details section */
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Product name */
+.productName {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-sm);
+  color: var(--text-brand);
+}
+
+/* Detail text (regular) */
+.detailText {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* RRP text (emphasized) */
+.rrpText {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-xs);
+  color: var(--text-brand);
+  white-space: nowrap;
+}

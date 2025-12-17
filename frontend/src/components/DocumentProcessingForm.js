@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { auth } from '../firebase/config';
+import { getAuthToken } from '../utils/auth';
 
 function DocumentProcessingForm() {
   const [saving, setSaving] = useState({
@@ -219,13 +220,6 @@ function DocumentProcessingForm() {
     setHasUnsavedChanges(true);
   };
 
-  const getAuthToken = async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    return await user.getIdToken();
-  };
 
   const saveBrand = async () => {
     setSaving(prev => ({ ...prev, brand: true }));

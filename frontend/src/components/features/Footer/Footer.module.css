@@ -1,0 +1,41 @@
+/* Footer container */
+.footer {
+  background-color: var(--background-white);
+  border-top: 1px solid var(--border-light);
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+/* Footer inner wrapper */
+.footerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-xs);
+  color: var(--text-secondary);
+}
+
+/* Footer links */
+.footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.footerLink {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footerLink:hover {
+  color: var(--text-brand);
+}
+
+/* Copyright text */
+.copyright {
+  margin: 0;
+  color: var(--text-secondary);
+}

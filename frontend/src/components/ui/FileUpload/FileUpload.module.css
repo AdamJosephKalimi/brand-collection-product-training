@@ -1,0 +1,234 @@
+/* Upload zone - base */
+.uploadZone {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: var(--spacing-3) var(--spacing-2);
+  border: 2px dashed var(--border-medium);
+  border-radius: var(--border-radius-md);
+  transition: all 0.2s ease;
+}
+
+/* Empty state */
+.uploadZone.empty {
+  align-items: center;
+  padding: var(--spacing-4);
+  background-color: rgba(125, 59, 81, 0.1);
+  border-color: rgba(125, 59, 81, 0.7);
+  cursor: pointer;
+}
+
+.uploadZone.empty:hover {
+  background-color: rgba(125, 59, 81, 0.15);
+  border-color: rgba(125, 59, 81, 0.9);
+}
+
+.uploadZone.empty.dragging {
+  background-color: rgba(125, 59, 81, 0.2);
+  border-color: #7d3b51;
+  transform: scale(1.01);
+}
+
+/* Filled state */
+.uploadZone.filled {
+  align-items: flex-start;
+  gap: 24px;
+  background-color: transparent;
+  border-color: var(--border-medium);
+}
+
+.uploadZone.filled.dragging {
+  background-color: rgba(209, 213, 219, 0.1);
+  border-color: var(--border-primary);
+}
+
+/* Document icon */
+.icon {
+  width: 22.5px;
+  height: 30px;
+  color: #7d3b51;
+  flex-shrink: 0;
+}
+
+/* Text block */
+.textBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-sm);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.subtitle {
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: var(--font-weight-regular);
+  line-height: normal;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Button */
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-2);
+  background-color: #7d3b51;
+  color: var(--text-white);
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-xs);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.button:hover {
+  background-color: #6a3244;
+}
+
+.button:active {
+  background-color: #5a2a39;
+}
+
+/* Files list (filled state) */
+.filesList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* File item */
+.fileItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  height: 68px;
+}
+
+/* File details */
+.fileDetails {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* File icon wrapper */
+.fileIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 6px 11px;
+  background-color: rgba(125, 59, 81, 0.1);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.fileIcon {
+  width: 10.5px;
+  height: 14px;
+  color: #7d3b51;
+}
+
+/* File info */
+.fileInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.fileName {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-sm);
+  color: var(--text-brand);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+  text-align: left;
+}
+
+.fileMetadata {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-xs);
+  color: var(--color-grey-50);
+  margin: 0;
+  text-align: left;
+}
+
+/* Delete button */
+.deleteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-grey-40);
+  transition: color 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.deleteButton:hover {
+  color: #7d3b51;
+}
+
+/* Add more button (filled state) */
+.addMoreButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-2);
+  min-width: 150px;
+  background-color: #7d3b51;
+  color: var(--text-white);
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-xs);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.addMoreButton svg {
+  width: 12px;
+  height: 12px;
+}
+
+.addMoreButton:hover {
+  background-color: #6a3244;
+}
+
+.addMoreButton:active {
+  background-color: #5a2a39;
+}

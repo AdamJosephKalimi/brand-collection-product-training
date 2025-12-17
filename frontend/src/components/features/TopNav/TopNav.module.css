@@ -1,0 +1,103 @@
+/* Top navigation container */
+.topNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  background-color: var(--color-grey-0);
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Left side: Logo + Links */
+.navLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-5);
+}
+
+/* Logo */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.logo:hover {
+  opacity: 0.8;
+}
+
+.logoText {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semi-bold);
+  color: var(--text-brand);
+  line-height: 1;
+}
+
+/* Navigation Links */
+.navLinks {
+  display: flex;
+  align-items: center;
+  gap: 23px;
+}
+
+.navLink {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-sm);
+  color: var(--color-grey-60);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.navLink:hover {
+  color: var(--text-brand);
+}
+
+.navLink.active {
+  color: var(--text-brand);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Right side: User Avatar */
+.navRight {
+  display: flex;
+  align-items: center;
+}
+
+.userAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.userAvatar:hover {
+  transform: scale(1.05);
+}
+
+.userAvatarPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--background-primary);
+  color: var(--color-grey-0);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.userAvatarPlaceholder:hover {
+  transform: scale(1.05);
+}

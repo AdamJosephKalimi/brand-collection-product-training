@@ -1,0 +1,134 @@
+/* Base button styles */
+.button {
+  /* Layout */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-1);
+  
+  /* Spacing */
+  padding: var(--spacing-1) var(--spacing-2);
+  
+  /* Typography */
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-xs);
+  text-align: center;
+  white-space: nowrap;
+  
+  /* Border */
+  border: none;
+  border-radius: var(--border-radius-md);
+  
+  /* Interaction */
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  /* Remove default button styles */
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Primary variant (Wine color) */
+.button.primary {
+  background-color: var(--color-brand-wine);
+  color: var(--color-grey-0);
+}
+
+.button.primary:hover:not(:disabled) {
+  background-color: #6a3244; /* Slightly darker wine */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(125, 59, 81, 0.2);
+}
+
+.button.primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Secondary variant */
+.button.secondary {
+  background-color: var(--background-light);
+  color: var(--text-brand);
+  border: 1px solid var(--border-medium);
+}
+
+.button.secondary:hover:not(:disabled) {
+  background-color: var(--background-active);
+  border-color: var(--border-primary);
+}
+
+/* Highlight variant (Continue/Success button) */
+.button.highlight {
+  background-color: var(--background-highlight);
+  color: var(--text-brand);
+  font-weight: var(--font-weight-semi-bold);
+  font-size: var(--font-size-sm);
+  gap: 12px;
+}
+
+.button.highlight:hover:not(:disabled) {
+  background-color: #8fd95e; /* Slightly darker lime */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(160, 242, 110, 0.3);
+}
+
+.button.highlight:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Dark variant (forest green/black - same as active tab) */
+.button.dark {
+  background-color: var(--background-primary);
+  color: var(--color-grey-0);
+  font-weight: var(--font-weight-medium);
+}
+
+.button.dark:hover:not(:disabled) {
+  background-color: var(--text-brand);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(44, 53, 40, 0.2);
+}
+
+.button.dark:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Disabled state */
+.button.disabled,
+.button:disabled {
+  background-color: var(--background-disabled);
+  color: var(--color-grey-0);
+  border-color: var(--background-disabled);
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+  opacity: 1; /* Override any inherited opacity */
+}
+
+/* Size variants */
+.button.sm {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.button.md {
+  padding: var(--spacing-1) var(--spacing-2);
+  font-size: var(--font-size-xs);
+}
+
+.button.lg {
+  padding: 12px var(--spacing-3);
+  font-size: var(--font-size-sm);
+}
+
+/* Focus state for accessibility */
+.button:focus-visible {
+  outline: 2px solid var(--color-brand-wine);
+  outline-offset: 2px;
+}

@@ -1,0 +1,66 @@
+/* Toggle container */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background-color: var(--background-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+  width: fit-content;
+}
+
+/* Toggle item (button) */
+.toggleItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background-color: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.toggleItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.toggleItem:focus-visible {
+  outline: 2px solid var(--border-primary);
+  outline-offset: 1px;
+}
+
+/* Active state */
+.toggleItem.active {
+  background-color: var(--background-white);
+  box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+}
+
+/* Icon */
+.icon {
+  width: 10px;
+  height: 10px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.toggleItem.active .icon {
+  color: var(--text-brand);
+}
+
+/* Label */
+.label {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.toggleItem.active .label {
+  color: var(--text-brand);
+}
