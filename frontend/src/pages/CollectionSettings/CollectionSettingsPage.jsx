@@ -401,6 +401,11 @@ function CollectionSettingsPage() {
   // Collection Items - Selected items for bulk actions
   const [selectedItems, setSelectedItems] = useState(new Set());
   
+  // Deck Generation state
+  const [deckGenerationStatus, setDeckGenerationStatus] = useState('idle'); // 'idle', 'processing', 'completed', 'failed'
+  const [deckGenerationError, setDeckGenerationError] = useState(null);
+  const [deckDownloadUrl, setDeckDownloadUrl] = useState(null);
+  
   // Group items by category for display
   const groupedItems = React.useMemo(() => {
     const groups = {
@@ -409,7 +414,34 @@ function CollectionSettingsPage() {
       unmatched: []
     };
     
-    items.forEach(item => {
+    // Apply filters first
+    let filteredItems = items;
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filteredItems = filteredItems.filter(item => 
+        (item.sku || '').toLowerCase().includes(query) ||
+        (item.product_name || '').toLowerCase().includes(query) ||
+        (item.color || '').toLowerCase().includes(query)
+      );
+    }
+    
+    // Filter by category
+    if (categoryFilter !== 'all') {
+      filteredItems = filteredItems.filter(item => item.category === categoryFilter);
+    }
+    
+    // Filter by status (included/excluded)
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'included') {
+        filteredItems = filteredItems.filter(item => item.included !== false);
+      } else if (statusFilter === 'excluded') {
+        filteredItems = filteredItems.filter(item => item.included === false);
+      }
+    }
+    
+    filteredItems.forEach(item => {
       // Unmatched: items without product_name or rrp (missing linesheet data)
       if (!item.product_name || item.product_name === item.sku) {
         groups.unmatched.push(item);
@@ -435,7 +467,7 @@ function CollectionSettingsPage() {
     });
     
     return groups;
-  }, [items]);
+  }, [items, searchQuery, categoryFilter, statusFilter]);
   
   // Get category options for dropdowns (from collection categories)
   const categoryOptions = React.useMemo(() => {
@@ -525,6 +557,82 @@ function CollectionSettingsPage() {
       collectionId,
       itemOrders
     });
+  };
+
+  // Deck generation phase tracking
+  const [deckGenerationPhase, setDeckGenerationPhase] = useState('');
+  
+  // Generate Training Deck handler
+  const handleGenerateDeck = async () => {
+    setDeckGenerationStatus('processing');
+    setDeckGenerationError(null);
+    setDeckDownloadUrl(null);
+    setDeckGenerationPhase('Generating intro slides...');
+    
+    try {
+      const token = await import('../../utils/auth').then(m => m.getAuthToken());
+      const productsPerSlide = collectionData?.settings?.products_per_slide || 1;
+      
+      // Step 1: Generate intro slides first
+      const introResponse = await fetch(
+        `http://localhost:8000/collections/${collectionId}/intro-slides/generate`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (!introResponse.ok) {
+        const error = await introResponse.json();
+        throw new Error(error.detail || 'Failed to generate intro slides');
+      }
+      
+      console.log('Intro slides generated successfully');
+      setDeckGenerationPhase('Generating presentation...');
+      
+      // Step 2: Generate presentation
+      const response = await fetch(
+        `http://localhost:8000/api/collections/${collectionId}/presentation/generate?products_per_slide=${productsPerSlide}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to generate deck');
+      }
+      
+      const data = await response.json();
+      
+      if (data.download_url) {
+        setDeckDownloadUrl(data.download_url);
+        setDeckGenerationStatus('completed');
+        setDeckGenerationPhase('');
+        
+        // Auto-trigger download
+        const link = document.createElement('a');
+        link.href = data.download_url;
+        link.download = `${collectionData?.name || 'collection'}_training_deck.pptx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        throw new Error('No download URL returned');
+      }
+    } catch (error) {
+      console.error('Error generating deck:', error);
+      setDeckGenerationError(error.message);
+      setDeckGenerationStatus('failed');
+      setDeckGenerationPhase('');
+    }
   };
 
   const collectionTypeOptions = [
@@ -1768,9 +1876,12 @@ function CollectionSettingsPage() {
                     }}
                   >
                     <option value="all">All Categories</option>
-                    <option value="outerwear">Outerwear</option>
-                    <option value="knitwear">Knitwear</option>
-                    <option value="accessories">Accessories</option>
+                    {(collectionData?.categories || [])
+                      .slice()
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map(cat => (
+                        <option key={cat.name} value={cat.name}>{cat.name}</option>
+                      ))}
                   </select>
                 </div>
 
@@ -2059,6 +2170,52 @@ function CollectionSettingsPage() {
                 title="Generate Deck"
                 description="The deck will be generated and downloaded in .PPT format."
               />
+              
+              {/* Deck Generation Progress */}
+              <ProcessingProgress
+                title="Deck Generation Progress"
+                status={deckGenerationStatus}
+                currentPhase={deckGenerationPhase}
+                progress={{ percentage: deckGenerationPhase.includes('presentation') ? 60 : 30 }}
+                error={deckGenerationError}
+                successMessage="Deck Successfully Generated"
+              />
+              
+              {/* Success Message - shown when completed */}
+              {deckGenerationStatus === 'completed' && (
+                <div style={{
+                  textAlign: 'center',
+                  paddingTop: 'var(--spacing-3)',
+                  paddingBottom: 'var(--spacing-3)',
+                  paddingLeft: 'var(--spacing-3)',
+                  paddingRight: 'var(--spacing-3)'
+                }}>
+                  <h3 style={{
+                    fontFamily: 'var(--font-family-body)',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    lineHeight: '20px',
+                    color: 'var(--color-brand-wine)',
+                    margin: 0,
+                    marginBottom: 'var(--spacing-2)'
+                  }}>
+                    Deck Successfully Generated
+                  </h3>
+                  {deckDownloadUrl && (
+                    <a 
+                      href={deckDownloadUrl}
+                      download
+                      style={{
+                        color: 'var(--color-brand-wine)',
+                        textDecoration: 'underline',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Click here if download didn't start automatically
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Generate Training Deck Button */}
@@ -2076,12 +2233,11 @@ function CollectionSettingsPage() {
               <Button
                 variant="highlight"
                 size="lg"
-                onClick={() => {
-                  console.log('Generate Training Deck clicked');
-                  // TODO: Implement deck generation
-                }}
+                disabled={deckGenerationStatus === 'processing'}
+                onClick={handleGenerateDeck}
               >
-                Generate Training Deck
+                {deckGenerationStatus === 'processing' ? 'Generating...' : 
+                 deckGenerationStatus === 'completed' ? 'Regenerate Deck' : 'Generate Training Deck'}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M11.333 2.00004C11.5081 1.82494 11.716 1.68605 11.9447 1.59129C12.1735 1.49653 12.4187 1.44775 12.6663 1.44775C12.914 1.44775 13.1592 1.49653 13.3879 1.59129C13.6167 1.68605 13.8246 1.82494 13.9997 2.00004C14.1748 2.17513 14.3137 2.383 14.4084 2.61178C14.5032 2.84055 14.552 3.08575 14.552 3.33337C14.552 3.58099 14.5032 3.82619 14.4084 4.05497C14.3137 4.28374 14.1748 4.49161 13.9997 4.66671L4.99967 13.6667L1.33301 14.6667L2.33301 11L11.333 2.00004Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
