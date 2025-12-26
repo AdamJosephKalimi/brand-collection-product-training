@@ -23,6 +23,8 @@ import Toggle from '../../components/ui/Toggle/Toggle';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
 import BrandCard from '../../components/features/BrandCard/BrandCard';
+import InfoModal from '../../components/ui/InfoModal/InfoModal';
+import InputModal from '../../components/ui/InputModal/InputModal';
 import { useBrands } from '../../hooks/useBrands';
 
 function DeckSettingsPage() {
@@ -344,6 +346,38 @@ function DeckSettingsPage() {
         </div>
       </div>
       
+      {/* InfoModal Component Test */}
+      <div style={{ marginBottom: 'var(--spacing-4)' }}>
+        <h2 style={{ 
+          fontSize: 'var(--font-size-md)', 
+          marginBottom: 'var(--spacing-2)',
+          color: 'var(--text-brand)'
+        }}>
+          InfoModal Component Test
+        </h2>
+        
+        <div style={{ maxWidth: '500px' }}>
+          <InfoModal
+            title="Cover Page"
+            description="This slide introduces the brand and collection at a glance. It displays the brand name, collection name, and a simple subtitle ('Product Knowledge')."
+            isVisible={true}
+            onClose={() => alert('Close clicked!')}
+          />
+        </div>
+        
+        <div style={{ maxWidth: '500px', marginTop: 'var(--spacing-3)' }}>
+          <InputModal
+            title="Add New Sub-Category"
+            label="Enter Sub-Category Name"
+            placeholder="e.g. Jackets"
+            buttonText="Add Sub-Category"
+            isVisible={true}
+            onClose={() => alert('Close clicked!')}
+            onSubmit={(value) => alert(`Submitted: ${value}`)}
+          />
+        </div>
+      </div>
+
       {/* Checkbox Component Test */}
       <div style={{ marginBottom: 'var(--spacing-4)' }}>
         <h2 style={{ 

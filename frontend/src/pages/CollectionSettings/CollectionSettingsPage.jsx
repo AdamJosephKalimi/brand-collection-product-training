@@ -33,6 +33,8 @@ import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifi
 import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
+import InfoModal from '../../components/ui/InfoModal/InfoModal';
+import { introSlideInfo } from '../../data/introSlideInfo';
 
 // Sortable wrapper for CollectionListItem
 function SortableItem({ id, children }) {
@@ -659,6 +661,9 @@ function CollectionSettingsPage() {
     coreCollections: true,
     flagshipStores: true
   });
+
+  // Track which intro slide info modal is open (null = none open)
+  const [activeInfoModal, setActiveInfoModal] = useState(null);
 
   // Mapping between local state keys and Firestore field names
   const introSlideFieldMap = {
@@ -1530,7 +1535,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('coverPage')}
                 label="Cover Page"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Cover Page')}
+                onInfoClick={() => setActiveInfoModal('coverPage')}
               />
               
               <Checkbox
@@ -1538,7 +1543,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('brandIntro')}
                 label="Brand Introduction"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Brand Introduction')}
+                onInfoClick={() => setActiveInfoModal('brandIntro')}
               />
               
               <Checkbox
@@ -1546,7 +1551,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('brandHistory')}
                 label="Brand History"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Brand History')}
+                onInfoClick={() => setActiveInfoModal('brandHistory')}
               />
               
               <Checkbox
@@ -1554,7 +1559,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('brandPersonality')}
                 label="Brand Personality"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Brand Personality')}
+                onInfoClick={() => setActiveInfoModal('brandPersonality')}
               />
               
               <Checkbox
@@ -1562,7 +1567,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('brandValues')}
                 label="Brand Values"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Brand Values')}
+                onInfoClick={() => setActiveInfoModal('brandValues')}
               />
               
               <Checkbox
@@ -1570,7 +1575,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('coreCollections')}
                 label="Core Collections & Signature Categories"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Core Collections')}
+                onInfoClick={() => setActiveInfoModal('coreCollections')}
               />
               
               <Checkbox
@@ -1578,7 +1583,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('flagshipStores')}
                 label="Flagship Stores & Experiences"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Flagship Stores')}
+                onInfoClick={() => setActiveInfoModal('flagshipStores')}
               />
             </div>
           </div>
@@ -2252,6 +2257,16 @@ function CollectionSettingsPage() {
           <Footer />
         </div>
       </div>
+
+      {/* Intro Slide Info Modal */}
+      {activeInfoModal && introSlideInfo[activeInfoModal] && (
+        <InfoModal
+          title={introSlideInfo[activeInfoModal].title}
+          description={introSlideInfo[activeInfoModal].description}
+          isVisible={true}
+          onClose={() => setActiveInfoModal(null)}
+        />
+      )}
     </div>
   );
 }
