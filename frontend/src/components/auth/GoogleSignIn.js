@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '../../firebase/config';
 
 const GoogleSignIn = ({ onAuthStateChange }) => {
@@ -7,63 +7,42 @@ const GoogleSignIn = ({ onAuthStateChange }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Check for redirect result on component mount
-  useEffect(() => {
-    const checkRedirectResult = async () => {
-      setLoading(true);
-      try {
-        const result = await getRedirectResult(auth);
-        
-        if (result) {
-          // User just came back from Google OAuth
-          const user = result.user;
-          
-          // Get the ID token for backend authentication
-          const idToken = await user.getIdToken();
-          
-          // Verify token with backend
-          const response = await fetch('http://localhost:8000/auth/verify-token', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${idToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          const data = await response.json();
-          
-          if (data.valid) {
-            setUser(user);
-            if (onAuthStateChange) {
-              onAuthStateChange(user, idToken);
-            }
-            console.log('Sign-in successful:', data.user);
-          } else {
-            throw new Error(data.message || 'Token verification failed');
-          }
-        }
-      } catch (error) {
-        console.error('Redirect result error:', error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    checkRedirectResult();
-  }, [onAuthStateChange]);
-
   const handleSignIn = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // This will redirect the entire page to Google
-      await signInWithRedirect(auth, googleProvider);
-      // Code after this won't execute - page will redirect away
+      // Use popup instead of redirect for local development
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      
+      // Get the ID token for backend authentication
+      const idToken = await user.getIdToken();
+      
+      // Verify token with backend
+      const response = await fetch('http://localhost:8000/auth/verify-token', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.valid) {
+        setUser(user);
+        if (onAuthStateChange) {
+          onAuthStateChange(user, idToken);
+        }
+        console.log('Sign-in successful:', data.user);
+      } else {
+        throw new Error(data.message || 'Token verification failed');
+      }
     } catch (error) {
       console.error('Sign-in error:', error);
       setError(error.message);
+    } finally {
       setLoading(false);
     }
   };
