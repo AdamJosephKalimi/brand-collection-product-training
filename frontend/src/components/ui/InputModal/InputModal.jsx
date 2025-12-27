@@ -47,6 +47,10 @@ function InputModal({
   const handleSubmit = () => {
     if (onSubmit) {
       onSubmit(inputValue);
+      // Clear internal value after submit for uncontrolled usage
+      if (!isControlled) {
+        setInternalValue('');
+      }
     }
   };
 
@@ -57,48 +61,56 @@ function InputModal({
     className
   ].filter(Boolean).join(' ');
 
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget && onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <div className={modalClasses}>
-      {/* Header */}
-      <div className={styles.header}>
-        <div className={styles.headerContent}>
-          <h3 className={styles.title}>{title}</h3>
-        </div>
-        {onClose && (
-          <button 
-            className={styles.closeButton} 
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="14" cy="14" r="14" fill="#EBF7E6"/>
-              <path d="M18 10L10 18M10 10L18 18" stroke="#2C3528" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-        )}
-      </div>
-      
-      {/* Content */}
-      <div className={styles.content}>
-        {/* Input Field */}
-        <div className={styles.inputWrapper}>
-          {label && <label className={styles.label}>{label}</label>}
-          <input
-            type="text"
-            className={styles.input}
-            value={inputValue}
-            onChange={handleInputChange}
-            placeholder={placeholder}
-          />
+    <div className={styles.overlay} onClick={handleOverlayClick}>
+      <div className={modalClasses}>
+        {/* Header */}
+        <div className={styles.header}>
+          <div className={styles.headerContent}>
+            <h3 className={styles.title}>{title}</h3>
+          </div>
+          {onClose && (
+            <button 
+              className={styles.closeButton} 
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="14" cy="14" r="14" fill="#EBF7E6"/>
+                <path d="M18 10L10 18M10 10L18 18" stroke="#2C3528" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
         </div>
         
-        {/* Action Button */}
-        <button 
-          className={styles.actionButton}
-          onClick={handleSubmit}
-        >
-          {buttonText}
-        </button>
+        {/* Content */}
+        <div className={styles.content}>
+          {/* Input Field */}
+          <div className={styles.inputWrapper}>
+            {label && <label className={styles.label}>{label}</label>}
+            <input
+              type="text"
+              className={styles.input}
+              value={inputValue}
+              onChange={handleInputChange}
+              placeholder={placeholder}
+            />
+          </div>
+          
+          {/* Action Button */}
+          <button 
+            className={styles.actionButton}
+            onClick={handleSubmit}
+          >
+            {buttonText}
+          </button>
+        </div>
       </div>
     </div>
   );

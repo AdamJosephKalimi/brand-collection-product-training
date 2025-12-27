@@ -34,6 +34,7 @@ import ProcessingProgress from '../../components/ui/ProcessingProgress/Processin
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
 import InfoModal from '../../components/ui/InfoModal/InfoModal';
+import InputModal from '../../components/ui/InputModal/InputModal';
 import { introSlideInfo } from '../../data/introSlideInfo';
 
 // Sortable wrapper for CollectionListItem
@@ -733,6 +734,9 @@ function CollectionSettingsPage() {
   const [categories, setCategories] = useState([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   
+  // Track which category is being edited for subcategory modal (null = closed)
+  const [subcategoryModalCategoryIndex, setSubcategoryModalCategoryIndex] = useState(null);
+  
   // Track pending saves to prevent sync overwrites during rapid changes
   const pendingSavesRef = useRef(0);
 
@@ -782,9 +786,13 @@ function CollectionSettingsPage() {
     }
   };
 
-  const handleAddSubcategory = async (categoryIndex) => {
-    const subcategoryName = window.prompt('Enter subcategory name:');
-    if (subcategoryName && subcategoryName.trim()) {
+  const handleAddSubcategory = (categoryIndex) => {
+    setSubcategoryModalCategoryIndex(categoryIndex);
+  };
+
+  const handleSubcategoryModalSubmit = async (subcategoryName) => {
+    if (subcategoryName && subcategoryName.trim() && subcategoryModalCategoryIndex !== null) {
+      const categoryIndex = subcategoryModalCategoryIndex;
       const newCategories = categories.map((cat, i) => {
         if (i === categoryIndex) {
           const newSubcategory = {
@@ -802,6 +810,9 @@ function CollectionSettingsPage() {
       
       // Optimistic update
       setCategories(newCategories);
+      
+      // Close modal
+      setSubcategoryModalCategoryIndex(null);
       
       // Save to DB
       await saveCategories(newCategories);
@@ -2265,6 +2276,19 @@ function CollectionSettingsPage() {
           description={introSlideInfo[activeInfoModal].description}
           isVisible={true}
           onClose={() => setActiveInfoModal(null)}
+        />
+      )}
+
+      {/* Add Subcategory Modal */}
+      {subcategoryModalCategoryIndex !== null && (
+        <InputModal
+          title="Add New Sub-Category"
+          label="Enter Sub-Category Name"
+          placeholder="e.g. Jackets"
+          buttonText="Add Sub-Category"
+          isVisible={true}
+          onClose={() => setSubcategoryModalCategoryIndex(null)}
+          onSubmit={handleSubcategoryModalSubmit}
         />
       )}
     </div>
