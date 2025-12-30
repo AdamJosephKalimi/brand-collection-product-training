@@ -234,13 +234,36 @@ Return ONLY valid JSON in this exact format:
             prompt = f"""Generate a brand introduction slide for {brand_name}.
 
 Create a compelling brand introduction that captures the essence and identity of {brand_name}.
-Include a brief overview and 3-4 key points about the brand.
+The intro should include unique and core brand details, key elements that 
+differentiate the brand, any history on the brand name if applicable. 
+Unique facts that would be important to understanding the brand's positioning. 
+What the brand is most known for at a high level. The context is a brand deck for training retail staff. 
+It's important to highlight unique and core brand details that could help a staff 
+member really understand the brand. Though there may be elements of brand history and identity, it should serve as an overview. 
+Write up to 250 words but only write as much as necessary to communicate message.
 
 Return ONLY valid JSON in this exact format:
 {{
-    "title": "About {brand_name}",
-    "overview": "2-3 sentence brand overview",
-    "key_points": ["Point 1", "Point 2", "Point 3"]
+"title": "About {brand_name}",
+"overview": {{
+    "summary": "2–3 sentence high-level introduction to the brand",
+    "positioning": "How the brand is positioned in the market and what it is most known for"
+}},
+"brand_identity": {{
+    "essence": "Core idea or philosophy behind the brand",
+    "differentiators": [
+    "Key element that differentiates the brand",
+    "Another unique differentiator"
+    ],
+    "unique_facts": [
+    "Distinctive fact that helps understand the brand",
+    "Notable detail relevant to retail staff"
+    ]
+}},
+"name_and_history": {{
+    "name_origin": "Meaning or origin of the brand name, if applicable",
+    "background": "Brief brand history, only if relevant to understanding the brand"
+}}
 }}"""
 
             logger.info(f"Calling LLM for brand introduction: {brand_name}")
@@ -287,15 +310,51 @@ Return ONLY valid JSON in this exact format:
             prompt = f"""Generate a brand history slide for {brand_name}.
 
 Create a compelling brand history that tells the story of {brand_name}.
-Include founding information and key milestones.
+Include the founder and brief background on how their experience led to the founding of the brand.
+Describe the evolution of the brand and any signature pieces or aesthetics.
+Include key historical facts that help explain the brand's current position in the market.
+
+You may also include, if relevant:
+1. Contextual positioning
+2. Founding ethos or values
+3. Brand evolution over time
+4. Key production details
+5. Current footprint
+6. Philosophical or cultural takeaway
+
+Only include elements that best help retail staff understand the brand's heritage and identity.
+Write up to 200 words, using only as much detail as necessary.
 
 Return ONLY valid JSON in this exact format:
 {{
     "title": "Brand History",
-    "founding_year": "Year founded",
-    "founder": "Founder name(s)",
-    "origin": "City/Country of origin",
-    "milestones": ["Milestone 1", "Milestone 2", "Milestone 3"]
+    "founding": {{
+        "year": "Year founded",
+        "founder": {{
+            "name": "Founder name(s)",
+            "background": "Brief background on the founder and what led to founding the brand"
+        }},
+        "origin": {{
+            "city": "City of origin",
+            "country": "Country of origin"
+        }}
+    }},
+    "evolution": {{
+        "early_identity": "How the brand began and its initial aesthetic or purpose",
+        "key_shifts": [
+            "Major evolution in style, product focus, or brand direction",
+            "Another important transformation or expansion"
+        ],
+        "signature_elements": [
+            "Signature pieces, materials, or aesthetics the brand became known for"
+        ]
+    }},
+    "market_context": {{
+        "positioning": "How the brand contrasted with competitors or cultural norms",
+        "production_philosophy": "Notable materials, craftsmanship, innovation, or sourcing practices",
+        "current_footprint": "Present-day scale, markets, or retail distribution"
+    }},
+    "philosophical_takeaway": "The deeper cultural, symbolic, or ideological meaning of the brand today"
 }}"""
 
             logger.info(f"Calling LLM for brand history: {brand_name}")
@@ -343,16 +402,20 @@ Return ONLY valid JSON in this exact format:
         try:
             prompt = f"""Generate a brand values slide for {brand_name}.
 
-Identify and describe the core values that define {brand_name}.
-Include 3-5 key values with brief descriptions.
+You are creating a brand values training slide for retail staff for the brand {brand_name}. Identify its 3–5 core values.
+For each value, provide:
+- A short headline word or phrase (e.g., "Quality", "Creativity", "Authenticity", "Sustainability")
+- A 1–2 sentence explanation of how this value is expressed in the brand's products, culture, or philosophy
+
+Focus on values that are genuinely distinctive to the brand and central to its identity, avoiding generic statements unless they are essential.
 
 Return ONLY valid JSON in this exact format:
 {{
     "title": "Brand Values",
     "values": [
         {{
-            "name": "Value name",
-            "description": "Brief description of this value"
+            "headline": "Short value headline (e.g., Quality, Creativity)",
+            "explanation": "1–2 sentence explanation of how this value is expressed in the brand's products, culture, or philosophy"
         }}
     ]
 }}"""
@@ -399,15 +462,28 @@ Return ONLY valid JSON in this exact format:
         try:
             prompt = f"""Generate a brand personality slide for {brand_name}.
 
-Describe the personality and aesthetic that defines {brand_name}.
-Include personality traits, style descriptors, and brand voice.
+You are creating a brand personality training slide for retail staff for the brand {brand_name}. Identify its most defining personality traits and values.
+Where relevant, include:
+- A cultural or inspirational quote associated with the brand's identity (e.g., from an artist, musician, designer, or campaign). Only include if clearly existing.
+- 3–5 personality traits or values that represent the brand
+- A short explanation for each trait, highlighting how it connects to the brand's ethos, creative inspiration, or cultural influence
+
+Focus on what makes the brand emotionally distinctive and memorable, avoiding generic or vague traits.
+Maximum 150 words, but only include as many words as necessary.
 
 Return ONLY valid JSON in this exact format:
 {{
     "title": "Brand Personality",
-    "personality_traits": ["Trait 1", "Trait 2", "Trait 3"],
-    "style_descriptors": ["Descriptor 1", "Descriptor 2", "Descriptor 3"],
-    "brand_voice": "Description of the brand's voice and tone"
+    "quote": {{
+        "text": "Cultural or inspirational quote associated with the brand's identity",
+        "attribution": "Source of the quote (artist, designer, campaign, etc.)"
+    }},
+    "traits": [
+        {{
+            "name": "Personality trait or value",
+            "explanation": "Short explanation connecting to the brand's ethos, creative inspiration, or cultural influence"
+        }}
+    ]
 }}"""
 
             logger.info(f"Calling LLM for brand personality: {brand_name}")
@@ -435,9 +511,8 @@ Return ONLY valid JSON in this exact format:
                 "title": "Brand Personality",
                 "content": {
                     "title": "Brand Personality",
-                    "personality_traits": [],
-                    "style_descriptors": [],
-                    "brand_voice": ""
+                    "quote": None,
+                    "traits": []
                 }
             }
     
@@ -454,19 +529,38 @@ Return ONLY valid JSON in this exact format:
         try:
             prompt = f"""Generate a flagship stores and experiences slide for {brand_name}.
 
-Describe {brand_name}'s retail presence, flagship store locations, and brand experiences.
-Include key store locations and what makes the retail experience special.
+You are creating a flagship stores training slide for retail staff for the brand {brand_name}. Identify its most significant flagship stores, concept stores, or major retail experiences.
+Where relevant, cover:
+- Year and location of opening
+- Key design or architectural elements
+- The unique customer experience or atmosphere of the store
+- Any symbolic or cultural meaning behind the store design
+
+Flexibility:
+- If the brand has multiple flagship stores, list the most iconic one, two, or three.
+- If the brand has only one, focus on that flagship in detail.
+- If the brand has no official flagship stores, highlight other notable retail experiences such as pop-ups, collaborations, or digital flagships.
+
+Write the content in a way that is factual yet aspirational, helping retail staff understand how the brand expresses itself through its physical (or digital) spaces.
+Maximum 150 words.
 
 Return ONLY valid JSON in this exact format:
 {{
     "title": "Flagship Stores & Experiences",
-    "store_locations": [
+    "flagship_stores": [
         {{
-            "city": "City name",
-            "description": "Brief description of this location"
+            "name": "Store name or location identifier",
+            "year_opened": "Year of opening",
+            "location": {{
+                "city": "City",
+                "country": "Country"
+            }},
+            "design_elements": "Key design or architectural elements",
+            "customer_experience": "Unique customer experience or atmosphere",
+            "cultural_meaning": "Symbolic or cultural meaning behind the store design"
         }}
     ],
-    "retail_experience": "Description of the overall retail experience and brand atmosphere"
+    "alternative_experiences": "If no flagship stores exist: pop-ups, collaborations, or digital flagships (omit if flagship_stores are provided)"
 }}"""
 
             logger.info(f"Calling LLM for flagship stores: {brand_name}")
@@ -494,8 +588,8 @@ Return ONLY valid JSON in this exact format:
                 "title": "Flagship Stores & Experiences",
                 "content": {
                     "title": "Flagship Stores & Experiences",
-                    "store_locations": [],
-                    "retail_experience": ""
+                    "flagship_stores": [],
+                    "alternative_experiences": None
                 }
             }
     
@@ -526,26 +620,31 @@ Return ONLY valid JSON in this exact format:
             categories_text = ", ".join(category_names) if category_names else "Various categories"
             products_text = ", ".join(product_names[:10]) if product_names else "Collection pieces"  # Limit to first 10
             
-            prompt = f"""Generate a core collection slide for {brand_name} {collection_name}.
+            prompt = f"""Generate a core collections slide for {brand_name}.
 
-Based on {brand_name}'s brand aesthetic and the following products, tell the story of this collection.
-What defines this collection? Which pieces are the heroes/signatures that embody the creative vision?
+You are creating a core collections training slide for retail staff for the brand {brand_name}. Identify its 3–6 signature product categories.
+Only include as many as needed (there may only be 3 and that's okay).
+
+For each category:
+- Provide a short headline (the product category name)
+- Write 1–2 sentences explaining why this category is central to the brand. Highlight its symbolic meaning, key materials or fabrics, craftsmanship, and production details if relevant.
+- If there is an iconic staple product in the category that appears in every collection, you may include it if truly relevant. Do not include if not renowned.
+
+Present the information in a way that is factual, aspirational, and easy for retail staff to remember when speaking to customers.
+Focus on the categories that best represent the brand's DNA and are consistently featured across collections.
+Maximum 150 words.
 
 Collection Categories: {categories_text}
 Sample Products: {products_text}
 
-Use your knowledge of {brand_name}'s brand identity (grunge, denim heritage, edgy aesthetic) combined with 
-the actual product names provided. Focus on creative direction and what makes this collection special.
-
 Return ONLY valid JSON in this exact format:
 {{
-    "title": "Core Collection & Signature Categories",
-    "overview": "Tell the story of this collection - what defines it? (2-3 sentences)",
+    "title": "Core Collections & Signature Categories",
     "signature_categories": [
         {{
-            "category": "Category name from the list above",
-            "description": "What makes this category special in this collection's story",
-            "key_pieces": ["Product name 1", "Product name 2"]
+            "headline": "Product category name",
+            "description": "1–2 sentences explaining why this category is central to the brand, including symbolic meaning, key materials/fabrics, craftsmanship, or production details if relevant",
+            "iconic_staple": "Iconic staple product in this category (only if truly renowned, otherwise null)"
         }}
     ]
 }}"""
@@ -572,10 +671,9 @@ Return ONLY valid JSON in this exact format:
             logger.error(f"Error generating core collection: {e}")
             return {
                 "slide_type": "core_collection",
-                "title": "Core Collection & Signature Categories",
+                "title": "Core Collections & Signature Categories",
                 "content": {
-                    "title": "Core Collection & Signature Categories",
-                    "overview": f"{collection_name} collection",
+                    "title": "Core Collections & Signature Categories",
                     "signature_categories": []
                 }
             }
