@@ -1,0 +1,73 @@
+.button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 24px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  transition: all 0.15s ease;
+}
+
+.button:focus {
+  outline: none;
+}
+
+.button:focus-visible {
+  box-shadow: 0 0 0 2px #a0f26e;
+}
+
+/* Edit variant - secondary style */
+.edit {
+  background-color: #f3f4f6;
+  color: #2c3528;
+}
+
+.edit:hover {
+  background-color: #e5e7eb;
+}
+
+.edit:active {
+  background-color: #d1d5db;
+}
+
+/* Download variant - primary style */
+.download {
+  background-color: #ebf7e6;
+  border: 1px solid #a0f26e;
+  color: #2c3528;
+}
+
+.download:hover {
+  background-color: #d4f0c8;
+}
+
+.download:active {
+  background-color: #c0e8b0;
+}
+
+/* Disabled state */
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disabled:hover {
+  background-color: inherit;
+}
+
+/* Icon styling */
+.icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* Label */
+.label {
+  text-align: center;
+}

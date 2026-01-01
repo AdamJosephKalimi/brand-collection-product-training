@@ -37,6 +37,9 @@ import InfoModal from '../../components/ui/InfoModal/InfoModal';
 import InputModal from '../../components/ui/InputModal/InputModal';
 import { introSlideInfo } from '../../data/introSlideInfo';
 
+// Stable empty array to prevent infinite re-renders from default value
+const EMPTY_ARRAY = [];
+
 // Sortable wrapper for CollectionListItem
 function SortableItem({ id, children }) {
   const {
@@ -81,6 +84,12 @@ function CollectionSettingsPage() {
   // Fetch processing status (with refetch for manual polling)
   const { data: processingStatus, refetch: refetchProcessingStatus } = useProcessingStatus(collectionId);
   
+  // Store refetch in a ref to avoid dependency issues in useEffect
+  const refetchRef = useRef(refetchProcessingStatus);
+  useEffect(() => {
+    refetchRef.current = refetchProcessingStatus;
+  }, [refetchProcessingStatus]);
+  
   // Collection update mutation
   const updateCollectionMutation = useUpdateCollection();
   
@@ -95,8 +104,8 @@ function CollectionSettingsPage() {
   const generateItemsMutation = useGenerateItems();
   const cancelItemGenMutation = useCancelItemGeneration();
   
-  // Fetch collection items
-  const { data: fetchedItems = [] } = useCollectionItems(collectionId);
+  // Fetch collection items - use stable EMPTY_ARRAY to prevent infinite re-renders
+  const { data: fetchedItems = EMPTY_ARRAY } = useCollectionItems(collectionId);
   const updateItemMutation = useUpdateItem();
   const reorderItemsMutation = useReorderItems();
   
@@ -109,8 +118,11 @@ function CollectionSettingsPage() {
   }, [collectionId]);
   
   // Sync local items with fetched items
+  // Only update if fetchedItems actually has items to prevent loops with empty arrays
   useEffect(() => {
-    setLocalItems(fetchedItems);
+    if (fetchedItems.length > 0 || localItems.length > 0) {
+      setLocalItems(fetchedItems);
+    }
   }, [fetchedItems]);
   
   // Clear items immediately when regeneration starts
@@ -373,7 +385,7 @@ function CollectionSettingsPage() {
       
       pollingIntervalRef.current = setInterval(() => {
         console.log('[CollectionSettingsPage] Polling - calling refetch');
-        refetchProcessingStatus();
+        refetchRef.current?.();
       }, 2000);
     } else {
       console.log('[CollectionSettingsPage] Not polling - status:', {
@@ -390,7 +402,7 @@ function CollectionSettingsPage() {
         pollingIntervalRef.current = null;
       }
     };
-  }, [processingStatus?.document_processing?.status, processingStatus?.item_generation?.status, refetchProcessingStatus]);
+  }, [processingStatus?.document_processing?.status, processingStatus?.item_generation?.status]);
 
   // Collection Items - View toggle and filters
   const [collectionItemsView, setCollectionItemsView] = useState('list');

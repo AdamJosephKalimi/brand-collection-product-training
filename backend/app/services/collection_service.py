@@ -229,7 +229,9 @@ class CollectionService:
                     created_at=collection_data.get("created_at", datetime.utcnow()),
                     updated_at=collection_data.get("updated_at", datetime.utcnow()),
                     published_at=collection_data.get("published_at"),
-                    workflow=collection_data.get("workflow")
+                    workflow=collection_data.get("workflow"),
+                    intro_slides=collection_data.get("intro_slides"),
+                    presentation=collection_data.get("presentation")
                 ))
             
             return collections
@@ -299,7 +301,8 @@ class CollectionService:
                 updated_at=collection_data.get("updated_at", datetime.utcnow()),
                 published_at=collection_data.get("published_at"),
                 workflow=collection_data.get("workflow"),
-                intro_slides=collection_data.get("intro_slides")
+                intro_slides=collection_data.get("intro_slides"),
+                presentation=collection_data.get("presentation")
             )
             
         except HTTPException:

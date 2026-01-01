@@ -1423,12 +1423,14 @@ class PresentationGenerationService:
             logger.info(f"Temp file cleaned up: {temp_path}")
             
             # Update collection document with presentation metadata
+            storage_path = f"presentations/{collection_id}/presentation.pptx"
             collection_ref = self.db.collection('collections').document(collection_id)
             collection_ref.update({
                 'presentation': {
                     'generated_at': datetime.utcnow(),
                     'download_url': download_url,
-                    'slide_count': len(self.prs.slides)
+                    'slide_count': len(self.prs.slides),
+                    'storage_path': storage_path
                 }
             })
             

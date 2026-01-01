@@ -111,6 +111,14 @@ class CollectionStatistics(BaseModel):
     total_presentations: int = 0
     last_presentation_generated: Optional[datetime] = None
 
+
+class PresentationMetadata(BaseModel):
+    """Presentation metadata for generated decks"""
+    generated_at: Optional[datetime] = None
+    download_url: Optional[str] = None
+    slide_count: int = 0
+    storage_path: Optional[str] = None
+
 class Collection(BaseModel):
     """Complete collection data model"""
     collection_id: str = Field(..., description="Unique collection identifier")
@@ -200,6 +208,7 @@ class CollectionResponse(BaseModel):
     published_at: Optional[datetime]
     workflow: Optional[CollectionWorkflow]
     intro_slides: Optional[Dict[str, Any]] = None
+    presentation: Optional[Dict[str, Any]] = None
 
 
 class CollectionWithDocuments(Collection):
