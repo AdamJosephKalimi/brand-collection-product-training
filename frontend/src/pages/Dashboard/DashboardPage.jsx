@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import TopNav from '../../components/features/TopNav/TopNav';
 import Sidebar from '../../components/features/Sidebar/Sidebar';
 import Footer from '../../components/features/Footer/Footer';
 import Button from '../../components/ui/Button/Button';
 import BrandCard from '../../components/features/BrandCard/BrandCard';
+import NewBrandModal from '../../components/ui/NewBrandModal/NewBrandModal';
+import NewCollectionModal from '../../components/ui/NewCollectionModal/NewCollectionModal';
 import { useBrands } from '../../hooks/useBrands';
+import { useCreateBrand } from '../../hooks/useCreateBrand';
+import { useCreateCollection } from '../../hooks/useCreateCollection';
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -22,6 +27,17 @@ function DashboardPage() {
   
   const [activeBrand, setActiveBrand] = useState(null);
   const [activeCollection, setActiveCollection] = useState(null);
+  
+  // New Brand Modal state
+  const [isNewBrandModalVisible, setIsNewBrandModalVisible] = useState(false);
+  const createBrandMutation = useCreateBrand();
+  
+  // New Collection Modal state
+  const [newCollectionBrandId, setNewCollectionBrandId] = useState(null);
+  const [collectionLoadingMessage, setCollectionLoadingMessage] = useState('Creating...');
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+  const createCollectionMutation = useCreateCollection();
+  const queryClient = useQueryClient();
 
   // Set first brand and collection as active when data loads
   React.useEffect(() => {
@@ -68,14 +84,8 @@ function DashboardPage() {
           onCollectionClick={(collection) => {
             navigate(`/collection-settings/${collection.id}`);
           }}
-          onNewBrand={() => {
-            console.log('New Brand clicked');
-            // TODO: Add create brand logic
-          }}
-          onNewCollection={(brandId) => {
-            console.log('New Collection for brand:', brandId);
-            // TODO: Add create collection logic
-          }}
+          onNewBrand={() => setIsNewBrandModalVisible(true)}
+          onNewCollection={(brandId) => setNewCollectionBrandId(brandId)}
         />
         
         {/* Main Content */}
@@ -209,10 +219,7 @@ function DashboardPage() {
               }}>
                 <Button
                   variant="highlight"
-                  onClick={() => {
-                    console.log('Get Started clicked');
-                    // TODO: Add create brand logic
-                  }}
+                  onClick={() => setIsNewBrandModalVisible(true)}
                   style={{
                     width: '237px',
                     height: '52px',
@@ -258,10 +265,7 @@ function DashboardPage() {
                     onEditBrand={() => {
                       navigate(`/brands/${brand.id}/edit`);
                     }}
-                    onAddCollection={() => {
-                      console.log('Add collection to:', brand.name);
-                      // TODO: Open add collection modal/page
-                    }}
+                    onAddCollection={() => setNewCollectionBrandId(brand.id)}
                     onCollectionClick={(collection) => {
                       console.log('Navigate to collection:', collection.name);
                       // TODO: Navigate to collection page
@@ -277,6 +281,61 @@ function DashboardPage() {
       
       {/* Footer */}
       <Footer />
+
+      {/* New Brand Modal */}
+      <NewBrandModal
+        isVisible={isNewBrandModalVisible}
+        onClose={() => setIsNewBrandModalVisible(false)}
+        isLoading={createBrandMutation.isPending}
+        onSubmit={async (data) => {
+          try {
+            await createBrandMutation.mutateAsync(data);
+            setIsNewBrandModalVisible(false);
+          } catch (error) {
+            console.error('Failed to create brand:', error);
+          }
+        }}
+      />
+
+      {/* New Collection Modal */}
+      <NewCollectionModal
+        isVisible={!!newCollectionBrandId}
+        onClose={() => {
+          if (!isCreatingCollection) {
+            setNewCollectionBrandId(null);
+            setCollectionLoadingMessage('Creating...');
+          }
+        }}
+        isLoading={isCreatingCollection}
+        loadingMessage={collectionLoadingMessage}
+        brandName={brands.find(b => b.id === newCollectionBrandId)?.name || ''}
+        onSubmit={async (data) => {
+          try {
+            setIsCreatingCollection(true);
+            setCollectionLoadingMessage('Creating...');
+            
+            const newCollection = await createCollectionMutation.mutateAsync({
+              brandId: newCollectionBrandId,
+              ...data
+            });
+            
+            setCollectionLoadingMessage('Loading...');
+            await queryClient.refetchQueries({ queryKey: ['brands'] });
+            await queryClient.prefetchQuery({
+              queryKey: ['collection', newCollection.collection_id]
+            });
+            
+            setNewCollectionBrandId(null);
+            setCollectionLoadingMessage('Creating...');
+            setIsCreatingCollection(false);
+            navigate(`/collection-settings/${newCollection.collection_id}`);
+          } catch (error) {
+            console.error('Failed to create collection:', error);
+            setIsCreatingCollection(false);
+            setCollectionLoadingMessage('Creating...');
+          }
+        }}
+      />
     </div>
   );
 }

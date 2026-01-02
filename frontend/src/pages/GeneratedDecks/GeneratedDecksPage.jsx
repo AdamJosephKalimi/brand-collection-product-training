@@ -1,17 +1,29 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import TopNav from '../../components/features/TopNav/TopNav';
 import Sidebar from '../../components/features/Sidebar/Sidebar';
 import Footer from '../../components/features/Footer/Footer';
 import BrandSection from '../../components/ui/BrandSection/BrandSection';
+import NewBrandModal from '../../components/ui/NewBrandModal/NewBrandModal';
+import NewCollectionModal from '../../components/ui/NewCollectionModal/NewCollectionModal';
 import { useBrands } from '../../hooks/useBrands';
 import { useGeneratedDecks, useDownloadPresentation } from '../../hooks/useGeneratedDecks';
+import { useCreateBrand } from '../../hooks/useCreateBrand';
+import { useCreateCollection } from '../../hooks/useCreateCollection';
 import styles from './GeneratedDecksPage.module.css';
 
 function GeneratedDecksPage() {
   const navigate = useNavigate();
   const [activeBrand, setActiveBrand] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
+  const [isNewBrandModalVisible, setIsNewBrandModalVisible] = useState(false);
+  const createBrandMutation = useCreateBrand();
+  const [newCollectionBrandId, setNewCollectionBrandId] = useState(null);
+  const [collectionLoadingMessage, setCollectionLoadingMessage] = useState('Creating...');
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+  const createCollectionMutation = useCreateCollection();
+  const queryClient = useQueryClient();
 
   // Top nav links
   const navLinks = [
@@ -76,12 +88,8 @@ function GeneratedDecksPage() {
           onCollectionClick={(collection) => {
             navigate(`/collection-settings/${collection.id}`);
           }}
-          onNewBrand={() => {
-            console.log('New Brand clicked');
-          }}
-          onNewCollection={(brandId) => {
-            console.log('New Collection for brand:', brandId);
-          }}
+          onNewBrand={() => setIsNewBrandModalVisible(true)}
+          onNewCollection={(brandId) => setNewCollectionBrandId(brandId)}
         />
         
         {/* Main Content */}
@@ -135,6 +143,61 @@ function GeneratedDecksPage() {
 
       {/* Footer */}
       <Footer />
+
+      {/* New Brand Modal */}
+      <NewBrandModal
+        isVisible={isNewBrandModalVisible}
+        onClose={() => setIsNewBrandModalVisible(false)}
+        isLoading={createBrandMutation.isPending}
+        onSubmit={async (data) => {
+          try {
+            await createBrandMutation.mutateAsync(data);
+            setIsNewBrandModalVisible(false);
+          } catch (error) {
+            console.error('Failed to create brand:', error);
+          }
+        }}
+      />
+
+      {/* New Collection Modal */}
+      <NewCollectionModal
+        isVisible={!!newCollectionBrandId}
+        onClose={() => {
+          if (!isCreatingCollection) {
+            setNewCollectionBrandId(null);
+            setCollectionLoadingMessage('Creating...');
+          }
+        }}
+        isLoading={isCreatingCollection}
+        loadingMessage={collectionLoadingMessage}
+        brandName={brands.find(b => b.id === newCollectionBrandId)?.name || ''}
+        onSubmit={async (data) => {
+          try {
+            setIsCreatingCollection(true);
+            setCollectionLoadingMessage('Creating...');
+            
+            const newCollection = await createCollectionMutation.mutateAsync({
+              brandId: newCollectionBrandId,
+              ...data
+            });
+            
+            setCollectionLoadingMessage('Loading...');
+            await queryClient.refetchQueries({ queryKey: ['brands'] });
+            await queryClient.prefetchQuery({
+              queryKey: ['collection', newCollection.collection_id]
+            });
+            
+            setNewCollectionBrandId(null);
+            setCollectionLoadingMessage('Creating...');
+            setIsCreatingCollection(false);
+            navigate(`/collection-settings/${newCollection.collection_id}`);
+          } catch (error) {
+            console.error('Failed to create collection:', error);
+            setIsCreatingCollection(false);
+            setCollectionLoadingMessage('Creating...');
+          }
+        }}
+      />
     </div>
   );
 }

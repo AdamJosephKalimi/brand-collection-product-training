@@ -35,7 +35,11 @@ import CategorySection from '../../components/ui/CategorySection/CategorySection
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
 import InfoModal from '../../components/ui/InfoModal/InfoModal';
 import InputModal from '../../components/ui/InputModal/InputModal';
+import NewBrandModal from '../../components/ui/NewBrandModal/NewBrandModal';
+import NewCollectionModal from '../../components/ui/NewCollectionModal/NewCollectionModal';
 import { introSlideInfo } from '../../data/introSlideInfo';
+import { useCreateBrand } from '../../hooks/useCreateBrand';
+import { useCreateCollection } from '../../hooks/useCreateCollection';
 
 // Stable empty array to prevent infinite re-renders from default value
 const EMPTY_ARRAY = [];
@@ -185,6 +189,16 @@ function CollectionSettingsPage() {
   const [activeBrand, setActiveBrand] = useState(null);
   const [activeCollection, setActiveCollection] = useState(null);
   
+  // New Brand Modal state
+  const [isNewBrandModalVisible, setIsNewBrandModalVisible] = useState(false);
+  const createBrandMutation = useCreateBrand();
+  
+  // New Collection Modal state
+  const [newCollectionBrandId, setNewCollectionBrandId] = useState(null);
+  const [collectionLoadingMessage, setCollectionLoadingMessage] = useState('Creating...');
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+  const createCollectionMutation = useCreateCollection();
+  
   // Set activeCollection from URL and find parent brand
   useEffect(() => {
     if (collectionId && brands.length > 0) {
@@ -253,19 +267,28 @@ function CollectionSettingsPage() {
 
   // Collection Info - Collection Name, Type and Year
   const [collectionName, setCollectionName] = useState('');
-  const [collectionType, setCollectionType] = useState('spring_summer');
-  const [collectionYear, setCollectionYear] = useState('2025');
+  const [collectionType, setCollectionType] = useState('');
+  const [collectionYear, setCollectionYear] = useState('');
   const [collectionInformation, setCollectionInformation] = useState('');
   
   // Track original values for change detection
   const [originalValues, setOriginalValues] = useState(null);
   
+  // Reset Collection Label state when collectionId changes (before new data loads)
+  useEffect(() => {
+    setCollectionName('');
+    setCollectionType('');
+    setCollectionYear('');
+    setCollectionInformation('');
+    setOriginalValues(null);
+  }, [collectionId]);
+  
   // Populate form fields when collection data loads
   useEffect(() => {
     if (collectionData) {
       const name = collectionData.name || '';
-      const season = collectionData.season || 'spring_summer';
-      const year = String(collectionData.year || new Date().getFullYear());
+      const season = collectionData.season || '';
+      const year = collectionData.year ? String(collectionData.year) : '';
       const description = collectionData.description || '';
       
       setCollectionName(name);
@@ -1033,14 +1056,8 @@ function CollectionSettingsPage() {
           onCollectionClick={(collection) => {
             navigate(`/collection-settings/${collection.id}`);
           }}
-          onNewBrand={() => {
-            console.log('New Brand clicked');
-            // TODO: Add create brand logic
-          }}
-          onNewCollection={(brandId) => {
-            console.log('New Collection for brand:', brandId);
-            // TODO: Add create collection logic
-          }}
+          onNewBrand={() => setIsNewBrandModalVisible(true)}
+          onNewCollection={(brandId) => setNewCollectionBrandId(brandId)}
         />
         
         {/* Main Content Wrapper */}
@@ -1307,6 +1324,7 @@ function CollectionSettingsPage() {
                     
                     {/* FileUpload Component */}
                     <FileUpload
+                      key={`linesheet-${collectionId}`}
                       initialFiles={linesheetDocuments}
                       onFilesSelected={async (files) => {
                         // Upload each file (staged, not processed)
@@ -1395,6 +1413,7 @@ function CollectionSettingsPage() {
                     
                     {/* POFileUpload Component */}
                     <POFileUpload
+                      key={`po-${collectionId}`}
                       initialFiles={purchaseOrderDocuments}
                       onFilesSelected={async (files) => {
                         // Upload each file (staged, not processed)
@@ -2303,6 +2322,66 @@ function CollectionSettingsPage() {
           onSubmit={handleSubcategoryModalSubmit}
         />
       )}
+
+      {/* New Brand Modal */}
+      <NewBrandModal
+        isVisible={isNewBrandModalVisible}
+        onClose={() => setIsNewBrandModalVisible(false)}
+        isLoading={createBrandMutation.isPending}
+        onSubmit={async (data) => {
+          try {
+            await createBrandMutation.mutateAsync(data);
+            setIsNewBrandModalVisible(false);
+          } catch (error) {
+            console.error('Failed to create brand:', error);
+          }
+        }}
+      />
+
+      {/* New Collection Modal */}
+      <NewCollectionModal
+        isVisible={!!newCollectionBrandId}
+        onClose={() => {
+          if (!isCreatingCollection) {
+            setNewCollectionBrandId(null);
+            setCollectionLoadingMessage('Creating...');
+          }
+        }}
+        isLoading={isCreatingCollection}
+        loadingMessage={collectionLoadingMessage}
+        brandName={brands.find(b => b.id === newCollectionBrandId)?.name || ''}
+        onSubmit={async (data) => {
+          try {
+            setIsCreatingCollection(true);
+            setCollectionLoadingMessage('Creating...');
+            
+            // Step 1: Create the collection
+            const newCollection = await createCollectionMutation.mutateAsync({
+              brandId: newCollectionBrandId,
+              ...data
+            });
+            
+            // Step 2: Wait for sidebar data to be ready
+            setCollectionLoadingMessage('Loading...');
+            await queryClient.refetchQueries({ queryKey: ['brands'] });
+            
+            // Step 3: Prefetch new collection data
+            await queryClient.prefetchQuery({
+              queryKey: ['collection', newCollection.collection_id]
+            });
+            
+            // Step 4: Now close and navigate - everything is ready
+            setNewCollectionBrandId(null);
+            setCollectionLoadingMessage('Creating...');
+            setIsCreatingCollection(false);
+            navigate(`/collection-settings/${newCollection.collection_id}`);
+          } catch (error) {
+            console.error('Failed to create collection:', error);
+            setIsCreatingCollection(false);
+            setCollectionLoadingMessage('Creating...');
+          }
+        }}
+      />
     </div>
   );
 }

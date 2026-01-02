@@ -25,6 +25,7 @@ import CategorySection from '../../components/ui/CategorySection/CategorySection
 import BrandCard from '../../components/features/BrandCard/BrandCard';
 import InfoModal from '../../components/ui/InfoModal/InfoModal';
 import InputModal from '../../components/ui/InputModal/InputModal';
+import NewBrandModal from '../../components/ui/NewBrandModal/NewBrandModal';
 import { useBrands } from '../../hooks/useBrands';
 
 function DeckSettingsPage() {
@@ -84,6 +85,11 @@ function DeckSettingsPage() {
   
   // Layout selection
   const [selectedLayout, setSelectedLayout] = useState(1);
+  
+  // Modal visibility states for component library demos
+  const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
+  const [isSubcategoryModalVisible, setIsSubcategoryModalVisible] = useState(false);
+  const [isNewBrandModalVisible, setIsNewBrandModalVisible] = useState(false);
   
   const handleLayoutChange = (layout) => {
     setSelectedLayout(layout);
@@ -356,26 +362,56 @@ function DeckSettingsPage() {
           InfoModal Component Test
         </h2>
         
-        <div style={{ maxWidth: '500px' }}>
-          <InfoModal
-            title="Cover Page"
-            description="This slide introduces the brand and collection at a glance. It displays the brand name, collection name, and a simple subtitle ('Product Knowledge')."
-            isVisible={true}
-            onClose={() => alert('Close clicked!')}
-          />
+        <div style={{ display: 'flex', gap: 'var(--spacing-2)', marginTop: 'var(--spacing-3)', flexWrap: 'wrap' }}>
+          <Button 
+            variant="secondary" 
+            onClick={() => setIsInfoModalVisible(true)}
+          >
+            Launch Info Modal
+          </Button>
+          <Button 
+            variant="secondary" 
+            onClick={() => setIsSubcategoryModalVisible(true)}
+          >
+            Launch Add New Sub-category Modal
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={() => setIsNewBrandModalVisible(true)}
+          >
+            Open New Brand Modal
+          </Button>
         </div>
         
-        <div style={{ maxWidth: '500px', marginTop: 'var(--spacing-3)' }}>
-          <InputModal
-            title="Add New Sub-Category"
-            label="Enter Sub-Category Name"
-            placeholder="e.g. Jackets"
-            buttonText="Add Sub-Category"
-            isVisible={true}
-            onClose={() => alert('Close clicked!')}
-            onSubmit={(value) => alert(`Submitted: ${value}`)}
-          />
-        </div>
+        <InfoModal
+          title="Cover Page"
+          description="This slide introduces the brand and collection at a glance. It displays the brand name, collection name, and a simple subtitle ('Product Knowledge')."
+          isVisible={isInfoModalVisible}
+          onClose={() => setIsInfoModalVisible(false)}
+        />
+        
+        <InputModal
+          title="Add New Sub-Category"
+          label="Enter Sub-Category Name"
+          placeholder="e.g. Jackets"
+          buttonText="Add Sub-Category"
+          isVisible={isSubcategoryModalVisible}
+          onClose={() => setIsSubcategoryModalVisible(false)}
+          onSubmit={(value) => {
+            alert(`Submitted: ${value}`);
+            setIsSubcategoryModalVisible(false);
+          }}
+        />
+        
+        <NewBrandModal
+          isVisible={isNewBrandModalVisible}
+          onClose={() => setIsNewBrandModalVisible(false)}
+          onSubmit={(data) => {
+            console.log('New brand submitted:', data);
+            alert(`Brand Created!\nName: ${data.brandName}\nWebsite: ${data.websiteUrl || 'N/A'}\nLogo: ${data.logoFile ? data.logoFile.name : 'None'}`);
+            setIsNewBrandModalVisible(false);
+          }}
+        />
       </div>
 
       {/* Checkbox Component Test */}
