@@ -82,8 +82,8 @@
   color: var(--text-brand);
 }
 
-/* Ellipsis Button */
-.ellipsisButton {
+/* Delete Button */
+.deleteButton {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,8 +97,8 @@
   transition: color 0.2s ease;
 }
 
-.ellipsisButton:hover {
-  color: var(--color-grey-60);
+.deleteButton:hover {
+  color: #ef4444;
 }
 
 /* Collection List */
@@ -158,10 +158,14 @@
   color: var(--text-brand);
 }
 
-.collectionItem svg:last-child {
+.collectionItem .deleteButton {
   width: 14px;
   height: 14px;
   color: var(--color-grey-40);
+}
+
+.collectionItem .deleteButton:hover {
+  color: #ef4444;
 }
 
 /* New Collection Button */

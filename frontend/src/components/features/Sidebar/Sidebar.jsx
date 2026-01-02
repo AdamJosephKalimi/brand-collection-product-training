@@ -14,6 +14,8 @@ import styles from './Sidebar.module.css';
  * @param {function} onCollectionClick - Handler for collection click
  * @param {function} onNewBrand - Handler for new brand button
  * @param {function} onNewCollection - Handler for new collection button
+ * @param {function} onDeleteBrand - Handler for delete brand (receives brandId, brandName)
+ * @param {function} onDeleteCollection - Handler for delete collection (receives collectionId, collectionName)
  */
 function Sidebar({ 
   brands = [],
@@ -23,6 +25,8 @@ function Sidebar({
   onCollectionClick,
   onNewBrand,
   onNewCollection,
+  onDeleteBrand,
+  onDeleteCollection,
   className = ''
 }) {
   const [expandedBrands, setExpandedBrands] = useState([activeBrand]);
@@ -84,12 +88,17 @@ function Sidebar({
                     <span className={styles.brandName}>{brand.name}</span>
                   </div>
                   
-                  {/* Ellipsis Menu */}
-                  <button className={styles.ellipsisButton}>
+                  {/* Delete Button */}
+                  <button 
+                    className={styles.deleteButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteBrand?.(brand.id, brand.name);
+                    }}
+                    title="Delete brand"
+                  >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <circle cx="3" cy="7" r="1" fill="currentColor"/>
-                      <circle cx="7" cy="7" r="1" fill="currentColor"/>
-                      <circle cx="11" cy="7" r="1" fill="currentColor"/>
+                      <path d="M3 4H11M5 4V3C5 2.5 5.5 2 6 2H8C8.5 2 9 2.5 9 3V4M10 4V11C10 11.5 9.5 12 9 12H5C4.5 12 4 11.5 4 11V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </button>
                 </button>
@@ -118,12 +127,19 @@ function Sidebar({
                           <span>{collection.name}</span>
                         </div>
                         
-                        {/* Ellipsis */}
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                          <circle cx="3" cy="7" r="1" fill="currentColor"/>
-                          <circle cx="7" cy="7" r="1" fill="currentColor"/>
-                          <circle cx="11" cy="7" r="1" fill="currentColor"/>
-                        </svg>
+                        {/* Delete Button */}
+                        <button
+                          className={styles.deleteButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteCollection?.(collection.id, collection.name);
+                          }}
+                          title="Delete collection"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M3 4H11M5 4V3C5 2.5 5.5 2 6 2H8C8.5 2 9 2.5 9 3V4M10 4V11C10 11.5 9.5 12 9 12H5C4.5 12 4 11.5 4 11V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
                       </button>
                     ))}
                     

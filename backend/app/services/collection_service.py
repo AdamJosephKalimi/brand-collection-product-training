@@ -152,6 +152,7 @@ class CollectionService:
                 "published_at": None,
                 "status": CollectionStatus.DRAFT.value,
                 "visibility": CollectionVisibility.PRIVATE.value,
+                "is_active": True,
                 "stats": CollectionStatistics().model_dump(),
                 "workflow": CollectionWorkflow().model_dump() if collection_data.items else None
             }
@@ -205,7 +206,8 @@ class CollectionService:
                 )
             
             collections_ref = self.db.collection(self.collection_name)
-            query = collections_ref.where(filter=FieldFilter('brand_id', '==', brand_id))
+            query = collections_ref.where(filter=FieldFilter('brand_id', '==', brand_id)) \
+                                   .where(filter=FieldFilter('is_active', '==', True))
             
             docs = query.stream()
             collections = []
@@ -225,6 +227,7 @@ class CollectionService:
                     items=collection_data.get("items", []),
                     status=collection_data.get("status", CollectionStatus.DRAFT.value),
                     visibility=collection_data.get("visibility", CollectionVisibility.PRIVATE.value),
+                    is_active=collection_data.get("is_active", True),
                     stats=CollectionStatistics(**collection_data.get("stats", {})) if collection_data.get("stats") else CollectionStatistics(),
                     created_at=collection_data.get("created_at", datetime.utcnow()),
                     updated_at=collection_data.get("updated_at", datetime.utcnow()),
@@ -296,6 +299,7 @@ class CollectionService:
                 items=collection_data.get("items", []),
                 status=collection_data.get("status", CollectionStatus.DRAFT.value),
                 visibility=collection_data.get("visibility", CollectionVisibility.PRIVATE.value),
+                is_active=collection_data.get("is_active", True),
                 stats=CollectionStatistics(**collection_data.get("stats", {})) if collection_data.get("stats") else CollectionStatistics(),
                 created_at=collection_data.get("created_at", datetime.utcnow()),
                 updated_at=collection_data.get("updated_at", datetime.utcnow()),
@@ -411,7 +415,7 @@ class CollectionService:
         user_id: str
     ) -> Dict[str, str]:
         """
-        Delete a collection (soft delete by marking status as archived).
+        Delete a collection (soft delete by setting is_active to False).
         
         Args:
             collection_id: The collection ID to delete
@@ -444,9 +448,9 @@ class CollectionService:
             collection_data = doc.to_dict()
             brand_id = collection_data["brand_id"]
             
-            # Soft delete by marking as archived
+            # Soft delete by setting is_active to False
             doc_ref.update({
-                "status": CollectionStatus.ARCHIVED.value,
+                "is_active": False,
                 "updated_at": datetime.utcnow()
             })
             

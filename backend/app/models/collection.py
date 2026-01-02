@@ -17,7 +17,6 @@ class CollectionStatus(str, Enum):
     """Collection status"""
     DRAFT = "draft"
     PUBLISHED = "published"
-    ARCHIVED = "archived"
 
 
 class CollectionVisibility(str, Enum):
@@ -149,6 +148,7 @@ class Collection(BaseModel):
     published_at: Optional[datetime] = None
     status: CollectionStatus = Field(default=CollectionStatus.DRAFT)
     visibility: CollectionVisibility = Field(default=CollectionVisibility.PRIVATE)
+    is_active: bool = Field(default=True, description="Soft delete flag - False means deleted")
     
     # Statistics
     stats: CollectionStatistics = Field(default_factory=CollectionStatistics)
@@ -202,6 +202,7 @@ class CollectionResponse(BaseModel):
     items: List[str]
     status: CollectionStatus
     visibility: CollectionVisibility
+    is_active: bool = True
     stats: CollectionStatistics
     created_at: datetime
     updated_at: datetime

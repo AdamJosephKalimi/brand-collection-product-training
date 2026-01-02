@@ -37,9 +37,12 @@ import InfoModal from '../../components/ui/InfoModal/InfoModal';
 import InputModal from '../../components/ui/InputModal/InputModal';
 import NewBrandModal from '../../components/ui/NewBrandModal/NewBrandModal';
 import NewCollectionModal from '../../components/ui/NewCollectionModal/NewCollectionModal';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import { introSlideInfo } from '../../data/introSlideInfo';
 import { useCreateBrand } from '../../hooks/useCreateBrand';
 import { useCreateCollection } from '../../hooks/useCreateCollection';
+import { useDeleteBrand } from '../../hooks/useDeleteBrand';
+import { useDeleteCollection } from '../../hooks/useDeleteCollection';
 
 // Stable empty array to prevent infinite re-renders from default value
 const EMPTY_ARRAY = [];
@@ -198,6 +201,11 @@ function CollectionSettingsPage() {
   const [collectionLoadingMessage, setCollectionLoadingMessage] = useState('Creating...');
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
   const createCollectionMutation = useCreateCollection();
+  
+  // Delete Modal state
+  const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
+  const deleteBrandMutation = useDeleteBrand();
+  const deleteCollectionMutation = useDeleteCollection();
   
   // Set activeCollection from URL and find parent brand
   useEffect(() => {
@@ -1058,6 +1066,8 @@ function CollectionSettingsPage() {
           }}
           onNewBrand={() => setIsNewBrandModalVisible(true)}
           onNewCollection={(brandId) => setNewCollectionBrandId(brandId)}
+          onDeleteBrand={(brandId, brandName) => setDeleteModal({ isVisible: true, type: 'brand', id: brandId, name: brandName })}
+          onDeleteCollection={(collectionId, collectionName) => setDeleteModal({ isVisible: true, type: 'collection', id: collectionId, name: collectionName })}
         />
         
         {/* Main Content Wrapper */}
@@ -2381,6 +2391,42 @@ function CollectionSettingsPage() {
             setCollectionLoadingMessage('Creating...');
           }
         }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isVisible={deleteModal.isVisible}
+        onClose={() => setDeleteModal({ isVisible: false, type: null, id: null, name: '' })}
+        onConfirm={async () => {
+          try {
+            if (deleteModal.type === 'brand') {
+              await deleteBrandMutation.mutateAsync(deleteModal.id);
+              // If we're currently viewing a collection from this brand, navigate away
+              const deletedBrand = brands.find(b => b.id === deleteModal.id);
+              if (deletedBrand?.collections.some(c => c.id === activeCollection)) {
+                navigate('/dashboard');
+              }
+            } else if (deleteModal.type === 'collection') {
+              await deleteCollectionMutation.mutateAsync(deleteModal.id);
+              // If we're currently viewing this collection, navigate away
+              if (deleteModal.id === activeCollection) {
+                navigate('/dashboard');
+              }
+            }
+            setDeleteModal({ isVisible: false, type: null, id: null, name: '' });
+          } catch (error) {
+            console.error('Failed to delete:', error);
+          }
+        }}
+        title={deleteModal.type === 'brand' ? 'Delete Brand' : 'Delete Collection'}
+        message={
+          deleteModal.type === 'brand'
+            ? `Are you sure you want to delete "${deleteModal.name}"? This will also delete all collections under this brand. This action cannot be undone.`
+            : `Are you sure you want to delete "${deleteModal.name}"? This action cannot be undone.`
+        }
+        confirmText="Delete"
+        isLoading={deleteBrandMutation.isPending || deleteCollectionMutation.isPending}
+        isDangerous={true}
       />
     </div>
   );

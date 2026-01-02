@@ -8,9 +8,12 @@ import Button from '../../components/ui/Button/Button';
 import BrandCard from '../../components/features/BrandCard/BrandCard';
 import NewBrandModal from '../../components/ui/NewBrandModal/NewBrandModal';
 import NewCollectionModal from '../../components/ui/NewCollectionModal/NewCollectionModal';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import { useBrands } from '../../hooks/useBrands';
 import { useCreateBrand } from '../../hooks/useCreateBrand';
 import { useCreateCollection } from '../../hooks/useCreateCollection';
+import { useDeleteBrand } from '../../hooks/useDeleteBrand';
+import { useDeleteCollection } from '../../hooks/useDeleteCollection';
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -38,6 +41,11 @@ function DashboardPage() {
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
   const createCollectionMutation = useCreateCollection();
   const queryClient = useQueryClient();
+  
+  // Delete Modal state
+  const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
+  const deleteBrandMutation = useDeleteBrand();
+  const deleteCollectionMutation = useDeleteCollection();
 
   // Set first brand and collection as active when data loads
   React.useEffect(() => {
@@ -86,6 +94,8 @@ function DashboardPage() {
           }}
           onNewBrand={() => setIsNewBrandModalVisible(true)}
           onNewCollection={(brandId) => setNewCollectionBrandId(brandId)}
+          onDeleteBrand={(brandId, brandName) => setDeleteModal({ isVisible: true, type: 'brand', id: brandId, name: brandName })}
+          onDeleteCollection={(collectionId, collectionName) => setDeleteModal({ isVisible: true, type: 'collection', id: collectionId, name: collectionName })}
         />
         
         {/* Main Content */}
@@ -335,6 +345,33 @@ function DashboardPage() {
             setCollectionLoadingMessage('Creating...');
           }
         }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isVisible={deleteModal.isVisible}
+        onClose={() => setDeleteModal({ isVisible: false, type: null, id: null, name: '' })}
+        onConfirm={async () => {
+          try {
+            if (deleteModal.type === 'brand') {
+              await deleteBrandMutation.mutateAsync(deleteModal.id);
+            } else if (deleteModal.type === 'collection') {
+              await deleteCollectionMutation.mutateAsync(deleteModal.id);
+            }
+            setDeleteModal({ isVisible: false, type: null, id: null, name: '' });
+          } catch (error) {
+            console.error('Failed to delete:', error);
+          }
+        }}
+        title={deleteModal.type === 'brand' ? 'Delete Brand' : 'Delete Collection'}
+        message={
+          deleteModal.type === 'brand'
+            ? `Are you sure you want to delete "${deleteModal.name}"? This will also delete all collections under this brand. This action cannot be undone.`
+            : `Are you sure you want to delete "${deleteModal.name}"? This action cannot be undone.`
+        }
+        confirmText="Delete"
+        isLoading={deleteBrandMutation.isPending || deleteCollectionMutation.isPending}
+        isDangerous={true}
       />
     </div>
   );

@@ -387,7 +387,16 @@ class BrandService:
                 "updated_at": datetime.utcnow()
             })
             
-            # TODO: In the future, cascade delete collections under this brand
+            # Cascade soft delete all collections under this brand
+            collections_ref = self.db.collection("collections")
+            collections_query = collections_ref.where(filter=FieldFilter('brand_id', '==', brand_id))
+            collection_docs = collections_query.stream()
+            
+            for col_doc in collection_docs:
+                col_doc.reference.update({
+                    "is_active": False,
+                    "updated_at": datetime.utcnow()
+                })
             
             return {"message": f"Brand {brand_id} successfully deleted"}
             
