@@ -21,18 +21,26 @@ class FirebaseService:
     def _initialize_firebase(self):
         """Initialize Firebase Admin SDK"""
         if not firebase_admin._apps:
-            # Use service account file path
-            service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH', './firebase-service-account.json')
+            # Try to load from environment variable first (for Render deployment)
+            firebase_creds_json = os.getenv('FIREBASE_CREDENTIALS')
             
-            if os.path.exists(service_account_path):
-                cred = credentials.Certificate(service_account_path)
+            if firebase_creds_json:
+                # Parse JSON from environment variable
+                cred_dict = json.loads(firebase_creds_json)
+                cred = credentials.Certificate(cred_dict)
             else:
-                # Try absolute path as fallback
-                abs_path = os.path.join(os.getcwd(), 'firebase-service-account.json')
-                if os.path.exists(abs_path):
-                    cred = credentials.Certificate(abs_path)
+                # Fallback to service account file path (for local development)
+                service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH', './firebase-service-account.json')
+                
+                if os.path.exists(service_account_path):
+                    cred = credentials.Certificate(service_account_path)
                 else:
-                    raise ValueError(f"Firebase service account file not found at: {service_account_path} or {abs_path}")
+                    # Try absolute path as fallback
+                    abs_path = os.path.join(os.getcwd(), 'firebase-service-account.json')
+                    if os.path.exists(abs_path):
+                        cred = credentials.Certificate(abs_path)
+                    else:
+                        raise ValueError(f"Firebase credentials not found. Set FIREBASE_CREDENTIALS env var or provide file at: {service_account_path}")
             
             firebase_admin.initialize_app(cred, {
                 'storageBucket': "product-training-ai-v1.firebasestorage.app"
