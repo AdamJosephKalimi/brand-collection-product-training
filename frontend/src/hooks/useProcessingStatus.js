@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Fetch processing status for a collection (document processing and item generation)
@@ -40,7 +41,7 @@ export const useProcessingStatus = (collectionId) => {
       console.log('[useProcessingStatus] Fetching status for collection:', collectionId);
       
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/processing-status`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/processing-status`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -33,6 +33,19 @@ import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifi
 import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
+import InfoModal from '../../components/ui/InfoModal/InfoModal';
+import InputModal from '../../components/ui/InputModal/InputModal';
+import NewBrandModal from '../../components/ui/NewBrandModal/NewBrandModal';
+import NewCollectionModal from '../../components/ui/NewCollectionModal/NewCollectionModal';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
+import { introSlideInfo } from '../../data/introSlideInfo';
+import { useCreateBrand } from '../../hooks/useCreateBrand';
+import { useCreateCollection } from '../../hooks/useCreateCollection';
+import { useDeleteBrand } from '../../hooks/useDeleteBrand';
+import { useDeleteCollection } from '../../hooks/useDeleteCollection';
+
+// Stable empty array to prevent infinite re-renders from default value
+const EMPTY_ARRAY = [];
 
 // Sortable wrapper for CollectionListItem
 function SortableItem({ id, children }) {
@@ -78,6 +91,12 @@ function CollectionSettingsPage() {
   // Fetch processing status (with refetch for manual polling)
   const { data: processingStatus, refetch: refetchProcessingStatus } = useProcessingStatus(collectionId);
   
+  // Store refetch in a ref to avoid dependency issues in useEffect
+  const refetchRef = useRef(refetchProcessingStatus);
+  useEffect(() => {
+    refetchRef.current = refetchProcessingStatus;
+  }, [refetchProcessingStatus]);
+  
   // Collection update mutation
   const updateCollectionMutation = useUpdateCollection();
   
@@ -92,8 +111,8 @@ function CollectionSettingsPage() {
   const generateItemsMutation = useGenerateItems();
   const cancelItemGenMutation = useCancelItemGeneration();
   
-  // Fetch collection items
-  const { data: fetchedItems = [] } = useCollectionItems(collectionId);
+  // Fetch collection items - use stable EMPTY_ARRAY to prevent infinite re-renders
+  const { data: fetchedItems = EMPTY_ARRAY } = useCollectionItems(collectionId);
   const updateItemMutation = useUpdateItem();
   const reorderItemsMutation = useReorderItems();
   
@@ -106,8 +125,11 @@ function CollectionSettingsPage() {
   }, [collectionId]);
   
   // Sync local items with fetched items
+  // Only update if fetchedItems actually has items to prevent loops with empty arrays
   useEffect(() => {
-    setLocalItems(fetchedItems);
+    if (fetchedItems.length > 0 || localItems.length > 0) {
+      setLocalItems(fetchedItems);
+    }
   }, [fetchedItems]);
   
   // Clear items immediately when regeneration starts
@@ -169,6 +191,21 @@ function CollectionSettingsPage() {
   // Sidebar state
   const [activeBrand, setActiveBrand] = useState(null);
   const [activeCollection, setActiveCollection] = useState(null);
+  
+  // New Brand Modal state
+  const [isNewBrandModalVisible, setIsNewBrandModalVisible] = useState(false);
+  const createBrandMutation = useCreateBrand();
+  
+  // New Collection Modal state
+  const [newCollectionBrandId, setNewCollectionBrandId] = useState(null);
+  const [collectionLoadingMessage, setCollectionLoadingMessage] = useState('Creating...');
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+  const createCollectionMutation = useCreateCollection();
+  
+  // Delete Modal state
+  const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
+  const deleteBrandMutation = useDeleteBrand();
+  const deleteCollectionMutation = useDeleteCollection();
   
   // Set activeCollection from URL and find parent brand
   useEffect(() => {
@@ -238,19 +275,28 @@ function CollectionSettingsPage() {
 
   // Collection Info - Collection Name, Type and Year
   const [collectionName, setCollectionName] = useState('');
-  const [collectionType, setCollectionType] = useState('spring_summer');
-  const [collectionYear, setCollectionYear] = useState('2025');
+  const [collectionType, setCollectionType] = useState('');
+  const [collectionYear, setCollectionYear] = useState('');
   const [collectionInformation, setCollectionInformation] = useState('');
   
   // Track original values for change detection
   const [originalValues, setOriginalValues] = useState(null);
   
+  // Reset Collection Label state when collectionId changes (before new data loads)
+  useEffect(() => {
+    setCollectionName('');
+    setCollectionType('');
+    setCollectionYear('');
+    setCollectionInformation('');
+    setOriginalValues(null);
+  }, [collectionId]);
+  
   // Populate form fields when collection data loads
   useEffect(() => {
     if (collectionData) {
       const name = collectionData.name || '';
-      const season = collectionData.season || 'spring_summer';
-      const year = String(collectionData.year || new Date().getFullYear());
+      const season = collectionData.season || '';
+      const year = collectionData.year ? String(collectionData.year) : '';
       const description = collectionData.description || '';
       
       setCollectionName(name);
@@ -370,7 +416,7 @@ function CollectionSettingsPage() {
       
       pollingIntervalRef.current = setInterval(() => {
         console.log('[CollectionSettingsPage] Polling - calling refetch');
-        refetchProcessingStatus();
+        refetchRef.current?.();
       }, 2000);
     } else {
       console.log('[CollectionSettingsPage] Not polling - status:', {
@@ -387,7 +433,7 @@ function CollectionSettingsPage() {
         pollingIntervalRef.current = null;
       }
     };
-  }, [processingStatus?.document_processing?.status, processingStatus?.item_generation?.status, refetchProcessingStatus]);
+  }, [processingStatus?.document_processing?.status, processingStatus?.item_generation?.status]);
 
   // Collection Items - View toggle and filters
   const [collectionItemsView, setCollectionItemsView] = useState('list');
@@ -660,6 +706,9 @@ function CollectionSettingsPage() {
     flagshipStores: true
   });
 
+  // Track which intro slide info modal is open (null = none open)
+  const [activeInfoModal, setActiveInfoModal] = useState(null);
+
   // Mapping between local state keys and Firestore field names
   const introSlideFieldMap = {
     coverPage: 'include_cover_page_slide',
@@ -728,6 +777,9 @@ function CollectionSettingsPage() {
   const [categories, setCategories] = useState([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   
+  // Track which category is being edited for subcategory modal (null = closed)
+  const [subcategoryModalCategoryIndex, setSubcategoryModalCategoryIndex] = useState(null);
+  
   // Track pending saves to prevent sync overwrites during rapid changes
   const pendingSavesRef = useRef(0);
 
@@ -777,9 +829,13 @@ function CollectionSettingsPage() {
     }
   };
 
-  const handleAddSubcategory = async (categoryIndex) => {
-    const subcategoryName = window.prompt('Enter subcategory name:');
-    if (subcategoryName && subcategoryName.trim()) {
+  const handleAddSubcategory = (categoryIndex) => {
+    setSubcategoryModalCategoryIndex(categoryIndex);
+  };
+
+  const handleSubcategoryModalSubmit = async (subcategoryName) => {
+    if (subcategoryName && subcategoryName.trim() && subcategoryModalCategoryIndex !== null) {
+      const categoryIndex = subcategoryModalCategoryIndex;
       const newCategories = categories.map((cat, i) => {
         if (i === categoryIndex) {
           const newSubcategory = {
@@ -797,6 +853,9 @@ function CollectionSettingsPage() {
       
       // Optimistic update
       setCategories(newCategories);
+      
+      // Close modal
+      setSubcategoryModalCategoryIndex(null);
       
       // Save to DB
       await saveCategories(newCategories);
@@ -1005,14 +1064,10 @@ function CollectionSettingsPage() {
           onCollectionClick={(collection) => {
             navigate(`/collection-settings/${collection.id}`);
           }}
-          onNewBrand={() => {
-            console.log('New Brand clicked');
-            // TODO: Add create brand logic
-          }}
-          onNewCollection={(brandId) => {
-            console.log('New Collection for brand:', brandId);
-            // TODO: Add create collection logic
-          }}
+          onNewBrand={() => setIsNewBrandModalVisible(true)}
+          onNewCollection={(brandId) => setNewCollectionBrandId(brandId)}
+          onDeleteBrand={(brandId, brandName) => setDeleteModal({ isVisible: true, type: 'brand', id: brandId, name: brandName })}
+          onDeleteCollection={(collectionId, collectionName) => setDeleteModal({ isVisible: true, type: 'collection', id: collectionId, name: collectionName })}
         />
         
         {/* Main Content Wrapper */}
@@ -1279,6 +1334,7 @@ function CollectionSettingsPage() {
                     
                     {/* FileUpload Component */}
                     <FileUpload
+                      key={`linesheet-${collectionId}`}
                       initialFiles={linesheetDocuments}
                       onFilesSelected={async (files) => {
                         // Upload each file (staged, not processed)
@@ -1367,6 +1423,7 @@ function CollectionSettingsPage() {
                     
                     {/* POFileUpload Component */}
                     <POFileUpload
+                      key={`po-${collectionId}`}
                       initialFiles={purchaseOrderDocuments}
                       onFilesSelected={async (files) => {
                         // Upload each file (staged, not processed)
@@ -1530,7 +1587,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('coverPage')}
                 label="Cover Page"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Cover Page')}
+                onInfoClick={() => setActiveInfoModal('coverPage')}
               />
               
               <Checkbox
@@ -1538,7 +1595,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('brandIntro')}
                 label="Brand Introduction"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Brand Introduction')}
+                onInfoClick={() => setActiveInfoModal('brandIntro')}
               />
               
               <Checkbox
@@ -1546,7 +1603,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('brandHistory')}
                 label="Brand History"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Brand History')}
+                onInfoClick={() => setActiveInfoModal('brandHistory')}
               />
               
               <Checkbox
@@ -1554,7 +1611,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('brandPersonality')}
                 label="Brand Personality"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Brand Personality')}
+                onInfoClick={() => setActiveInfoModal('brandPersonality')}
               />
               
               <Checkbox
@@ -1562,7 +1619,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('brandValues')}
                 label="Brand Values"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Brand Values')}
+                onInfoClick={() => setActiveInfoModal('brandValues')}
               />
               
               <Checkbox
@@ -1570,7 +1627,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('coreCollections')}
                 label="Core Collections & Signature Categories"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Core Collections')}
+                onInfoClick={() => setActiveInfoModal('coreCollections')}
               />
               
               <Checkbox
@@ -1578,7 +1635,7 @@ function CollectionSettingsPage() {
                 onChange={() => handleIntroSlideChange('flagshipStores')}
                 label="Flagship Stores & Experiences"
                 showInfo={true}
-                onInfoClick={() => alert('Info about Flagship Stores')}
+                onInfoClick={() => setActiveInfoModal('flagshipStores')}
               />
             </div>
           </div>
@@ -2252,6 +2309,125 @@ function CollectionSettingsPage() {
           <Footer />
         </div>
       </div>
+
+      {/* Intro Slide Info Modal */}
+      {activeInfoModal && introSlideInfo[activeInfoModal] && (
+        <InfoModal
+          title={introSlideInfo[activeInfoModal].title}
+          description={introSlideInfo[activeInfoModal].description}
+          isVisible={true}
+          onClose={() => setActiveInfoModal(null)}
+        />
+      )}
+
+      {/* Add Subcategory Modal */}
+      {subcategoryModalCategoryIndex !== null && (
+        <InputModal
+          title="Add New Sub-Category"
+          label="Enter Sub-Category Name"
+          placeholder="e.g. Jackets"
+          buttonText="Add Sub-Category"
+          isVisible={true}
+          onClose={() => setSubcategoryModalCategoryIndex(null)}
+          onSubmit={handleSubcategoryModalSubmit}
+        />
+      )}
+
+      {/* New Brand Modal */}
+      <NewBrandModal
+        isVisible={isNewBrandModalVisible}
+        onClose={() => setIsNewBrandModalVisible(false)}
+        isLoading={createBrandMutation.isPending}
+        onSubmit={async (data) => {
+          try {
+            await createBrandMutation.mutateAsync(data);
+            setIsNewBrandModalVisible(false);
+          } catch (error) {
+            console.error('Failed to create brand:', error);
+          }
+        }}
+      />
+
+      {/* New Collection Modal */}
+      <NewCollectionModal
+        isVisible={!!newCollectionBrandId}
+        onClose={() => {
+          if (!isCreatingCollection) {
+            setNewCollectionBrandId(null);
+            setCollectionLoadingMessage('Creating...');
+          }
+        }}
+        isLoading={isCreatingCollection}
+        loadingMessage={collectionLoadingMessage}
+        brandName={brands.find(b => b.id === newCollectionBrandId)?.name || ''}
+        onSubmit={async (data) => {
+          try {
+            setIsCreatingCollection(true);
+            setCollectionLoadingMessage('Creating...');
+            
+            // Step 1: Create the collection
+            const newCollection = await createCollectionMutation.mutateAsync({
+              brandId: newCollectionBrandId,
+              ...data
+            });
+            
+            // Step 2: Wait for sidebar data to be ready
+            setCollectionLoadingMessage('Loading...');
+            await queryClient.refetchQueries({ queryKey: ['brands'] });
+            
+            // Step 3: Prefetch new collection data
+            await queryClient.prefetchQuery({
+              queryKey: ['collection', newCollection.collection_id]
+            });
+            
+            // Step 4: Now close and navigate - everything is ready
+            setNewCollectionBrandId(null);
+            setCollectionLoadingMessage('Creating...');
+            setIsCreatingCollection(false);
+            navigate(`/collection-settings/${newCollection.collection_id}`);
+          } catch (error) {
+            console.error('Failed to create collection:', error);
+            setIsCreatingCollection(false);
+            setCollectionLoadingMessage('Creating...');
+          }
+        }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isVisible={deleteModal.isVisible}
+        onClose={() => setDeleteModal({ isVisible: false, type: null, id: null, name: '' })}
+        onConfirm={async () => {
+          try {
+            if (deleteModal.type === 'brand') {
+              await deleteBrandMutation.mutateAsync(deleteModal.id);
+              // If we're currently viewing a collection from this brand, navigate away
+              const deletedBrand = brands.find(b => b.id === deleteModal.id);
+              if (deletedBrand?.collections.some(c => c.id === activeCollection)) {
+                navigate('/dashboard');
+              }
+            } else if (deleteModal.type === 'collection') {
+              await deleteCollectionMutation.mutateAsync(deleteModal.id);
+              // If we're currently viewing this collection, navigate away
+              if (deleteModal.id === activeCollection) {
+                navigate('/dashboard');
+              }
+            }
+            setDeleteModal({ isVisible: false, type: null, id: null, name: '' });
+          } catch (error) {
+            console.error('Failed to delete:', error);
+          }
+        }}
+        title={deleteModal.type === 'brand' ? 'Delete Brand' : 'Delete Collection'}
+        message={
+          deleteModal.type === 'brand'
+            ? `Are you sure you want to delete "${deleteModal.name}"? This will also delete all collections under this brand. This action cannot be undone.`
+            : `Are you sure you want to delete "${deleteModal.name}"? This action cannot be undone.`
+        }
+        confirmText="Delete"
+        isLoading={deleteBrandMutation.isPending || deleteCollectionMutation.isPending}
+        isDangerous={true}
+      />
     </div>
   );
 }

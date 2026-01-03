@@ -1,0 +1,202 @@
+/* InputModal Component Styles */
+
+/* Overlay backdrop */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-4);
+}
+
+.modal {
+  /* Layout */
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  
+  /* Background */
+  background-color: var(--background-primary);
+  
+  /* Border */
+  border: 1px solid var(--border-primary);
+  border-radius: var(--border-radius-md);
+  
+  /* Shadow */
+  box-shadow: 4px 4px 25px 8px rgba(0, 0, 0, 0.1);
+  
+  /* Prevent text selection on close */
+  user-select: none;
+}
+
+/* Header Section */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-3);
+  
+  /* Bottom border separator */
+  border-bottom: 1px solid var(--border-light);
+}
+
+.headerContent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.title {
+  /* Typography */
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semi-bold);
+  line-height: var(--line-height-md);
+  color: var(--text-white);
+  
+  /* Reset */
+  margin: 0;
+  padding: 0;
+}
+
+/* Close Button */
+.closeButton {
+  /* Reset button styles */
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  
+  /* Size */
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  
+  /* Interaction */
+  transition: opacity 0.2s ease;
+}
+
+.closeButton:hover {
+  opacity: 0.8;
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--background-highlight);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+/* Content Section */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3);
+}
+
+/* Input Field Wrapper */
+.inputWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  width: 100%;
+}
+
+.label {
+  /* Typography */
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-xs);
+  color: var(--text-white);
+  
+  /* Reset */
+  margin: 0;
+  padding: 0;
+}
+
+.input {
+  /* Layout */
+  width: 100%;
+  padding: 12px var(--spacing-2);
+  
+  /* Background */
+  background-color: var(--background-primary);
+  
+  /* Border */
+  border: 1px solid var(--border-medium);
+  border-radius: var(--border-radius-md);
+  
+  /* Typography */
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-xs);
+  color: var(--text-white);
+  
+  /* Interaction */
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.input::placeholder {
+  color: var(--color-grey-40);
+}
+
+.input:focus {
+  border-color: var(--background-highlight);
+}
+
+/* Action Button */
+.actionButton {
+  /* Layout */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: var(--spacing-2) var(--spacing-3);
+  align-self: flex-start;
+  
+  /* Background */
+  background-color: var(--background-highlight);
+  
+  /* Border */
+  border: none;
+  border-radius: var(--border-radius-md);
+  
+  /* Typography */
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semi-bold);
+  line-height: 1;
+  color: var(--text-brand);
+  text-align: center;
+  
+  /* Interaction */
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.actionButton:hover {
+  background-color: #8fd95e;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(160, 242, 110, 0.3);
+}
+
+.actionButton:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.actionButton:focus-visible {
+  outline: 2px solid var(--text-brand);
+  outline-offset: 2px;
+}

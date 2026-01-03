@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Fetch all documents for a collection
@@ -12,7 +13,7 @@ export const useCollectionDocuments = (collectionId) => {
     queryKey: ['collectionDocuments', collectionId],
     queryFn: async () => {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/documents`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -46,7 +47,7 @@ const uploadDocument = async (collectionId, file, type, process = false) => {
   }
   formData.append('process', process);
   
-  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/documents`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`
@@ -71,7 +72,7 @@ const uploadDocument = async (collectionId, file, type, process = false) => {
  */
 const deleteDocument = async (collectionId, documentId) => {
   const token = await getAuthToken();
-  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents/${documentId}`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/documents/${documentId}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`

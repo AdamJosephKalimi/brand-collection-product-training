@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Update a brand's information
@@ -18,7 +19,7 @@ export const useUpdateBrand = () => {
   return useMutation({
     mutationFn: async ({ brandId, data }) => {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/brands/${brandId}`, {
+      const response = await fetch(`${API_BASE_URL}/brands/${brandId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -62,7 +63,7 @@ export const useUploadLogo = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`http://localhost:8000/api/brands/${brandId}/logo`, {
+      const response = await fetch(`${API_BASE_URL}/brands/${brandId}/logo`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -102,7 +103,7 @@ export const useCreateBrand = () => {
   return useMutation({
     mutationFn: async (data) => {
       const token = await getAuthToken();
-      const response = await fetch('http://localhost:8000/api/brands/', {
+      const response = await fetch(`${API_BASE_URL}/brands/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -140,7 +141,7 @@ export const useDeleteBrand = () => {
   return useMutation({
     mutationFn: async (brandId) => {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/brands/${brandId}`, {
+      const response = await fetch(`${API_BASE_URL}/brands/${brandId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -17,7 +17,6 @@ class CollectionStatus(str, Enum):
     """Collection status"""
     DRAFT = "draft"
     PUBLISHED = "published"
-    ARCHIVED = "archived"
 
 
 class CollectionVisibility(str, Enum):
@@ -111,6 +110,14 @@ class CollectionStatistics(BaseModel):
     total_presentations: int = 0
     last_presentation_generated: Optional[datetime] = None
 
+
+class PresentationMetadata(BaseModel):
+    """Presentation metadata for generated decks"""
+    generated_at: Optional[datetime] = None
+    download_url: Optional[str] = None
+    slide_count: int = 0
+    storage_path: Optional[str] = None
+
 class Collection(BaseModel):
     """Complete collection data model"""
     collection_id: str = Field(..., description="Unique collection identifier")
@@ -141,6 +148,7 @@ class Collection(BaseModel):
     published_at: Optional[datetime] = None
     status: CollectionStatus = Field(default=CollectionStatus.DRAFT)
     visibility: CollectionVisibility = Field(default=CollectionVisibility.PRIVATE)
+    is_active: bool = Field(default=True, description="Soft delete flag - False means deleted")
     
     # Statistics
     stats: CollectionStatistics = Field(default_factory=CollectionStatistics)
@@ -194,12 +202,14 @@ class CollectionResponse(BaseModel):
     items: List[str]
     status: CollectionStatus
     visibility: CollectionVisibility
+    is_active: bool = True
     stats: CollectionStatistics
     created_at: datetime
     updated_at: datetime
     published_at: Optional[datetime]
     workflow: Optional[CollectionWorkflow]
     intro_slides: Optional[Dict[str, Any]] = None
+    presentation: Optional[Dict[str, Any]] = None
 
 
 class CollectionWithDocuments(Collection):

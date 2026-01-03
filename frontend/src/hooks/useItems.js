@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
-
-const API_BASE = 'http://localhost:8000/api';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Fetch all items for a collection
@@ -11,7 +10,7 @@ const API_BASE = 'http://localhost:8000/api';
  */
 const fetchCollectionItems = async (collectionId) => {
   const token = await getAuthToken();
-  const response = await fetch(`${API_BASE}/collections/${collectionId}/items`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/items`, {
     headers: {
       'Authorization': `Bearer ${token}`
     }
@@ -35,7 +34,7 @@ const fetchCollectionItems = async (collectionId) => {
  */
 const updateItem = async (collectionId, itemId, updateData) => {
   const token = await getAuthToken();
-  const response = await fetch(`${API_BASE}/collections/${collectionId}/items/${itemId}`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/items/${itemId}`, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -61,7 +60,7 @@ const updateItem = async (collectionId, itemId, updateData) => {
  */
 const reorderItems = async (collectionId, itemOrders) => {
   const token = await getAuthToken();
-  const response = await fetch(`${API_BASE}/collections/${collectionId}/items/reorder`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/items/reorder`, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${token}`,

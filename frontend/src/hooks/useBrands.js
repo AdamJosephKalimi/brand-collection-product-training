@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Fetch all brands with their collections for the authenticated user
@@ -16,7 +17,7 @@ export const useBrands = () => {
     queryKey: ['brands'],
     queryFn: async () => {
       const token = await getAuthToken();
-      const response = await fetch('http://localhost:8000/api/brands/with-collections', {
+      const response = await fetch(`${API_BASE_URL}/brands/with-collections`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -57,7 +58,7 @@ export const useBrand = (brandId) => {
     queryKey: ['brand', brandId],
     queryFn: async () => {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/brands/${brandId}`, {
+      const response = await fetch(`${API_BASE_URL}/brands/${brandId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

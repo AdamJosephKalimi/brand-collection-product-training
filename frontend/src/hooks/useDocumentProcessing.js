@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Start processing documents for a collection
@@ -10,7 +11,7 @@ import { getAuthToken } from '../utils/auth';
  */
 const processDocuments = async (collectionId, documentIds) => {
   const token = await getAuthToken();
-  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents/process`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/documents/process`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -35,7 +36,7 @@ const processDocuments = async (collectionId, documentIds) => {
  */
 const cancelDocumentProcessing = async (collectionId) => {
   const token = await getAuthToken();
-  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents/process/cancel`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/documents/process/cancel`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`
@@ -58,7 +59,7 @@ const cancelDocumentProcessing = async (collectionId) => {
  */
 const markDocumentsStale = async (collectionId) => {
   const token = await getAuthToken();
-  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/documents/mark-stale`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/documents/mark-stale`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`

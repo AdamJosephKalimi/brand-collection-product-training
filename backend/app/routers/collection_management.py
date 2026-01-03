@@ -245,10 +245,9 @@ async def delete_collection(
     - collection_id: Unique collection identifier
     
     **Behavior:**
-    - Marks collection status as "archived"
-    - Collection data is retained but hidden
+    - Sets collection is_active to False
+    - Collection data is retained but hidden from queries
     - Updates brand's collection count
-    - Future: Will handle cascade operations for documents
     
     **Validations:**
     - User must own the collection's brand

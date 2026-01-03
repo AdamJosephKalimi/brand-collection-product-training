@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Generate items for a collection from purchase order and line sheets
@@ -9,7 +10,7 @@ import { getAuthToken } from '../utils/auth';
  */
 const generateItems = async (collectionId) => {
   const token = await getAuthToken();
-  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/items/generate`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/items/generate`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`
@@ -32,7 +33,7 @@ const generateItems = async (collectionId) => {
  */
 const cancelItemGeneration = async (collectionId) => {
   const token = await getAuthToken();
-  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}/items/generate/cancel`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/items/generate/cancel`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`

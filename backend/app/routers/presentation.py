@@ -5,11 +5,16 @@ API endpoints for generating PowerPoint presentations from collection data.
 """
 
 import logging
-from typing import Dict, Any, Literal
+from typing import Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 
 from ..utils.auth import get_current_user
 from ..services.presentation_generation_service import presentation_generation_service
+from ..services.collection_service import collection_service
+from ..services.brand_service import brand_service
+from ..services.firebase_service import firebase_service
 
 logger = logging.getLogger(__name__)
 
@@ -89,3 +94,163 @@ async def generate_presentation(
     except Exception as e:
         logger.error(f"Error generating presentation: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate presentation: {str(e)}")
+
+
+@router.get("/presentations")
+async def list_all_presentations(
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    List all generated presentations for the current user.
+    
+    Returns presentations grouped by brand, with collection and presentation metadata.
+    Only returns collections that have a generated presentation.
+    
+    **Returns:**
+    ```json
+    {
+        "brands": [
+            {
+                "brand_id": "...",
+                "brand_name": "...",
+                "brand_logo_url": "...",
+                "decks": [
+                    {
+                        "collection_id": "...",
+                        "collection_name": "...",
+                        "generated_at": "...",
+                        "slide_count": 24,
+                        "product_count": 89,
+                        "download_url": "..."
+                    }
+                ]
+            }
+        ]
+    }
+    ```
+    """
+    try:
+        user_id = current_user["uid"]
+        logger.info(f"Fetching all presentations for user: {user_id}")
+        
+        # Get all brands for the user
+        brands = await brand_service.get_user_brands(user_id)
+        
+        result = {"brands": []}
+        
+        for brand in brands:
+            brand_id = brand.brand_id
+            brand_name = brand.name or "Unknown Brand"
+            brand_logo_url = brand.logo_url
+            
+            # Get all collections for this brand
+            collections = await collection_service.get_brand_collections(brand_id, user_id)
+            
+            # Filter to collections with presentations
+            decks = []
+            for collection in collections:
+                presentation = collection.presentation
+                if presentation and presentation.get("generated_at"):
+                    decks.append({
+                        "collection_id": collection.collection_id,
+                        "collection_name": collection.name,
+                        "season": collection.season,
+                        "year": collection.year,
+                        "generated_at": presentation.get("generated_at"),
+                        "slide_count": presentation.get("slide_count", 0),
+                        "product_count": collection.stats.total_products if collection.stats else 0,
+                        "download_url": presentation.get("download_url"),
+                        "storage_path": presentation.get("storage_path")
+                    })
+            
+            # Only include brand if it has decks
+            if decks:
+                # Sort decks by generated_at (most recent first)
+                decks.sort(key=lambda x: x.get("generated_at") or "", reverse=True)
+                result["brands"].append({
+                    "brand_id": brand_id,
+                    "brand_name": brand_name,
+                    "brand_logo_url": brand_logo_url,
+                    "decks": decks
+                })
+        
+        logger.info(f"Found {len(result['brands'])} brands with presentations")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error listing presentations: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list presentations: {str(e)}")
+
+
+@router.get("/collections/{collection_id}/presentation/download")
+async def download_presentation(
+    collection_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Download the generated presentation for a collection.
+    
+    Returns the .pptx file as a streaming response for browser download.
+    
+    **Parameters:**
+    - collection_id: ID of the collection
+    
+    **Returns:**
+    - StreamingResponse with the .pptx file
+    """
+    try:
+        user_id = current_user["uid"]
+        logger.info(f"Downloading presentation for collection: {collection_id}, user: {user_id}")
+        
+        # Validate collection ownership
+        if not await collection_service.validate_collection_ownership(collection_id, user_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have permission to access this presentation"
+            )
+        
+        # Get collection to find presentation metadata
+        collection = await collection_service.get_collection(collection_id, user_id)
+        
+        if not collection.presentation:
+            raise HTTPException(
+                status_code=404,
+                detail="No presentation found for this collection. Generate one first."
+            )
+        
+        storage_path = collection.presentation.get("storage_path")
+        if not storage_path:
+            # Fallback to default path
+            storage_path = f"presentations/{collection_id}/presentation.pptx"
+        
+        # Download from Firebase Storage
+        bucket = firebase_service.bucket
+        blob = bucket.blob(storage_path)
+        
+        if not blob.exists():
+            raise HTTPException(
+                status_code=404,
+                detail="Presentation file not found in storage"
+            )
+        
+        # Download to bytes
+        file_bytes = blob.download_as_bytes()
+        
+        # Create filename for download
+        collection_name = collection.name.replace(" ", "_")
+        filename = f"{collection_name}_Training_Deck.pptx"
+        
+        # Return as streaming response
+        return StreamingResponse(
+            BytesIO(file_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading presentation: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to download presentation: {str(e)}")

@@ -1,0 +1,62 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 24px;
+  width: 100%;
+}
+
+/* Header with logo and brand name */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logoWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: #f3f4f6;
+}
+
+.logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+}
+
+.logoPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: #2c3528;
+  background-color: #ebf7e6;
+}
+
+.brandName {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1;
+  color: #2c3528;
+  margin: 0;
+}
+
+/* Deck list */
+.deckList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
