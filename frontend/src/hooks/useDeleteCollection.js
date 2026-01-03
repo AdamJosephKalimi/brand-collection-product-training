@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Delete a collection (soft delete)
@@ -9,7 +10,7 @@ import { getAuthToken } from '../utils/auth';
  */
 const deleteCollection = async (collectionId) => {
   const token = await getAuthToken();
-  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`

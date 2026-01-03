@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Fetch a single collection's details by ID
@@ -16,7 +17,7 @@ export const useCollection = (collectionId) => {
     queryKey: ['collection', collectionId],
     queryFn: async () => {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/collections/${collectionId}`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${collectionId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

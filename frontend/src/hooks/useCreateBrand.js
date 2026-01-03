@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
-
-const API_BASE = 'http://localhost:8000/api';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Create a new brand
@@ -10,7 +9,7 @@ const API_BASE = 'http://localhost:8000/api';
  */
 const createBrand = async (brandData) => {
   const token = await getAuthToken();
-  const response = await fetch(`${API_BASE}/brands/`, {
+  const response = await fetch(`${API_BASE_URL}/brands/`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -44,7 +43,7 @@ const uploadBrandLogo = async (brandId, logoFile) => {
   const formData = new FormData();
   formData.append('file', logoFile);
   
-  const response = await fetch(`${API_BASE}/brands/${brandId}/logo`, {
+  const response = await fetch(`${API_BASE_URL}/brands/${brandId}/logo`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`

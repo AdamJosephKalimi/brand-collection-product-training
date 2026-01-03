@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
-
-const API_BASE = 'http://localhost:8000/api';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Create a new collection for a brand
@@ -14,7 +13,7 @@ const createCollection = async (brandId, collectionData) => {
   
   console.log('[createCollection] Creating collection for brand:', brandId, 'with data:', collectionData);
   
-  const response = await fetch(`${API_BASE}/brands/${brandId}/collections`, {
+  const response = await fetch(`${API_BASE_URL}/brands/${brandId}/collections`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,

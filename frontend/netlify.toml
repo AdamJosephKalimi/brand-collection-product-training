@@ -1,0 +1,15 @@
+[build]
+  # Directory with the build files
+  publish = "build"
+  
+  # Build command
+  command = "npm run build"
+
+# Redirect all requests to index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Environment variables (set in Netlify UI)
+# REACT_APP_API_URL = your backend URL

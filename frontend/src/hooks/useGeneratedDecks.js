@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Fetch all generated decks/presentations for the authenticated user
@@ -18,7 +19,7 @@ export const useGeneratedDecks = () => {
     queryKey: ['generated-decks'],
     queryFn: async () => {
       const token = await getAuthToken();
-      const response = await fetch('http://localhost:8000/api/presentations', {
+      const response = await fetch(`${API_BASE_URL}/presentations`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -43,7 +44,7 @@ export const useDownloadPresentation = () => {
     mutationFn: async (collectionId) => {
       const token = await getAuthToken();
       const response = await fetch(
-        `http://localhost:8000/api/collections/${collectionId}/presentation/download`,
+        `${API_BASE_URL}/collections/${collectionId}/presentation/download`,
         {
           headers: {
             'Authorization': `Bearer ${token}`

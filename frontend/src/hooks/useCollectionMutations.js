@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Update a collection's information
@@ -10,7 +11,7 @@ import { getAuthToken } from '../utils/auth';
  */
 const updateCollection = async (collectionId, updateData) => {
   const token = await getAuthToken();
-  const response = await fetch(`http://localhost:8000/api/collections/${collectionId}`, {
+  const response = await fetch(`${API_BASE_URL}/collections/${collectionId}`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${token}`,
