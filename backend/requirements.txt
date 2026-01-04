@@ -5,7 +5,7 @@ python-dotenv==1.0.0
 firebase-admin==6.4.0
 pinecone-client>=3.0.0,<4.0.0
 python-pptx==0.6.23
-openai==1.51.0
+openai>=1.55.0
 python-multipart==0.0.6
 Pillow>=10.3.0
 PyMuPDF>=1.24.0
