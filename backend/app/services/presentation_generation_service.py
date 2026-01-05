@@ -204,12 +204,8 @@ class PresentationGenerationService:
         """
         Create brand history slide using Title and Content layout.
         
-        Uses PowerPoint's built-in Title and Content layout with:
-        - Title placeholder for "Brand History"
-        - Content placeholder for founding info and milestones (bullets work automatically)
-        
         Args:
-            data: Slide data containing title, content with founding info and milestones
+            data: Slide data containing title, content with founding, evolution, market_context, philosophical_takeaway
         """
         slide = self.prs.slides.add_slide(self.title_content_layout)
         content = data.get('content', {})
@@ -218,51 +214,149 @@ class PresentationGenerationService:
         title = slide.shapes.title
         title.text = data.get('title', 'Brand History')
         
-        # Use content placeholder (placeholders[1] in title and content layout)
+        # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
         
-        # Add founding details
-        founding_year = content.get('founding_year', '')
-        founder = content.get('founder', '')
-        origin = content.get('origin', '')
+        first_paragraph = True
         
-        # First paragraph - founding info
-        p = tf.paragraphs[0]
-        if founding_year or founder:
-            p.text = f"Founded: {founding_year}"
-            if founder:
-                p.text += f" by {founder}"
-            p.font.size = Pt(18)
-            p.level = 0
-        
-        # Second paragraph - origin
-        if origin:
-            p = tf.add_paragraph()
-            p.text = f"Origin: {origin}"
-            p.font.size = Pt(18)
-            p.level = 0
-        
-        # Add spacing before milestones
-        if founding_year or founder or origin:
-            p = tf.add_paragraph()
-            p.text = ""
-        
-        # Milestones header
-        milestones = content.get('milestones', [])
-        if milestones:
-            p = tf.add_paragraph()
-            p.text = "Key Milestones:"
-            p.font.size = Pt(20)
-            p.font.bold = True
-            p.level = 0
+        # Extract nested founding structure
+        founding = content.get('founding', {})
+        if founding and isinstance(founding, dict):
+            year = founding.get('year', '')
+            founder_info = founding.get('founder', {})
+            origin_info = founding.get('origin', {})
             
-            # Add each milestone as bullet (bullets work automatically in content placeholder!)
-            for milestone in milestones:
-                p = tf.add_paragraph()
-                p.text = milestone
-                p.level = 1  # Indent level 1 (sub-bullet under "Key Milestones")
+            # Founder name and background
+            founder_name = founder_info.get('name', '') if isinstance(founder_info, dict) else str(founder_info) if founder_info else ''
+            founder_bg = founder_info.get('background', '') if isinstance(founder_info, dict) else ''
+            
+            # Origin city and country
+            city = origin_info.get('city', '') if isinstance(origin_info, dict) else str(origin_info) if origin_info else ''
+            country = origin_info.get('country', '') if isinstance(origin_info, dict) else ''
+            
+            # Build founding text
+            if year or founder_name:
+                p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+                first_paragraph = False
+                
+                founding_text = f"Founded in {year}" if year else "Founded"
+                if founder_name:
+                    founding_text += f" by {founder_name}"
+                if city or country:
+                    location = f"{city}, {country}" if city and country else city or country
+                    founding_text += f" in {location}"
+                
+                p.text = founding_text
                 p.font.size = Pt(14)
+                p.font.bold = True
+                p.level = 0
+            
+            if founder_bg:
+                p = tf.add_paragraph()
+                p.text = founder_bg
+                p.font.size = Pt(13)
+                p.level = 0
+        
+        # Fallback for flat structure (backward compatibility)
+        elif content.get('founding_year') or content.get('founder'):
+            p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+            first_paragraph = False
+            p.text = f"Founded: {content.get('founding_year', '')}"
+            if content.get('founder'):
+                p.text += f" by {content.get('founder')}"
+            p.font.size = Pt(14)
+            p.level = 0
+        
+        # Add evolution section
+        evolution = content.get('evolution', {})
+        if evolution and isinstance(evolution, dict):
+            early_identity = evolution.get('early_identity', '')
+            key_shifts = evolution.get('key_shifts', [])
+            signature_elements = evolution.get('signature_elements', [])
+            
+            if early_identity or key_shifts or signature_elements:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+                
+                p = tf.add_paragraph()
+                p.text = "Brand Evolution:"
+                p.font.size = Pt(14)
+                p.font.bold = True
+                p.level = 0
+                
+                if early_identity:
+                    p = tf.add_paragraph()
+                    p.text = early_identity
+                    p.font.size = Pt(12)
+                    p.level = 1
+                
+                for shift in key_shifts:
+                    p = tf.add_paragraph()
+                    p.text = shift
+                    p.font.size = Pt(12)
+                    p.level = 1
+                
+                if signature_elements:
+                    p = tf.add_paragraph()
+                    p.text = ""  # Spacing
+                    
+                    p = tf.add_paragraph()
+                    p.text = "Signature Elements:"
+                    p.font.size = Pt(13)
+                    p.font.bold = True
+                    p.level = 0
+                    
+                    for element in signature_elements:
+                        p = tf.add_paragraph()
+                        p.text = element
+                        p.font.size = Pt(12)
+                        p.level = 1
+        
+        # Add market context
+        market_context = content.get('market_context', {})
+        if market_context and isinstance(market_context, dict):
+            positioning = market_context.get('positioning', '')
+            production = market_context.get('production_philosophy', '')
+            footprint = market_context.get('current_footprint', '')
+            
+            if positioning or production or footprint:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+                
+                if positioning:
+                    p = tf.add_paragraph()
+                    run = p.add_run()
+                    run.text = "Market Position: "
+                    run.font.bold = True
+                    run.font.size = Pt(12)
+                    run = p.add_run()
+                    run.text = positioning
+                    run.font.size = Pt(12)
+                    p.level = 0
+                
+                if production:
+                    p = tf.add_paragraph()
+                    run = p.add_run()
+                    run.text = "Production: "
+                    run.font.bold = True
+                    run.font.size = Pt(12)
+                    run = p.add_run()
+                    run.text = production
+                    run.font.size = Pt(12)
+                    p.level = 0
+        
+        # Add philosophical takeaway
+        takeaway = content.get('philosophical_takeaway', '')
+        if takeaway:
+            p = tf.add_paragraph()
+            p.text = ""  # Spacing
+            
+            p = tf.add_paragraph()
+            p.text = takeaway
+            p.font.size = Pt(12)
+            p.font.italic = True
+            p.level = 0
         
         logger.info("Brand history slide created (using Title and Content layout)")
     
@@ -271,7 +365,7 @@ class PresentationGenerationService:
         Create brand introduction slide using Title and Content layout.
         
         Args:
-            data: Slide data containing title, content with overview and key_points
+            data: Slide data containing title, content with overview, brand_identity, name_and_history
         """
         slide = self.prs.slides.add_slide(self.title_content_layout)
         content = data.get('content', {})
@@ -284,26 +378,112 @@ class PresentationGenerationService:
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
         
-        # Add overview
-        overview = content.get('overview', '')
-        if overview:
-            p = tf.paragraphs[0]
-            p.text = overview
-            p.font.size = Pt(16)
-            p.level = 0
-            
-            # Add spacing
-            p = tf.add_paragraph()
-            p.text = ""
+        first_paragraph = True
         
-        # Add key points as bullets
-        key_points = content.get('key_points', [])
-        if key_points:
-            for point in key_points:
-                p = tf.add_paragraph()
-                p.text = point
-                p.level = 0
+        # Add overview section (nested object with summary and positioning)
+        overview = content.get('overview', {})
+        if isinstance(overview, dict):
+            summary = overview.get('summary', '')
+            positioning = overview.get('positioning', '')
+            
+            if summary:
+                p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+                first_paragraph = False
+                p.text = summary
                 p.font.size = Pt(14)
+                p.level = 0
+            
+            if positioning:
+                p = tf.add_paragraph()
+                p.text = positioning
+                p.font.size = Pt(14)
+                p.level = 0
+        elif overview:  # Fallback if it's a string
+            p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+            first_paragraph = False
+            p.text = str(overview)
+            p.font.size = Pt(14)
+            p.level = 0
+        
+        # Add brand identity section
+        brand_identity = content.get('brand_identity', {})
+        if brand_identity:
+            essence = brand_identity.get('essence', '')
+            differentiators = brand_identity.get('differentiators', [])
+            unique_facts = brand_identity.get('unique_facts', [])
+            
+            if essence:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+                
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = "Brand Essence: "
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run = p.add_run()
+                run.text = essence
+                run.font.size = Pt(14)
+                p.level = 0
+            
+            if differentiators:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+                
+                p = tf.add_paragraph()
+                p.text = "What Sets Us Apart:"
+                p.font.bold = True
+                p.font.size = Pt(14)
+                p.level = 0
+                
+                for diff in differentiators:
+                    p = tf.add_paragraph()
+                    p.text = diff
+                    p.font.size = Pt(13)
+                    p.level = 1
+            
+            if unique_facts:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+                
+                p = tf.add_paragraph()
+                p.text = "Did You Know:"
+                p.font.bold = True
+                p.font.size = Pt(14)
+                p.level = 0
+                
+                for fact in unique_facts:
+                    p = tf.add_paragraph()
+                    p.text = fact
+                    p.font.size = Pt(13)
+                    p.level = 1
+        
+        # Add name and history section if present
+        name_history = content.get('name_and_history', {})
+        if name_history:
+            name_origin = name_history.get('name_origin', '')
+            background = name_history.get('background', '')
+            
+            if name_origin or background:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+                
+                if name_origin:
+                    p = tf.add_paragraph()
+                    run = p.add_run()
+                    run.text = "Name Origin: "
+                    run.font.bold = True
+                    run.font.size = Pt(14)
+                    run = p.add_run()
+                    run.text = name_origin
+                    run.font.size = Pt(14)
+                    p.level = 0
+                
+                if background:
+                    p = tf.add_paragraph()
+                    p.text = background
+                    p.font.size = Pt(13)
+                    p.level = 0
         
         logger.info("Brand introduction slide created (using Title and Content layout)")
     
@@ -312,7 +492,7 @@ class PresentationGenerationService:
         Create brand values slide using Title and Content layout.
         
         Args:
-            data: Slide data containing title, content with values array
+            data: Slide data containing title, content with values array (headline + explanation)
         """
         slide = self.prs.slides.add_slide(self.title_content_layout)
         content = data.get('content', {})
@@ -325,7 +505,7 @@ class PresentationGenerationService:
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
         
-        # Add values
+        # Add values - LLM returns {headline, explanation} for each value
         values = content.get('values', [])
         if values:
             p = tf.paragraphs[0]
@@ -336,12 +516,11 @@ class PresentationGenerationService:
                     p = tf.add_paragraph()
                 first = False
                 
-                # Value name and description
-                value_name = value.get('name', '') if isinstance(value, dict) else str(value)
-                value_desc = value.get('description', '') if isinstance(value, dict) else ''
+                # Value headline and explanation (also support name/description as fallback)
+                value_name = value.get('headline', value.get('name', '')) if isinstance(value, dict) else str(value)
+                value_desc = value.get('explanation', value.get('description', '')) if isinstance(value, dict) else ''
                 
                 p.level = 0
-                p.font.size = Pt(14)
                 
                 if value_desc:
                     # Add value name in bold
@@ -350,13 +529,14 @@ class PresentationGenerationService:
                     run.font.bold = True
                     run.font.size = Pt(14)
                     
-                    # Add description in normal text
+                    # Add explanation in normal text
                     run = p.add_run()
                     run.text = value_desc
                     run.font.size = Pt(14)
                 else:
                     # Just the value name
                     p.text = value_name
+                    p.font.size = Pt(14)
         
         logger.info("Brand values slide created (using Title and Content layout)")
     
@@ -365,7 +545,7 @@ class PresentationGenerationService:
         Create brand personality slide using Title and Content layout.
         
         Args:
-            data: Slide data containing title, content with personality traits
+            data: Slide data containing title, content with quote and traits (name + explanation)
         """
         slide = self.prs.slides.add_slide(self.title_content_layout)
         content = data.get('content', {})
@@ -378,57 +558,67 @@ class PresentationGenerationService:
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
         
-        # Add personality traits
-        traits = content.get('personality_traits', [])
-        descriptors = content.get('descriptors', [])
-        voice = content.get('brand_voice', '')
+        first_paragraph = True
         
-        p = tf.paragraphs[0]
-        first = True
-        
-        # Traits section
-        if traits:
-            if not first:
+        # Add quote section if present
+        quote = content.get('quote', {})
+        if quote and isinstance(quote, dict):
+            quote_text = quote.get('text', '')
+            attribution = quote.get('attribution', '')
+            
+            if quote_text:
+                p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+                first_paragraph = False
+                p.text = f'"{quote_text}"'
+                p.font.size = Pt(14)
+                p.font.italic = True
+                p.level = 0
+                
+                if attribution:
+                    p = tf.add_paragraph()
+                    p.text = f"— {attribution}"
+                    p.font.size = Pt(12)
+                    p.level = 0
+                
+                # Add spacing after quote
                 p = tf.add_paragraph()
-            first = False
+                p.text = ""
+        
+        # Add traits section - LLM returns {name, explanation} for each trait
+        traits = content.get('traits', content.get('personality_traits', []))
+        if traits:
+            p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+            first_paragraph = False
             
             p.text = "Personality Traits:"
-            p.font.size = Pt(16)
+            p.font.size = Pt(14)
             p.font.bold = True
             p.level = 0
             
             for trait in traits:
                 p = tf.add_paragraph()
-                p.text = trait
+                
+                if isinstance(trait, dict):
+                    trait_name = trait.get('name', '')
+                    explanation = trait.get('explanation', '')
+                    
+                    if explanation:
+                        run = p.add_run()
+                        run.text = f"{trait_name}: "
+                        run.font.bold = True
+                        run.font.size = Pt(13)
+                        
+                        run = p.add_run()
+                        run.text = explanation
+                        run.font.size = Pt(13)
+                    else:
+                        p.text = trait_name
+                        p.font.size = Pt(13)
+                else:
+                    p.text = str(trait)
+                    p.font.size = Pt(13)
+                
                 p.level = 1
-                p.font.size = Pt(14)
-        
-        # Descriptors section
-        if descriptors:
-            p = tf.add_paragraph()
-            p.text = ""
-            
-            p = tf.add_paragraph()
-            p.text = "Descriptors:"
-            p.font.size = Pt(16)
-            p.font.bold = True
-            p.level = 0
-            
-            for descriptor in descriptors:
-                p = tf.add_paragraph()
-                p.text = descriptor
-                p.level = 1
-                p.font.size = Pt(14)
-        
-        # Brand voice section
-        if voice:
-            p = tf.add_paragraph()
-            p.text = ""
-            
-            p = tf.add_paragraph()
-            p.text = f"Brand Voice: {voice}"
-            p.font.size = Pt(14)
-            p.level = 0
         
         logger.info("Brand personality slide created (using Title and Content layout)")
     
@@ -437,7 +627,7 @@ class PresentationGenerationService:
         Create flagship stores slide using Title and Content layout.
         
         Args:
-            data: Slide data containing title, content with stores and retail experience
+            data: Slide data containing title, content with flagship_stores array and alternative_experiences
         """
         slide = self.prs.slides.add_slide(self.title_content_layout)
         content = data.get('content', {})
@@ -450,62 +640,93 @@ class PresentationGenerationService:
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
         
-        # Add stores
-        stores = content.get('store_locations', content.get('stores', []))
-        retail_experience = content.get('retail_experience', '')
+        first_paragraph = True
         
-        p = tf.paragraphs[0]
-        first = True
+        # Add flagship stores - LLM returns nested structure with name, location, design_elements, etc.
+        stores = content.get('flagship_stores', content.get('store_locations', content.get('stores', [])))
+        alternative = content.get('alternative_experiences', '')
         
         if stores:
-            # Add "Store Locations:" header
-            p = tf.paragraphs[0]
-            p.text = "Store Locations:"
-            p.font.size = Pt(16)
-            p.font.bold = True
-            p.level = 0
-            
             for store in stores:
-                p = tf.add_paragraph()
-                
-                # Store location (bold) and description
-                location = store.get('city', store.get('location', '')) if isinstance(store, dict) else str(store)
-                description = store.get('description', '') if isinstance(store, dict) else ''
-                
-                p.level = 1
-                
-                if description:
-                    # Add location in bold
-                    run = p.add_run()
-                    run.text = f"{location}: "
-                    run.font.bold = True
-                    run.font.size = Pt(13)
+                if isinstance(store, dict):
+                    # Get store name and location
+                    store_name = store.get('name', '')
+                    location = store.get('location', {})
+                    city = location.get('city', '') if isinstance(location, dict) else str(location)
+                    country = location.get('country', '') if isinstance(location, dict) else ''
+                    year_opened = store.get('year_opened', '')
                     
-                    # Add description in normal text
-                    run = p.add_run()
-                    run.text = description
-                    run.font.size = Pt(13)
+                    # Build store header
+                    location_str = f"{city}, {country}" if city and country else city or country
+                    header = store_name or location_str
+                    if year_opened and header:
+                        header = f"{header} ({year_opened})"
+                    
+                    if header:
+                        p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+                        first_paragraph = False
+                        p.text = header
+                        p.font.size = Pt(14)
+                        p.font.bold = True
+                        p.level = 0
+                    
+                    # Add design elements
+                    design = store.get('design_elements', '')
+                    if design:
+                        p = tf.add_paragraph()
+                        run = p.add_run()
+                        run.text = "Design: "
+                        run.font.bold = True
+                        run.font.size = Pt(12)
+                        run = p.add_run()
+                        run.text = design
+                        run.font.size = Pt(12)
+                        p.level = 1
+                    
+                    # Add customer experience
+                    experience = store.get('customer_experience', '')
+                    if experience:
+                        p = tf.add_paragraph()
+                        run = p.add_run()
+                        run.text = "Experience: "
+                        run.font.bold = True
+                        run.font.size = Pt(12)
+                        run = p.add_run()
+                        run.text = experience
+                        run.font.size = Pt(12)
+                        p.level = 1
+                    
+                    # Add cultural meaning
+                    cultural = store.get('cultural_meaning', '')
+                    if cultural:
+                        p = tf.add_paragraph()
+                        run = p.add_run()
+                        run.text = "Significance: "
+                        run.font.bold = True
+                        run.font.size = Pt(12)
+                        run = p.add_run()
+                        run.text = cultural
+                        run.font.size = Pt(12)
+                        p.level = 1
+                    
+                    # Add spacing between stores
+                    p = tf.add_paragraph()
+                    p.text = ""
                 else:
-                    # Just the location
-                    p.text = location
+                    # Simple string store
+                    p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+                    first_paragraph = False
+                    p.text = str(store)
                     p.font.size = Pt(13)
+                    p.level = 0
         
-        # Retail experience section
-        if retail_experience:
-            if stores:
-                p = tf.add_paragraph()
-                p.text = ""
-            
-            p = tf.add_paragraph()
-            p.text = "Retail Experience:"
-            p.font.size = Pt(16)
-            p.font.bold = True
-            p.level = 0
-            
-            p = tf.add_paragraph()
-            p.text = retail_experience
-            p.level = 1
+        # Alternative experiences section (if no flagship stores)
+        if alternative and not stores:
+            p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+            first_paragraph = False
+            p.text = alternative
             p.font.size = Pt(14)
+            p.level = 0
         
         logger.info("Flagship stores slide created (using Title and Content layout)")
     
@@ -514,7 +735,7 @@ class PresentationGenerationService:
         Create core collection slide using Title and Content layout.
         
         Args:
-            data: Slide data containing title, content with overview and signature categories
+            data: Slide data containing title, content with signature_categories (headline, description, iconic_staple)
         """
         slide = self.prs.slides.add_slide(self.title_content_layout)
         content = data.get('content', {})
@@ -527,61 +748,61 @@ class PresentationGenerationService:
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
         
-        # Add overview
-        overview = content.get('overview', '')
-        if overview:
-            p = tf.paragraphs[0]
-            p.text = overview
-            p.font.size = Pt(12)  # Smaller font for better spacing
-            p.level = 0
-            
-            # Add spacing
-            p = tf.add_paragraph()
-            p.text = ""
+        first_paragraph = True
         
-        # Add signature categories
+        # Add signature categories - LLM returns {headline, description, iconic_staple}
         categories = content.get('signature_categories', [])
         if categories:
-            p = tf.add_paragraph()
+            p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+            first_paragraph = False
             p.text = "Signature Categories:"
-            p.font.size = Pt(16)
+            p.font.size = Pt(14)
             p.font.bold = True
             p.level = 0
             
             for category in categories:
                 p = tf.add_paragraph()
                 
-                # Category name and description
-                cat_name = category.get('category', category.get('name', '')) if isinstance(category, dict) else str(category)
-                cat_desc = category.get('description', '') if isinstance(category, dict) else ''
-                key_pieces = category.get('key_pieces', []) if isinstance(category, dict) else []
-                
-                p.level = 1
-                
-                if cat_desc:
-                    # Add category name in bold
-                    run = p.add_run()
-                    run.text = f"{cat_name}: "
-                    run.font.bold = True
-                    run.font.size = Pt(13)
+                if isinstance(category, dict):
+                    # Get headline (primary), fall back to category/name
+                    cat_name = category.get('headline', category.get('category', category.get('name', '')))
+                    cat_desc = category.get('description', '')
+                    iconic_staple = category.get('iconic_staple')
                     
-                    # Add description in normal text
-                    run = p.add_run()
-                    run.text = cat_desc
-                    run.font.size = Pt(13)
+                    p.level = 1
+                    
+                    if cat_desc:
+                        # Add category name in bold
+                        run = p.add_run()
+                        run.text = f"{cat_name}: "
+                        run.font.bold = True
+                        run.font.size = Pt(13)
+                        
+                        # Add description in normal text
+                        run = p.add_run()
+                        run.text = cat_desc
+                        run.font.size = Pt(13)
+                    else:
+                        # Just the category name
+                        p.text = cat_name
+                        p.font.size = Pt(13)
+                    
+                    # Add iconic staple if available and not null
+                    if iconic_staple and iconic_staple != 'null':
+                        p = tf.add_paragraph()
+                        run = p.add_run()
+                        run.text = "Iconic Staple: "
+                        run.font.bold = True
+                        run.font.size = Pt(12)
+                        run = p.add_run()
+                        run.text = str(iconic_staple)
+                        run.font.size = Pt(12)
+                        p.level = 2
                 else:
-                    # Just the category name
-                    p.text = cat_name
+                    # Simple string category
+                    p.text = str(category)
                     p.font.size = Pt(13)
-                
-                # Add key pieces if available
-                if key_pieces:
-                    pieces_text = ", ".join(key_pieces)
-                    p = tf.add_paragraph()
-                    p.text = f"Key pieces: {pieces_text}"
-                    p.level = 2
-                    p.font.size = Pt(11)
-                    p.font.italic = True
+                    p.level = 1
         
         logger.info("Core collection slide created (using Title and Content layout)")
     
