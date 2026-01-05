@@ -26,6 +26,7 @@ import { useProcessingStatus } from '../../hooks/useProcessingStatus';
 import { useProcessDocuments, useCancelDocumentProcessing, useMarkDocumentsStale } from '../../hooks/useDocumentProcessing';
 import { useGenerateItems, useCancelItemGeneration } from '../../hooks/useItemGeneration';
 import { useCollectionItems, useUpdateItem, useReorderItems } from '../../hooks/useItems';
+import { API_BASE_URL, API_HOST } from '../../config/api';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -621,7 +622,7 @@ function CollectionSettingsPage() {
       
       // Step 1: Generate intro slides first
       const introResponse = await fetch(
-        `http://localhost:8000/collections/${collectionId}/intro-slides/generate`,
+        `${API_HOST}/collections/${collectionId}/intro-slides/generate`,
         {
           method: 'POST',
           headers: {
@@ -641,7 +642,7 @@ function CollectionSettingsPage() {
       
       // Step 2: Generate presentation
       const response = await fetch(
-        `http://localhost:8000/api/collections/${collectionId}/presentation/generate?products_per_slide=${productsPerSlide}`,
+        `${API_BASE_URL}/collections/${collectionId}/presentation/generate?products_per_slide=${productsPerSlide}`,
         {
           method: 'POST',
           headers: {

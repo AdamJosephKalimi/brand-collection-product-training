@@ -3,6 +3,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { auth } from '../firebase/config';
 import { getAuthToken } from '../utils/auth';
+import { API_BASE_URL, API_HOST } from '../config/api';
 
 function DocumentProcessingForm() {
   const [saving, setSaving] = useState({
@@ -127,7 +128,7 @@ function DocumentProcessingForm() {
 
         const firestoreField = fieldMapping[slide];
         
-        const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}`, {
+        const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -229,7 +230,7 @@ function DocumentProcessingForm() {
       formDataObj.append('name', formData.brandName);
       
       // Create brand first
-      const brandResponse = await fetch('http://localhost:8000/api/brands', {
+      const brandResponse = await fetch(`${API_BASE_URL}/brands`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -247,7 +248,7 @@ function DocumentProcessingForm() {
         const logoFormData = new FormData();
         logoFormData.append('file', formData.brandLogo);
         
-        const logoResponse = await fetch(`http://localhost:8000/api/brands/${brandData.brand_id}/logo`, {
+        const logoResponse = await fetch(`${API_BASE_URL}/brands/${brandData.brand_id}/logo`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -276,7 +277,7 @@ function DocumentProcessingForm() {
     setSaving(prev => ({ ...prev, collection: true }));
     try {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/brands/${savedIds.brandId}/collections`, {
+      const response = await fetch(`${API_BASE_URL}/brands/${savedIds.brandId}/collections`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -307,7 +308,7 @@ function DocumentProcessingForm() {
     setLoading(prev => ({ ...prev, brands: true }));
     try {
       const token = await getAuthToken();
-      const response = await fetch('http://localhost:8000/api/brands/', {
+      const response = await fetch(`${API_BASE_URL}/brands/`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -327,7 +328,7 @@ function DocumentProcessingForm() {
     setLoading(prev => ({ ...prev, collections: true }));
     try {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/brands/${brandId}/collections`, {
+      const response = await fetch(`${API_BASE_URL}/brands/${brandId}/collections`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -388,7 +389,7 @@ function DocumentProcessingForm() {
     
     try {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/documents`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}/documents`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -409,7 +410,7 @@ function DocumentProcessingForm() {
     
     try {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/documents/${documentId}`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}/documents/${documentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -452,7 +453,7 @@ function DocumentProcessingForm() {
         formDataObj.append('type', 'line_sheet');
         formDataObj.append('description', `Line sheet: ${lineSheet.name}`);
         
-        const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/documents`, {
+        const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}/documents`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -472,7 +473,7 @@ function DocumentProcessingForm() {
         formDataObj.append('type', 'purchase_order');
         formDataObj.append('description', `Purchase order: ${formData.purchaseOrder.name}`);
         
-        const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/documents`, {
+        const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}/documents`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -506,7 +507,7 @@ function DocumentProcessingForm() {
   const loadIntroSlideSettings = async () => {
     try {
       const token = await auth.currentUser.getIdToken();
-      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -552,7 +553,7 @@ function DocumentProcessingForm() {
       const token = await getAuthToken();
       console.log(`Fetching items for collection: ${savedIds.collectionId}`);
       
-      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/items`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}/items`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -585,7 +586,7 @@ function DocumentProcessingForm() {
     setGeneratingItems(true);
     try {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/items/generate`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}/items/generate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -619,7 +620,7 @@ function DocumentProcessingForm() {
   const toggleItemHighlight = async (itemId, currentValue) => {
     try {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/items/${itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}/items/${itemId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -663,7 +664,7 @@ function DocumentProcessingForm() {
     setGenerating(true);
     try {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}/categories/generate`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}/categories/generate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -841,7 +842,7 @@ function DocumentProcessingForm() {
     setGeneratingSlides(true);
     try {
       const token = await getAuthToken();
-      const response = await fetch(`http://localhost:8000/collections/${savedIds.collectionId}/intro-slides/generate`, {
+      const response = await fetch(`${API_HOST}/collections/${savedIds.collectionId}/intro-slides/generate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -892,7 +893,7 @@ function DocumentProcessingForm() {
         }))
       }));
       
-      const response = await fetch(`http://localhost:8000/api/collections/${savedIds.collectionId}`, {
+      const response = await fetch(`${API_BASE_URL}/collections/${savedIds.collectionId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

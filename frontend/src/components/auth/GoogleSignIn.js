@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '../../firebase/config';
+import { API_HOST } from '../../config/api';
 
 const GoogleSignIn = ({ onAuthStateChange }) => {
   const [user, setUser] = useState(null);
@@ -20,7 +21,7 @@ const GoogleSignIn = ({ onAuthStateChange }) => {
       const idToken = await user.getIdToken();
       
       // Verify token with backend
-      const response = await fetch('http://localhost:8000/auth/verify-token', {
+      const response = await fetch(`${API_HOST}/auth/verify-token`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${idToken}`,
