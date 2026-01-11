@@ -10,6 +10,7 @@ import DocumentProcessing from './pages/DocumentProcessing/DocumentProcessing';
 import DeckSettingsPage from './pages/DeckSettings/DeckSettingsPage';
 import CollectionSettingsPage from './pages/CollectionSettings/CollectionSettingsPage';
 import GeneratedDecksPage from './pages/GeneratedDecks/GeneratedDecksPage';
+import SettingsPage from './pages/Settings/SettingsPage';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -104,26 +105,7 @@ function App() {
             {/* Main navigation pages */}
             <Route path="/" element={<DashboardPage />} />
             <Route path="/generated-decks" element={<GeneratedDecksPage />} />
-            <Route path="/settings" element={
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '100vh',
-                backgroundColor: 'var(--background-page)'
-              }}>
-                <div style={{
-                  backgroundColor: 'var(--background-white)',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 'var(--border-radius-md)',
-                  padding: 'var(--spacing-4)',
-                  textAlign: 'center'
-                }}>
-                  <h1 style={{ color: 'var(--text-brand)' }}>Settings</h1>
-                  <p style={{ color: 'var(--text-secondary)' }}>Page coming soon...</p>
-                </div>
-              </div>
-            } />
+            <Route path="/settings" element={<SettingsPage />} />
             
             {/* Legacy routes with card layout (keeping for now) */}
             <Route path="/processing" element={
