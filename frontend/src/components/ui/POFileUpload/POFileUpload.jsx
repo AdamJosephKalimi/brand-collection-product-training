@@ -144,36 +144,20 @@ function POFileUpload({
         {/* Upload Icon */}
         <svg 
           className={styles.icon}
-          width="38" 
-          height="27" 
-          viewBox="0 0 38 27" 
+          width="24" 
+          height="24" 
+          viewBox="0 0 24 24" 
           fill="none"
         >
           <path 
-            d="M24.5 18V10.5L19 16L24.5 18Z" 
-            fill="currentColor"
-          />
-          <path 
-            d="M24.5 10.5V18M24.5 10.5L30 16L24.5 10.5ZM24.5 10.5L19 16L24.5 10.5Z" 
+            d="M12 16V4M12 4L8 8M12 4L16 8" 
             stroke="currentColor" 
             strokeWidth="2" 
             strokeLinecap="round" 
             strokeLinejoin="round"
           />
           <path 
-            d="M32.5 18.5V21.5C32.5 22.6046 31.6046 23.5 30.5 23.5H18.5C17.3954 23.5 16.5 22.6046 16.5 21.5V18.5" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            strokeLinecap="round"
-          />
-          <path 
-            d="M13 13C13 9.68629 10.3137 7 7 7C3.68629 7 1 9.68629 1 13C1 15.6124 2.67595 17.8349 5 18.6586" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            strokeLinecap="round"
-          />
-          <path 
-            d="M13 13C13 11.067 14.567 9.5 16.5 9.5C18.433 9.5 20 11.067 20 13" 
+            d="M3 15V18C3 19.1046 3.89543 20 5 20H19C20.1046 20 21 19.1046 21 18V15" 
             stroke="currentColor" 
             strokeWidth="2" 
             strokeLinecap="round"
