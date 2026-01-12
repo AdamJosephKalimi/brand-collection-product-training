@@ -14,6 +14,7 @@ import { useCreateBrand } from '../../hooks/useCreateBrand';
 import { useCreateCollection } from '../../hooks/useCreateCollection';
 import { useDeleteBrand } from '../../hooks/useDeleteBrand';
 import { useDeleteCollection } from '../../hooks/useDeleteCollection';
+import Spinner from '../../components/ui/Spinner';
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -113,13 +114,7 @@ function DashboardPage() {
               justifyContent: 'center',
               height: '100%'
             }}>
-              <p style={{
-                fontFamily: 'var(--font-family-body)',
-                fontSize: 'var(--font-size-md)',
-                color: 'var(--text-secondary)'
-              }}>
-                Loading brands...
-              </p>
+              <Spinner size={32} />
             </div>
           )}
 
