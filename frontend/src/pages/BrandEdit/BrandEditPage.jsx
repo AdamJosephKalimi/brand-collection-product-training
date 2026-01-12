@@ -10,6 +10,9 @@ import LoadingOverlay from '../../components/ui/LoadingOverlay/LoadingOverlay';
 import POFileUpload from '../../components/ui/POFileUpload/POFileUpload';
 import { useBrands, useBrand } from '../../hooks/useBrands';
 import { useUpdateBrand, useUploadLogo } from '../../hooks/useBrandMutations';
+import { useDeleteBrand } from '../../hooks/useDeleteBrand';
+import { useDeleteCollection } from '../../hooks/useDeleteCollection';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import styles from './BrandEditPage.module.css';
 
 function BrandEditPage() {
@@ -31,6 +34,11 @@ function BrandEditPage() {
   // Mutations
   const updateBrand = useUpdateBrand();
   const uploadLogo = useUploadLogo();
+  const deleteBrandMutation = useDeleteBrand();
+  const deleteCollectionMutation = useDeleteCollection();
+  
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
   
   // Local state
   const [error, setError] = useState(null);
@@ -129,25 +137,42 @@ function BrandEditPage() {
   const [activeBrand] = useState(brandId);
   const [activeCollection] = useState(null);
 
-  const handleBrandChange = (newBrandId) => {
-    navigate(`/brands/${newBrandId}/edit`);
+  const handleCollectionClick = (collection) => {
+    navigate(`/collection-settings/${collection.id}`);
   };
 
-  const handleCollectionChange = (collectionId) => {
-    navigate(`/collection-settings/${collectionId}`);
+  const handleDeleteConfirm = async () => {
+    const { type, id } = deleteModal;
+    
+    try {
+      if (type === 'brand') {
+        await deleteBrandMutation.mutateAsync(id);
+        // If deleting current brand, go back to dashboard
+        if (id === brandId) {
+          navigate('/');
+          return;
+        }
+      } else if (type === 'collection') {
+        await deleteCollectionMutation.mutateAsync(id);
+      }
+      setDeleteModal({ isVisible: false, type: null, id: null, name: '' });
+    } catch (err) {
+      console.error(`Failed to delete ${type}:`, err);
+    }
   };
 
   if (loading) {
     return (
       <div className={styles.pageContainer}>
-        <TopNav navLinks={navLinks} />
+        <TopNav links={navLinks} />
         <div className={styles.contentWrapper}>
           <Sidebar
             brands={brands}
             activeBrand={activeBrand}
             activeCollection={activeCollection}
-            onBrandChange={handleBrandChange}
-            onCollectionChange={handleCollectionChange}
+            onCollectionClick={handleCollectionClick}
+            onDeleteBrand={(bId, bName) => setDeleteModal({ isVisible: true, type: 'brand', id: bId, name: bName })}
+            onDeleteCollection={(cId, cName) => setDeleteModal({ isVisible: true, type: 'collection', id: cId, name: cName })}
           />
           <main className={styles.mainContent}>
             <p>Loading brand...</p>
@@ -161,15 +186,16 @@ function BrandEditPage() {
   return (
     <div className={styles.pageContainer}>
       <LoadingOverlay isVisible={isSaving} message="Saving changes..." />
-      <TopNav navLinks={navLinks} />
+      <TopNav links={navLinks} />
       
       <div className={styles.contentWrapper}>
         <Sidebar
           brands={brands}
           activeBrand={activeBrand}
           activeCollection={activeCollection}
-          onBrandChange={handleBrandChange}
-          onCollectionChange={handleCollectionChange}
+          onCollectionClick={handleCollectionClick}
+          onDeleteBrand={(bId, bName) => setDeleteModal({ isVisible: true, type: 'brand', id: bId, name: bName })}
+          onDeleteCollection={(cId, cName) => setDeleteModal({ isVisible: true, type: 'collection', id: cId, name: cName })}
         />
         
         <main className={styles.mainContent}>
@@ -282,6 +308,22 @@ function BrandEditPage() {
       </div>
       
       <Footer />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isVisible={deleteModal.isVisible}
+        onClose={() => setDeleteModal({ isVisible: false, type: null, id: null, name: '' })}
+        onConfirm={handleDeleteConfirm}
+        title={deleteModal.type === 'brand' ? 'Delete Brand' : 'Delete Collection'}
+        message={
+          deleteModal.type === 'brand'
+            ? `Are you sure you want to delete "${deleteModal.name}"? This will also delete all collections under this brand. This action cannot be undone.`
+            : `Are you sure you want to delete "${deleteModal.name}"? This action cannot be undone.`
+        }
+        confirmText="Delete"
+        isLoading={deleteBrandMutation.isPending || deleteCollectionMutation.isPending}
+        isDangerous={true}
+      />
     </div>
   );
 }
