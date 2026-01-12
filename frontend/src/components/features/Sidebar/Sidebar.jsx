@@ -63,9 +63,12 @@ function Sidebar({
             return (
               <div key={brand.id} className={styles.brandItem}>
                 {/* Brand Header */}
-                <button 
+                <div 
                   className={styles.brandHeader}
                   onClick={() => toggleBrand(brand.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && toggleBrand(brand.id)}
                 >
                   <div className={styles.brandLeft}>
                     {/* Chevron */}
@@ -101,18 +104,21 @@ function Sidebar({
                       <path d="M3 4H11M5 4V3C5 2.5 5.5 2 6 2H8C8.5 2 9 2.5 9 3V4M10 4V11C10 11.5 9.5 12 9 12H5C4.5 12 4 11.5 4 11V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </button>
-                </button>
+                </div>
 
                 {/* Collections (when expanded) */}
                 {isExpanded && brand.collections && (
                   <div className={styles.collectionList}>
                     {brand.collections.map((collection) => (
-                      <button
+                      <div
                         key={collection.id}
                         className={`${styles.collectionItem} ${
                           activeCollection === collection.id ? styles.active : ''
                         }`}
                         onClick={() => onCollectionClick?.(collection)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === 'Enter' && onCollectionClick?.(collection)}
                       >
                         <div className={styles.collectionLeft}>
                           {/* Folder Icon */}
@@ -140,7 +146,7 @@ function Sidebar({
                             <path d="M3 4H11M5 4V3C5 2.5 5.5 2 6 2H8C8.5 2 9 2.5 9 3V4M10 4V11C10 11.5 9.5 12 9 12H5C4.5 12 4 11.5 4 11V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </button>
-                      </button>
+                      </div>
                     ))}
                     
                     {/* New Collection Button */}
