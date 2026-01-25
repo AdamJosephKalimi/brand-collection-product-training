@@ -300,8 +300,20 @@ async def detect_and_restart_stale_jobs(db: firestore.Client) -> None:
         logger.info("Checking for stale processing jobs...")
         
         # Query collections with processing status
-        collections_ref = db.collection('collections')
-        collections = collections_ref.stream()
+        # Run in thread with timeout to prevent blocking on network issues
+        def get_collections():
+            collections_ref = db.collection('collections')
+            return list(collections_ref.stream())
+        
+        loop = asyncio.get_event_loop()
+        try:
+            collections = await asyncio.wait_for(
+                loop.run_in_executor(None, get_collections),
+                timeout=10.0
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Firestore query timed out - skipping stale job detection")
+            return
         
         stale_threshold = datetime.utcnow() - timedelta(minutes=15)
         stale_jobs_found = 0

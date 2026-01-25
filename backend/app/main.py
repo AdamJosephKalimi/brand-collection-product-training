@@ -59,6 +59,7 @@ async def startup_event():
     Startup event handler.
     Detects and handles stale processing jobs from previous server sessions.
     """
+    import asyncio
     try:
         logger.info("Server starting up...")
         
@@ -66,8 +67,11 @@ async def startup_event():
         firebase_service = FirebaseService()
         db = firebase_service.db
         
-        # Detect and restart stale jobs
-        await detect_and_restart_stale_jobs(db)
+        # Detect and restart stale jobs (with 10s timeout to prevent blocking on network issues)
+        try:
+            await asyncio.wait_for(detect_and_restart_stale_jobs(db), timeout=10.0)
+        except asyncio.TimeoutError:
+            logger.warning("Stale job detection timed out - skipping (network may be slow)")
         
         logger.info("Startup complete")
         
