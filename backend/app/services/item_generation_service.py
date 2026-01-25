@@ -564,6 +564,12 @@ Rules:
                 # Try to match by full SKU first (exact match including color code)
                 linesheet_data = linesheet_lookup.get(po_sku)
                 
+                # Fallback: try matching by base SKU if full SKU didn't match
+                if not linesheet_data and po_base_sku:
+                    linesheet_data = linesheet_lookup.get(po_base_sku)
+                    if linesheet_data:
+                        logger.debug(f"Matched by base_sku fallback: {po_base_sku} (full: {po_sku})")
+                
                 if linesheet_data:
                     # Get color info from line sheet (colors array with 1 item)
                     ls_colors = linesheet_data.get('colors', [])
