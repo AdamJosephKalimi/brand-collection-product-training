@@ -717,8 +717,8 @@ async def generate_collection_items_task(
             mark_cancelled(db, collection_id, 'item_generation')
             return
         
-        # TODO: Fetch ALL linesheets and merge structured_products
-        enriched_items = await item_generation_service.enrich_from_linesheet(collection_id, po_items)
+        # Fetch ALL linesheets and merge structured_products
+        enriched_items, linesheet_document_ids = await item_generation_service.enrich_from_linesheet(collection_id, po_items)
         
         # Step 6: Generate items
         update_progress(
@@ -732,12 +732,11 @@ async def generate_collection_items_task(
             mark_cancelled(db, collection_id, 'item_generation')
             return
         
-        linesheet_doc = await item_generation_service.fetch_linesheet(collection_id)
         final_items = item_generation_service.generate_item_objects(
             enriched_items=enriched_items,
             collection_id=collection_id,
             po_document_id=po_doc['document_id'],
-            linesheet_document_id=linesheet_doc['document_id']
+            linesheet_document_ids=linesheet_document_ids
         )
         
         # Step 7: Save
