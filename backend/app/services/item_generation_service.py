@@ -63,18 +63,17 @@ class ItemGenerationService:
             logger.info("Step 5: Extracting SKU data from PO")
             po_items = await self.extract_sku_data(parsed_data, column_mapping)
             
-            # Step 6: Enrich from line sheet
-            logger.info("Step 6: Enriching from line sheet")
-            enriched_items = await self.enrich_from_linesheet(collection_id, po_items)
+            # Step 6: Enrich from ALL line sheets
+            logger.info("Step 6: Enriching from line sheets")
+            enriched_items, linesheet_document_ids = await self.enrich_from_linesheet(collection_id, po_items)
             
             # Step 7: Generate item objects (skip categorization for now)
-            logger.info("Step 7: Generating item objects")
-            linesheet_doc = await self.fetch_linesheet(collection_id)
+            logger.info(f"Step 7: Generating item objects (from {len(linesheet_document_ids)} line sheet(s))")
             final_items = self.generate_item_objects(
                 enriched_items=enriched_items,
                 collection_id=collection_id,
                 po_document_id=po_doc['document_id'],
-                linesheet_document_id=linesheet_doc['document_id']
+                linesheet_document_ids=linesheet_document_ids
             )
             
             # Step 8: Save to Firestore
@@ -88,6 +87,7 @@ class ItemGenerationService:
                 'items': final_items,
                 'stats': {
                     'po_items_extracted': len(po_items),
+                    'line_sheets_used': len(linesheet_document_ids),
                     'items_enriched': len([i for i in enriched_items if i.get('enriched')]),
                     'items_unmatched': len([i for i in enriched_items if not i.get('enriched')]),
                     'final_items_generated': len(final_items),
@@ -439,46 +439,119 @@ Rules:
             logger.error(f"Error fetching line sheet: {e}")
             return None
     
+    async def fetch_all_linesheets(self, collection_id: str) -> List[Dict[str, Any]]:
+        """
+        Fetch ALL line sheet documents for a collection.
+        
+        Args:
+            collection_id: Collection ID
+            
+        Returns:
+            List of line sheet documents (empty list if none found)
+        """
+        try:
+            logger.info(f"Fetching all line sheets for collection: {collection_id}")
+            
+            # Query Firestore for ALL line sheet documents (no limit)
+            docs_ref = self.firebase_service.db.collection('collections').document(collection_id).collection('documents')
+            query = docs_ref.where('type', '==', 'line_sheet')
+            docs = query.stream()
+            
+            linesheets = []
+            for doc in docs:
+                doc_data = doc.to_dict()
+                doc_data['document_id'] = doc.id
+                linesheets.append(doc_data)
+                logger.info(f"Found line sheet: {doc_data.get('name')}")
+            
+            logger.info(f"Found {len(linesheets)} line sheet(s) for collection {collection_id}")
+            return linesheets
+            
+        except Exception as e:
+            logger.error(f"Error fetching line sheets: {e}")
+            return []
+    
+    def merge_structured_products(self, linesheets: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """
+        Merge structured_products from all line sheets into a unified SKU lookup.
+        
+        Uses "first wins" strategy for duplicate SKUs - the first line sheet's
+        data takes precedence, with a warning logged for conflicts.
+        
+        Args:
+            linesheets: List of line sheet documents with structured_products
+            
+        Returns:
+            Dictionary mapping SKU -> product data (with source_document_id added)
+        """
+        merged_lookup = {}
+        duplicate_skus = []
+        
+        for linesheet in linesheets:
+            document_id = linesheet.get('document_id')
+            filename = linesheet.get('name', 'unknown')
+            structured_products = linesheet.get('structured_products', [])
+            
+            if not structured_products:
+                logger.warning(f"Line sheet '{filename}' has no structured_products")
+                continue
+            
+            logger.info(f"Processing {len(structured_products)} products from '{filename}'")
+            
+            for product in structured_products:
+                sku = product.get('sku')
+                if not sku:
+                    continue
+                
+                if sku in merged_lookup:
+                    # Duplicate SKU - log warning but keep first (first wins)
+                    duplicate_skus.append(sku)
+                else:
+                    # Add source tracking to product
+                    product_with_source = product.copy()
+                    product_with_source['source_document_id'] = document_id
+                    product_with_source['source_filename'] = filename
+                    merged_lookup[sku] = product_with_source
+        
+        if duplicate_skus:
+            logger.warning(f"Found {len(duplicate_skus)} duplicate SKUs across line sheets (first wins): {duplicate_skus[:10]}...")
+        
+        logger.info(f"Merged {len(merged_lookup)} unique SKUs from {len(linesheets)} line sheet(s)")
+        return merged_lookup
+    
     async def enrich_from_linesheet(
         self, 
         collection_id: str, 
         po_items: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    ) -> tuple[List[Dict[str, Any]], List[str]]:
         """
-        Enrich PO items with line sheet data.
+        Enrich PO items with line sheet data from ALL line sheets.
         
         Args:
             collection_id: Collection ID
             po_items: Items extracted from PO
             
         Returns:
-            Enriched items with line sheet data merged
+            Tuple of (enriched items with line sheet data merged, list of line sheet document IDs)
         """
         try:
-            logger.info(f"Enriching {len(po_items)} items from line sheet")
+            logger.info(f"Enriching {len(po_items)} items from line sheets")
             
-            # Fetch line sheet document
-            linesheet_doc = await self.fetch_linesheet(collection_id)
-            if not linesheet_doc:
-                raise ValueError(f"No line sheet found for collection {collection_id}")
+            # Fetch ALL line sheet documents
+            linesheets = await self.fetch_all_linesheets(collection_id)
+            if not linesheets:
+                raise ValueError(f"No line sheets found for collection {collection_id}")
             
-            # Get structured products from line sheet
-            structured_products = linesheet_doc.get('structured_products', [])
-            if not structured_products:
-                logger.warning("Line sheet has no structured_products")
-                raise ValueError("Line sheet has no structured products")
+            # Merge structured products from all line sheets
+            linesheet_lookup = self.merge_structured_products(linesheets)
+            if not linesheet_lookup:
+                logger.warning("No structured_products found in any line sheet")
+                raise ValueError("No structured products found in line sheets")
             
-            logger.info(f"Line sheet has {len(structured_products)} products")
+            # Get list of line sheet document IDs for tracking
+            linesheet_document_ids = [ls.get('document_id') for ls in linesheets if ls.get('document_id')]
             
-            # Create lookup by full SKU (to handle multiple colors per base SKU)
-            linesheet_lookup = {}
-            for product in structured_products:
-                sku = product.get('sku')
-                if sku:
-                    # Use full SKU as key to preserve color variants
-                    linesheet_lookup[sku] = product
-            
-            logger.info(f"Created lookup with {len(linesheet_lookup)} SKUs")
+            logger.info(f"Merged lookup has {len(linesheet_lookup)} unique SKUs from {len(linesheets)} line sheet(s)")
             
             # Enrich each PO item
             enriched_items = []
@@ -490,6 +563,12 @@ Rules:
                 
                 # Try to match by full SKU first (exact match including color code)
                 linesheet_data = linesheet_lookup.get(po_sku)
+                
+                # Fallback: try matching by base SKU if full SKU didn't match
+                if not linesheet_data and po_base_sku:
+                    linesheet_data = linesheet_lookup.get(po_base_sku)
+                    if linesheet_data:
+                        logger.debug(f"Matched by base_sku fallback: {po_base_sku} (full: {po_sku})")
                 
                 if linesheet_data:
                     # Get color info from line sheet (colors array with 1 item)
@@ -526,6 +605,10 @@ Rules:
                         'color': ls_color.get('color_name'),
                         'color_code': ls_color.get('color_code'),
                         
+                        # === SOURCE TRACKING (which line sheet this came from) ===
+                        'source_document_id': linesheet_data.get('source_document_id'),
+                        'source_filename': linesheet_data.get('source_filename'),
+                        
                         # === METADATA ===
                         'enriched': True,
                         'source': 'po_and_linesheet'
@@ -552,16 +635,16 @@ Rules:
                 
                 enriched_items.append(enriched_item)
             
-            logger.info(f"Enrichment complete: {matched_count}/{len(po_items)} items matched")
+            logger.info(f"Enrichment complete: {matched_count}/{len(po_items)} items matched from {len(linesheets)} line sheet(s)")
             
             if matched_count < len(po_items):
                 unmatched_skus = [i['sku'] for i in enriched_items if not i['enriched']]
                 logger.warning(f"Unmatched SKUs: {unmatched_skus[:10]}...")  # Log first 10
             
-            return enriched_items
+            return enriched_items, linesheet_document_ids
             
         except Exception as e:
-            logger.error(f"Error enriching from line sheet: {e}")
+            logger.error(f"Error enriching from line sheets: {e}")
             raise
     
     def generate_item_objects(
@@ -569,7 +652,7 @@ Rules:
         enriched_items: List[Dict[str, Any]],
         collection_id: str,
         po_document_id: str,
-        linesheet_document_id: str
+        linesheet_document_ids: List[str]
     ) -> List[Dict[str, Any]]:
         """
         Transform enriched items into final Item model format.
@@ -578,7 +661,7 @@ Rules:
             enriched_items: Items from Step 5 (enrichment)
             collection_id: Collection ID
             po_document_id: Purchase order document ID
-            linesheet_document_id: Line sheet document ID
+            linesheet_document_ids: List of all line sheet document IDs used
             
         Returns:
             List of final Item objects ready for Firestore
@@ -629,7 +712,9 @@ Rules:
                     # === SOURCE TRACKING ===
                     'source_documents': {
                         'purchase_order_id': po_document_id,
-                        'line_sheet_id': linesheet_document_id
+                        'line_sheet_ids': linesheet_document_ids,
+                        'matched_line_sheet_id': item.get('source_document_id'),
+                        'matched_line_sheet_filename': item.get('source_filename')
                     },
                     
                     # === METADATA ===
