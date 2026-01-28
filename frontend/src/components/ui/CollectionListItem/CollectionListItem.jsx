@@ -13,9 +13,12 @@ import Select from '../Select/Select';
  * @param {object} item - Item data (name, sku, color, material, price, origin, description, image)
  * @param {boolean} checked - Checkbox state
  * @param {function} onCheckChange - Checkbox change handler
- * @param {string} category - Selected category
+ * @param {string} category - Selected category (or subcategory for default/inactive)
  * @param {function} onCategoryChange - Category change handler
- * @param {array} categoryOptions - Category options
+ * @param {array} categoryOptions - Category options (or subcategory options for default/inactive)
+ * @param {string} mainCategory - Selected main category (for default/inactive variants)
+ * @param {function} onMainCategoryChange - Main category change handler
+ * @param {array} mainCategoryOptions - Main category options
  * @param {boolean} highlighted - Highlight toggle state
  * @param {function} onHighlightChange - Highlight change handler
  * @param {boolean} included - Include toggle state
@@ -31,6 +34,9 @@ function CollectionListItem({
   category = '',
   onCategoryChange,
   categoryOptions = [],
+  mainCategory = '',
+  onMainCategoryChange,
+  mainCategoryOptions = [],
   highlighted = false,
   onHighlightChange,
   included = false,
@@ -88,11 +94,14 @@ function CollectionListItem({
 
         {/* Details */}
         <div className={styles.details}>
-          <p className={styles.name}>{name}</p>
-          <p className={variant === 'unmatched' ? styles.metadataWarning : styles.metadata}>
+          <p className={styles.name} title={name}>{name}</p>
+          <p 
+            className={variant === 'unmatched' ? styles.metadataWarning : styles.metadata}
+            title={variant === 'unmatched' ? 'Missing linesheet details' : metadata}
+          >
             {variant === 'unmatched' ? 'Missing linesheet details' : metadata}
           </p>
-          <p className={styles.description}>{description}</p>
+          <p className={styles.description} title={description}>{description}</p>
         </div>
       </div>
 
@@ -118,8 +127,20 @@ function CollectionListItem({
             placeholder="Move to Category"
           />
         ) : (
-          /* Default/Inactive: Show category selector and toggles */
+          /* Default/Inactive: Show category selectors and toggles */
           <>
+            {/* Main Category Dropdown */}
+            {mainCategoryOptions.length > 0 && (
+              <Select
+                value={mainCategory}
+                options={mainCategoryOptions}
+                onChange={onMainCategoryChange}
+                variant="secondary"
+                placeholder="Move to Category"
+              />
+            )}
+
+            {/* Sub-Category Dropdown */}
             <Select
               value={category}
               options={categoryOptions}

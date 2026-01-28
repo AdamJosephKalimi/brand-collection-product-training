@@ -454,12 +454,32 @@ function CollectionSettingsPage() {
   const [deckDownloadUrl, setDeckDownloadUrl] = useState(null);
   
   // Group items by category for display
+  // Uses Deck Settings categories as the structure, matching items by category name
   const groupedItems = React.useMemo(() => {
+    const deckCategories = collectionData?.categories || [];
+    
+    // Pre-populate structure with Deck Settings categories
     const groups = {
       categorized: {},  // { categoryName: { items: [], subcategories: {} } }
       uncategorized: [],
       unmatched: []
     };
+    
+    // Initialize categories from Deck Settings (preserving display_order)
+    const categoryNameMap = {};  // lowercase -> actual name (for case-insensitive matching)
+    deckCategories.forEach(cat => {
+      groups.categorized[cat.name] = { 
+        items: [], 
+        subcategories: {},
+        display_order: cat.display_order || 0
+      };
+      categoryNameMap[cat.name.toLowerCase()] = cat.name;
+      
+      // Pre-populate subcategories from Deck Settings
+      (cat.subcategories || []).forEach(sub => {
+        groups.categorized[cat.name].subcategories[sub.name] = [];
+      });
+    });
     
     // Apply filters first
     let filteredItems = items;
@@ -493,28 +513,26 @@ function CollectionSettingsPage() {
       if (!item.product_name || item.product_name === item.sku) {
         groups.unmatched.push(item);
       }
-      // Uncategorized: items with no category
-      else if (!item.category) {
-        groups.uncategorized.push(item);
-      }
-      // Categorized: items with a category
-      else {
-        if (!groups.categorized[item.category]) {
-          groups.categorized[item.category] = { items: [], subcategories: {} };
-        }
-        groups.categorized[item.category].items.push(item);
+      // Check if item's category matches a Deck Settings category (case-insensitive)
+      else if (item.category && categoryNameMap[item.category.toLowerCase()]) {
+        const matchedCategoryName = categoryNameMap[item.category.toLowerCase()];
+        groups.categorized[matchedCategoryName].items.push(item);
         
         // Track subcategories
-        const subcat = item.subcategory || 'Uncategorized';
-        if (!groups.categorized[item.category].subcategories[subcat]) {
-          groups.categorized[item.category].subcategories[subcat] = [];
+        const subcat = item.subcategory || 'Other';
+        if (!groups.categorized[matchedCategoryName].subcategories[subcat]) {
+          groups.categorized[matchedCategoryName].subcategories[subcat] = [];
         }
-        groups.categorized[item.category].subcategories[subcat].push(item);
+        groups.categorized[matchedCategoryName].subcategories[subcat].push(item);
+      }
+      // Uncategorized: items with no category OR category not in Deck Settings
+      else {
+        groups.uncategorized.push(item);
       }
     });
     
     return groups;
-  }, [items, searchQuery, categoryFilter, statusFilter]);
+  }, [items, searchQuery, categoryFilter, statusFilter, collectionData?.categories]);
   
   // Get category options for dropdowns (from collection categories)
   const categoryOptions = React.useMemo(() => {
@@ -2088,7 +2106,7 @@ function CollectionSettingsPage() {
                             return next;
                           });
                         }}
-                        category={item.category || ''}
+                        category=""
                         categoryOptions={categoryOptions}
                         onCategoryChange={(newCategory) => handleItemUpdate(item.item_id, { category: newCategory })}
                       />
@@ -2096,9 +2114,14 @@ function CollectionSettingsPage() {
                   </CategorySection>
                 )}
 
-                {/* Categorized Items Sections */}
-                {Object.entries(groupedItems.categorized).map(([categoryName, categoryData]) => {
-                  const subcategoryNames = Object.keys(categoryData.subcategories);
+                {/* Categorized Items Sections - sorted by display_order from Deck Settings */}
+                {Object.entries(groupedItems.categorized)
+                  .filter(([, categoryData]) => categoryData.items.length > 0)  // Hide empty categories
+                  .sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0))
+                  .map(([categoryName, categoryData]) => {
+                  const subcategoryNames = Object.keys(categoryData.subcategories).filter(
+                    subName => categoryData.subcategories[subName].length > 0  // Hide empty subcategories
+                  );
                   const filters = subcategoryNames.map(subName => ({
                     label: subName,
                     active: activeSubcategoryFilters[categoryName] === subName
@@ -2158,6 +2181,9 @@ function CollectionSettingsPage() {
                                 category={item.subcategory || ''}
                                 categoryOptions={subcategoryOptions}
                                 onCategoryChange={(newSubcategory) => handleItemUpdate(item.item_id, { subcategory: newSubcategory })}
+                                mainCategory={categoryName}
+                                mainCategoryOptions={categoryOptions}
+                                onMainCategoryChange={(newCategory) => handleItemUpdate(item.item_id, { category: newCategory })}
                                 highlighted={item.highlighted_item || false}
                                 onHighlightChange={(checked) => handleItemUpdate(item.item_id, { highlighted_item: checked })}
                                 included={item.included !== false}

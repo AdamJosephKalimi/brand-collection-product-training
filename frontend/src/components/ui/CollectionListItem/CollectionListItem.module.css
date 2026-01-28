@@ -85,6 +85,9 @@
   color: var(--text-brand);
   margin: 0;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .metadata {
@@ -95,6 +98,12 @@
   color: var(--color-grey-50);
   margin: 0;
   text-align: left;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .metadataWarning {
@@ -115,6 +124,9 @@
   color: var(--color-grey-50);
   margin: 0;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Right actions */

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, HttpUrl, ConfigDict
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -202,7 +202,7 @@ class ItemResponse(BaseModel):
     tags: Optional[List[str]] = None
     content_hash: Optional[str] = None  # Hash for duplicate detection
     source_document_id: Optional[str] = None  # Legacy field
-    source_documents: Optional[Dict[str, str]] = None  # New field: {purchase_order_id, line_sheet_id}
+    source_documents: Optional[Dict[str, Any]] = None  # New field: {purchase_order_id, line_sheet_ids (list)}
     extraction_confidence: Optional[float] = None
     manual_review: Optional[bool] = False
     reviewed_by: Optional[str] = None
