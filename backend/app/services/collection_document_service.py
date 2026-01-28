@@ -493,7 +493,7 @@ class CollectionDocumentService:
                 logger.info("=" * 50)
                 logger.info("PHASE 3: Filtering product images")
                 logger.info("=" * 50)
-                product_images = self._filter_product_images(all_images, min_width=100, min_height=100)
+                product_images = self._filter_product_images(all_images, min_width=50, min_height=50)
                 logger.info(f"✅ PHASE 3: Kept {len(product_images)} product images")
                 for i, img in enumerate(product_images[:5]):  # Log first 5 filtered images
                     logger.info(f"  Product Image {i+1}: Page {img['page_number']}, Size {img['bbox']['width']}x{img['bbox']['height']}")
