@@ -2424,7 +2424,7 @@ function CollectionSettingsPage() {
 
       {/* Reorder Categories Modal */}
       <ReorderCategoriesModal
-        categories={collectionData?.categories || []}
+        categories={(collectionData?.categories || []).filter(cat => items.some(item => item.category === cat.name))}
         isVisible={isReorderCategoriesOpen}
         onSave={handleSaveCategoryOrder}
         onClose={() => setIsReorderCategoriesOpen(false)}
