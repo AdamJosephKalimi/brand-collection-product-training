@@ -29,14 +29,12 @@ function TypographyModal({
   onClose,
 }) {
   const [fontFamily, setFontFamily] = useState('');
-  const [fontSize, setFontSize] = useState('');
   const [fontColor, setFontColor] = useState('');
   const [hexInput, setHexInput] = useState('');
 
   useEffect(() => {
     if (isVisible) {
       setFontFamily(initialValues.font_family || '');
-      setFontSize(initialValues.font_size ? String(initialValues.font_size) : '');
       setFontColor(initialValues.font_color || '');
       setHexInput(initialValues.font_color || '');
     }
@@ -59,7 +57,6 @@ function TypographyModal({
   const handleSave = () => {
     const values = {};
     if (fontFamily) values.font_family = fontFamily;
-    if (fontSize) values.font_size = parseInt(fontSize, 10);
     if (fontColor) values.font_color = fontColor;
     onSave(values);
   };
@@ -111,20 +108,6 @@ function TypographyModal({
             </select>
           </div>
 
-          {/* Font Size */}
-          <div className={styles.field}>
-            <label className={styles.label}>Font Size (pt)</label>
-            <input
-              type="number"
-              className={styles.input}
-              value={fontSize}
-              onChange={(e) => setFontSize(e.target.value)}
-              placeholder="Default"
-              min="6"
-              max="72"
-            />
-          </div>
-
           {/* Font Color */}
           <div className={styles.field}>
             <label className={styles.label}>Font Color</label>
@@ -162,7 +145,7 @@ function TypographyModal({
           </div>
 
           {/* Preview */}
-          {(fontFamily || fontSize || fontColor) && (
+          {(fontFamily || fontColor) && (
             <div className={styles.field}>
               <label className={styles.label}>Preview</label>
               <div className={styles.preview}>
@@ -170,7 +153,6 @@ function TypographyModal({
                   className={styles.previewText}
                   style={{
                     fontFamily: fontFamily || 'inherit',
-                    fontSize: fontSize ? `${fontSize}pt` : 'inherit',
                     color: fontColor || '#333333',
                   }}
                 >

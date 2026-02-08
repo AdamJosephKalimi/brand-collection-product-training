@@ -43,7 +43,7 @@ function BrandEditPage() {
 
   // Typography modal state
   const [typographyModal, setTypographyModal] = useState({ isVisible: false, group: null });
-  const [deckTypography, setDeckTypography] = useState({ heading: {}, body: {}, slide_title: {} });
+  const [deckTypography, setDeckTypography] = useState({ heading: {}, body: {} });
   
   // Local state
   const [error, setError] = useState(null);
@@ -74,7 +74,6 @@ function BrandEditPage() {
         setDeckTypography({
           heading: brandData.deck_typography.heading || {},
           body: brandData.deck_typography.body || {},
-          slide_title: brandData.deck_typography.slide_title || {},
         });
       }
     }
@@ -164,9 +163,8 @@ function BrandEditPage() {
   };
 
   const typographyGroups = [
-    { key: 'heading', label: 'Headings', description: 'Cover title, category dividers' },
+    { key: 'heading', label: 'Headings', description: 'Cover title, category dividers, slide labels' },
     { key: 'body', label: 'Body Text', description: 'Product details, descriptions' },
-    { key: 'slide_title', label: 'Slide Titles', description: 'Category-subcategory labels on product slides' },
   ];
 
   const [activeBrand] = useState(brandId);
@@ -338,7 +336,7 @@ function BrandEditPage() {
             <div className={styles.typographyGroups}>
               {typographyGroups.map(({ key, label, description }) => {
                 const settings = deckTypography[key] || {};
-                const hasSettings = settings.font_family || settings.font_size || settings.font_color;
+                const hasSettings = settings.font_family || settings.font_color;
                 return (
                   <div key={key} className={styles.typographyGroupCard}>
                     <div className={styles.typographyGroupInfo}>
@@ -348,7 +346,6 @@ function BrandEditPage() {
                         <span className={styles.typographyGroupValues}>
                           {[
                             settings.font_family,
-                            settings.font_size && `${settings.font_size}pt`,
                             settings.font_color,
                           ].filter(Boolean).join(' / ')}
                         </span>

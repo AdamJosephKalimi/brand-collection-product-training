@@ -56,7 +56,7 @@ class PresentationGenerationService:
             user_id: ID of the user requesting generation
             products_per_slide: Number of products per slide (1, 2, or 4)
             slide_aspect_ratio: Slide aspect ratio ("4:3" or "16:9")
-            deck_typography: Optional dict with heading/body/slide_title text style overrides
+            deck_typography: Optional dict with heading/body text style overrides
 
         Returns:
             Download URL for the generated presentation
@@ -94,6 +94,8 @@ class PresentationGenerationService:
                 self._h_offset = 0
 
             self._typo = deck_typography or {}
+            if self._typo:
+                logger.info(f"Deck typography loaded: {self._typo}")
 
             self.blank_layout = self.prs.slide_layouts[6]  # Blank layout
             self.title_slide_layout = self.prs.slide_layouts[0]  # Title Slide
@@ -216,7 +218,7 @@ class PresentationGenerationService:
 
         Args:
             font: pptx font object (p.font or run.font)
-            group: 'heading', 'body', or 'slide_title'
+            group: 'heading' or 'body'
             default_size: default Pt size to use if no override
         """
         style = self._typo.get(group) if self._typo else None
@@ -1134,7 +1136,7 @@ class PresentationGenerationService:
         p.text = title_text
         p.font.bold = True
         p.font.italic = True
-        self._apply_typo(p.font, 'slide_title', default_size=11)
+        self._apply_typo(p.font, 'heading', default_size=11)
 
     def _create_1up_product_slide(self, item: dict):
         """

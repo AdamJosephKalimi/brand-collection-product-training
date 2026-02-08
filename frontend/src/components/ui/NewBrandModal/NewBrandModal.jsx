@@ -25,14 +25,13 @@ function NewBrandModal({
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [errors, setErrors] = useState({});
-  const [deckTypography, setDeckTypography] = useState({ heading: {}, body: {}, slide_title: {} });
+  const [deckTypography, setDeckTypography] = useState({ heading: {}, body: {} });
   const [typographyModal, setTypographyModal] = useState({ isVisible: false, group: null });
   const fileInputRef = useRef(null);
 
   const typographyGroups = [
-    { key: 'heading', label: 'Headings', description: 'Cover title, category dividers' },
+    { key: 'heading', label: 'Headings', description: 'Cover title, category dividers, slide labels' },
     { key: 'body', label: 'Body Text', description: 'Product details, descriptions' },
-    { key: 'slide_title', label: 'Slide Titles', description: 'Category-subcategory labels on product slides' },
   ];
 
   const handleTypographySave = (values) => {
@@ -103,7 +102,7 @@ function NewBrandModal({
     if (onSubmit) {
       // Only include typography if any group has settings
       const hasTypography = Object.values(deckTypography).some(
-        g => g.font_family || g.font_size || g.font_color
+        g => g.font_family || g.font_color
       );
       onSubmit({
         brandName: brandName.trim(),
@@ -124,7 +123,7 @@ function NewBrandModal({
     setLogoFile(null);
     setLogoPreview(null);
     setErrors({});
-    setDeckTypography({ heading: {}, body: {}, slide_title: {} });
+    setDeckTypography({ heading: {}, body: {} });
     setTypographyModal({ isVisible: false, group: null });
     
     if (onClose) {
@@ -263,7 +262,7 @@ function NewBrandModal({
             <div className={styles.typographyGroups}>
               {typographyGroups.map(({ key, label, description }) => {
                 const settings = deckTypography[key] || {};
-                const hasSettings = settings.font_family || settings.font_size || settings.font_color;
+                const hasSettings = settings.font_family || settings.font_color;
                 return (
                   <div key={key} className={styles.typographyGroupCard}>
                     <div className={styles.typographyGroupInfo}>
@@ -273,7 +272,6 @@ function NewBrandModal({
                         <span className={styles.typographyGroupValues}>
                           {[
                             settings.font_family,
-                            settings.font_size && `${settings.font_size}pt`,
                             settings.font_color,
                           ].filter(Boolean).join(' / ')}
                         </span>

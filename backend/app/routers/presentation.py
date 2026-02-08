@@ -89,7 +89,11 @@ async def generate_presentation(
                 brand = await brand_service.get_brand(collection.brand_id, user_id)
                 if brand and hasattr(brand, 'deck_typography') and brand.deck_typography:
                     dt = brand.deck_typography
-                    deck_typography = dt if isinstance(dt, dict) else dt.dict()
+                    if isinstance(dt, dict):
+                        deck_typography = dt
+                    else:
+                        deck_typography = dt.model_dump(exclude_none=True)
+                    logger.info(f"Brand typography for presentation: {deck_typography}")
             except Exception as e:
                 logger.warning(f"Could not fetch brand typography: {e}")
 

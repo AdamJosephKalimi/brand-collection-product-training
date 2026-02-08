@@ -36,9 +36,8 @@ class TextStyle(BaseModel):
 
 class DeckTypography(BaseModel):
     """Deck output typography settings per text group"""
-    heading: Optional[TextStyle] = Field(default_factory=TextStyle, description="Cover title, category dividers")
+    heading: Optional[TextStyle] = Field(default_factory=TextStyle, description="Cover title, category dividers, slide labels")
     body: Optional[TextStyle] = Field(default_factory=TextStyle, description="Product detail text")
-    slide_title: Optional[TextStyle] = Field(default_factory=TextStyle, description="Category-subcategory labels on product slides")
 
 
 class Typography(BaseModel):
