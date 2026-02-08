@@ -372,6 +372,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  text-align: left;
 }
 
 .typographyGroupLabel {
@@ -379,6 +380,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: #2c2f29;
+  text-align: left;
 }
 
 .typographyGroupDesc {

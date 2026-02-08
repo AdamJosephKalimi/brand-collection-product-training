@@ -96,16 +96,21 @@ export const useCreateBrand = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ brandName, websiteUrl, logoFile }) => {
+    mutationFn: async ({ brandName, websiteUrl, logoFile, deckTypography }) => {
       // Step 1: Create the brand
       const brandData = {
         name: brandName
       };
-      
+
       // Only include website_url if provided, ensuring proper format
       const formattedUrl = formatUrl(websiteUrl);
       if (formattedUrl) {
         brandData.website_url = formattedUrl;
+      }
+
+      // Include deck typography if provided
+      if (deckTypography) {
+        brandData.deck_typography = deckTypography;
       }
       
       console.log('[useCreateBrand] Creating brand with data:', brandData);

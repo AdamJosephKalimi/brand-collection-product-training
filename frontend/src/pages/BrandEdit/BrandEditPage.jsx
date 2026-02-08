@@ -207,7 +207,7 @@ function BrandEditPage() {
             activeCollection={activeCollection}
             onCollectionClick={handleCollectionClick}
             onDeleteBrand={(bId, bName) => setDeleteModal({ isVisible: true, type: 'brand', id: bId, name: bName })}
-            onEditBrand={(brandId) => navigate('/brand/' + brandId + '/edit')}
+            onEditBrand={(brandId) => navigate('/brands/' + brandId + '/edit')}
             onDeleteCollection={(cId, cName) => setDeleteModal({ isVisible: true, type: 'collection', id: cId, name: cName })}
           />
           <main className={styles.mainContent}>
@@ -231,7 +231,7 @@ function BrandEditPage() {
           activeCollection={activeCollection}
           onCollectionClick={handleCollectionClick}
           onDeleteBrand={(bId, bName) => setDeleteModal({ isVisible: true, type: 'brand', id: bId, name: bName })}
-          onEditBrand={(brandId) => navigate('/brand/' + brandId + '/edit')}
+          onEditBrand={(brandId) => navigate('/brands/' + brandId + '/edit')}
           onDeleteCollection={(cId, cName) => setDeleteModal({ isVisible: true, type: 'collection', id: cId, name: cName })}
         />
 

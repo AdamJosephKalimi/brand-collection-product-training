@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import TypographyModal from '../TypographyModal';
 import styles from './NewBrandModal.module.css';
 
 /**
@@ -24,7 +25,21 @@ function NewBrandModal({
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [errors, setErrors] = useState({});
+  const [deckTypography, setDeckTypography] = useState({ heading: {}, body: {}, slide_title: {} });
+  const [typographyModal, setTypographyModal] = useState({ isVisible: false, group: null });
   const fileInputRef = useRef(null);
+
+  const typographyGroups = [
+    { key: 'heading', label: 'Headings', description: 'Cover title, category dividers' },
+    { key: 'body', label: 'Body Text', description: 'Product details, descriptions' },
+    { key: 'slide_title', label: 'Slide Titles', description: 'Category-subcategory labels on product slides' },
+  ];
+
+  const handleTypographySave = (values) => {
+    const group = typographyModal.group;
+    setDeckTypography(prev => ({ ...prev, [group]: values }));
+    setTypographyModal({ isVisible: false, group: null });
+  };
 
   const clearError = (field) => {
     setErrors(prev => {
@@ -86,10 +101,15 @@ function NewBrandModal({
     }
     
     if (onSubmit) {
+      // Only include typography if any group has settings
+      const hasTypography = Object.values(deckTypography).some(
+        g => g.font_family || g.font_size || g.font_color
+      );
       onSubmit({
         brandName: brandName.trim(),
         websiteUrl: websiteUrl.trim(),
-        logoFile
+        logoFile,
+        ...(hasTypography ? { deckTypography } : {})
       });
     }
   };
@@ -104,6 +124,8 @@ function NewBrandModal({
     setLogoFile(null);
     setLogoPreview(null);
     setErrors({});
+    setDeckTypography({ heading: {}, body: {}, slide_title: {} });
+    setTypographyModal({ isVisible: false, group: null });
     
     if (onClose) {
       onClose();
@@ -232,8 +254,56 @@ function NewBrandModal({
             </div>
           </div>
           
+          {/* Deck Typography */}
+          <div className={styles.fieldWrapper}>
+            <label className={styles.label}>Deck Typography</label>
+            <p className={styles.fieldDescription}>
+              Customize font family, size, and color for generated presentation slides.
+            </p>
+            <div className={styles.typographyGroups}>
+              {typographyGroups.map(({ key, label, description }) => {
+                const settings = deckTypography[key] || {};
+                const hasSettings = settings.font_family || settings.font_size || settings.font_color;
+                return (
+                  <div key={key} className={styles.typographyGroupCard}>
+                    <div className={styles.typographyGroupInfo}>
+                      <span className={styles.typographyGroupLabel}>{label}</span>
+                      <span className={styles.typographyGroupDesc}>{description}</span>
+                      {hasSettings && (
+                        <span className={styles.typographyGroupValues}>
+                          {[
+                            settings.font_family,
+                            settings.font_size && `${settings.font_size}pt`,
+                            settings.font_color,
+                          ].filter(Boolean).join(' / ')}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.typographyEditButton}
+                      onClick={() => setTypographyModal({ isVisible: true, group: key })}
+                      disabled={isLoading}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                        <path
+                          d="M14.166 2.5009C14.3849 2.28203 14.6447 2.10842 14.9307 1.98996C15.2167 1.87151 15.5232 1.81055 15.8327 1.81055C16.1422 1.81055 16.4487 1.87151 16.7347 1.98996C17.0206 2.10842 17.2805 2.28203 17.4993 2.5009C17.7182 2.71977 17.8918 2.97961 18.0103 3.26558C18.1287 3.55154 18.1897 3.85804 18.1897 4.16757C18.1897 4.4771 18.1287 4.7836 18.0103 5.06956C17.8918 5.35553 17.7182 5.61537 17.4993 5.83424L6.24935 17.0842L1.66602 18.3342L2.91602 13.7509L14.166 2.5009Z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      Edit
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Submit Button */}
-          <button 
+          <button
             className={styles.submitButton}
             onClick={handleSubmit}
             disabled={isLoading || !brandName.trim()}
@@ -246,6 +316,16 @@ function NewBrandModal({
             ) : 'Create Brand'}
           </button>
         </div>
+
+        {/* Typography Modal */}
+        <TypographyModal
+          title={`Edit ${typographyGroups.find(g => g.key === typographyModal.group)?.label || ''}`}
+          subtitle={typographyGroups.find(g => g.key === typographyModal.group)?.description || ''}
+          isVisible={typographyModal.isVisible}
+          initialValues={typographyModal.group ? (deckTypography[typographyModal.group] || {}) : {}}
+          onSave={handleTypographySave}
+          onClose={() => setTypographyModal({ isVisible: false, group: null })}
+        />
       </div>
     </div>
   );
