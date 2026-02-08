@@ -624,6 +624,41 @@ function CollectionSettingsPage() {
     });
   };
 
+  // Group items by subcategory within a category
+  const handleGroupBySubcategory = (categoryName, categoryItems) => {
+    // Stable sort: group by subcategory, preserve relative order within each group
+    const grouped = [...categoryItems].sort((a, b) => {
+      const subA = (a.subcategory || '').toLowerCase();
+      const subB = (b.subcategory || '').toLowerCase();
+      return subA.localeCompare(subB);
+    });
+
+    // Assign sequential display_order values
+    const itemOrders = grouped.map((item, index) => ({
+      item_id: item.item_id,
+      display_order: index
+    }));
+
+    // Update local state immediately
+    setLocalItems(prevItems => {
+      const categoryItemIds = new Set(categoryItems.map(i => i.item_id));
+      const otherItems = prevItems.filter(item => !categoryItemIds.has(item.item_id));
+      const updatedItems = grouped.map((item, index) => ({
+        ...item,
+        display_order: index
+      }));
+      const newItems = [...otherItems, ...updatedItems];
+      return newItems.sort((a, b) => {
+        const catCompare = (a.category || 'zzz').localeCompare(b.category || 'zzz');
+        if (catCompare !== 0) return catCompare;
+        return (a.display_order || 0) - (b.display_order || 0);
+      });
+    });
+
+    // Persist to backend
+    reorderItemsMutation.mutate({ collectionId, itemOrders });
+  };
+
   // Deck generation phase tracking
   const [deckGenerationPhase, setDeckGenerationPhase] = useState('');
   
@@ -2146,6 +2181,7 @@ function CollectionSettingsPage() {
                         itemCount={categoryData.items.length}
                         filters={filters}
                         onFilterClick={(subName) => handleSubcategoryFilterClick(categoryName, subName)}
+                        onGroupBySubcategory={() => handleGroupBySubcategory(categoryName, categoryData.items)}
                         defaultExpanded={true}
                       >
                         <SortableContext
