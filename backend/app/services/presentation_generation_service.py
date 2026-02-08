@@ -897,12 +897,16 @@ class PresentationGenerationService:
         
         # Fetch items
         items = await self._fetch_collection_items(collection_id)
-        
+
         if not items:
             logger.warning("No items found for product slides")
             return
-        
-        # Group items by category
+
+        # Sort by category (alphabetical, nulls last) then display_order
+        # Matches item_service.get_collection_items sort order
+        items.sort(key=lambda x: (x.get('category') or 'zzz', x.get('display_order', 0)))
+
+        # Group items by category (preserves sort order within each group)
         items_by_category = {}
         for item in items:
             category = item.get('category', 'Uncategorized')
