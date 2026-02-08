@@ -78,7 +78,11 @@ class PresentationGenerationService:
             await self._generate_intro_slides(intro_slides)
             
             # 4. Generate product slides
-            await self._generate_product_slides(collection_id, products_per_slide)
+            category_order = {}
+            for cat in (collection.categories or []):
+                cat_dict = cat if isinstance(cat, dict) else cat.dict()
+                category_order[cat_dict['name']] = cat_dict.get('display_order', 0)
+            await self._generate_product_slides(collection_id, products_per_slide, category_order)
             
             # 5. Save and upload
             download_url = await self._save_and_upload(collection_id)
@@ -834,23 +838,30 @@ class PresentationGenerationService:
             logger.error(f"Error fetching items: {e}")
             return []
     
-    async def _generate_product_slides(self, collection_id: str, products_per_slide: int):
+    async def _generate_product_slides(self, collection_id: str, products_per_slide: int, category_order: dict = None):
         """
         Generate product slides based on collection items.
-        
+
         Args:
             collection_id: ID of the collection
             products_per_slide: Number of products per slide (1, 2, or 4)
+            category_order: Dict mapping category name -> display_order
         """
+        if category_order is None:
+            category_order = {}
+
         logger.info(f"Generating product slides ({products_per_slide} per slide)...")
-        
+
         # Fetch items
         items = await self._fetch_collection_items(collection_id)
         
         if not items:
             logger.warning("No items found for product slides")
             return
-        
+
+        # Sort items by display_order within each category
+        items.sort(key=lambda x: x.get('display_order', 0))
+
         # Group items by category
         items_by_category = {}
         for item in items:
@@ -858,13 +869,20 @@ class PresentationGenerationService:
             if category not in items_by_category:
                 items_by_category[category] = []
             items_by_category[category].append(item)
-        
+
         logger.info(f"Grouped {len(items)} items into {len(items_by_category)} categories")
-        
+
+        # Sort categories by display_order (falls back to alphabetical for unknown categories)
+        sorted_categories = sorted(
+            items_by_category.keys(),
+            key=lambda c: (category_order.get(c, 999), c)
+        )
+
         # Generate slides based on layout
         slides_generated = 0
-        
-        for category, category_items in items_by_category.items():
+
+        for category in sorted_categories:
+            category_items = items_by_category[category]
             logger.info(f"Generating slides for category: {category} ({len(category_items)} items)")
             
             # Create category divider slide

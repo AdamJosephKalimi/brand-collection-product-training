@@ -33,6 +33,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
+import ReorderCategoriesModal from '../../components/ui/ReorderCategoriesModal';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
 import InfoModal from '../../components/ui/InfoModal/InfoModal';
 import InputModal from '../../components/ui/InputModal/InputModal';
@@ -447,6 +448,8 @@ function CollectionSettingsPage() {
   const [activeSubcategoryFilters, setActiveSubcategoryFilters] = useState({});
   // Collection Items - Selected items for bulk actions
   const [selectedItems, setSelectedItems] = useState(new Set());
+  // Reorder Categories modal
+  const [isReorderCategoriesOpen, setIsReorderCategoriesOpen] = useState(false);
   
   // Deck Generation state
   const [deckGenerationStatus, setDeckGenerationStatus] = useState('idle'); // 'idle', 'processing', 'completed', 'failed'
@@ -622,6 +625,61 @@ function CollectionSettingsPage() {
       collectionId,
       itemOrders
     });
+  };
+
+  // Group items by subcategory within a category
+  const handleGroupBySubcategory = (categoryName, categoryItems) => {
+    // Stable sort: group by subcategory, preserve relative order within each group
+    const grouped = [...categoryItems].sort((a, b) => {
+      const subA = (a.subcategory || '').toLowerCase();
+      const subB = (b.subcategory || '').toLowerCase();
+      return subA.localeCompare(subB);
+    });
+
+    // Assign sequential display_order values
+    const itemOrders = grouped.map((item, index) => ({
+      item_id: item.item_id,
+      display_order: index
+    }));
+
+    // Update local state immediately
+    setLocalItems(prevItems => {
+      const categoryItemIds = new Set(categoryItems.map(i => i.item_id));
+      const otherItems = prevItems.filter(item => !categoryItemIds.has(item.item_id));
+      const updatedItems = grouped.map((item, index) => ({
+        ...item,
+        display_order: index
+      }));
+      const newItems = [...otherItems, ...updatedItems];
+      return newItems.sort((a, b) => {
+        const catCompare = (a.category || 'zzz').localeCompare(b.category || 'zzz');
+        if (catCompare !== 0) return catCompare;
+        return (a.display_order || 0) - (b.display_order || 0);
+      });
+    });
+
+    // Persist to backend
+    reorderItemsMutation.mutate({ collectionId, itemOrders });
+  };
+
+  // Save reordered categories
+  const handleSaveCategoryOrder = async (updatedCategories) => {
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: {
+          categories: updatedCategories.map(cat => ({
+            name: cat.name,
+            product_count: cat.product_count || 0,
+            display_order: cat.display_order,
+            subcategories: cat.subcategories || []
+          }))
+        }
+      });
+      setIsReorderCategoriesOpen(false);
+    } catch (error) {
+      console.error('Failed to save category order:', error);
+    }
   };
 
   // Deck generation phase tracking
@@ -2023,6 +2081,33 @@ function CollectionSettingsPage() {
                     <option value="delete">Delete Selected</option>
                   </select>
                 </div>
+
+                {/* Reorder Categories Button */}
+                <button
+                  onClick={() => setIsReorderCategoriesOpen(true)}
+                  style={{
+                    height: '42px',
+                    padding: '4px 14px',
+                    fontFamily: 'var(--font-family-body)',
+                    fontSize: 'var(--font-size-sm)',
+                    fontWeight: 'var(--font-weight-medium)',
+                    lineHeight: 'var(--line-height-sm)',
+                    color: 'var(--text-brand)',
+                    backgroundColor: 'var(--background-white)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: 'var(--border-radius-md)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 4H12M2 7H9M2 10H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  Reorder
+                </button>
               </div>
 
               {/* Collection Items Content */}
@@ -2336,6 +2421,14 @@ function CollectionSettingsPage() {
           <Footer />
         </div>
       </div>
+
+      {/* Reorder Categories Modal */}
+      <ReorderCategoriesModal
+        categories={collectionData?.categories || []}
+        isVisible={isReorderCategoriesOpen}
+        onSave={handleSaveCategoryOrder}
+        onClose={() => setIsReorderCategoriesOpen(false)}
+      />
 
       {/* Intro Slide Info Modal */}
       {activeInfoModal && introSlideInfo[activeInfoModal] && (
