@@ -1017,19 +1017,58 @@ class PresentationGenerationService:
             logger.error(f"Error downloading image: {e}")
             return None
     
+    def _add_slide_title(self, slide, items):
+        """
+        Add a 'Category - SubCategory' title to the top-left of a product slide.
+
+        Args:
+            slide: The slide object to add the title to
+            items: A single item dict or list of item dicts on this slide
+        """
+        if isinstance(items, dict):
+            items = [items]
+        if not items:
+            return
+
+        first = items[0]
+        category = first.get('category', '')
+        subcategory = first.get('subcategory', '')
+
+        if category and subcategory:
+            title_text = f"{category} - {subcategory}"
+        elif category:
+            title_text = category
+        else:
+            return
+
+        title_box = slide.shapes.add_textbox(
+            left=Inches(0.4),
+            top=Inches(0.25),
+            width=Inches(5),
+            height=Inches(0.4)
+        )
+        tf = title_box.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = title_text
+        p.font.size = Pt(11)
+        p.font.bold = True
+        p.font.italic = True
+
     def _create_1up_product_slide(self, item: dict):
         """
         Create a slide with 1 product (full slide layout).
-        
+
         Layout:
         - Product image: Left side (if available)
         - Product details: Right side
-        
+
         Args:
             item: Item dictionary
         """
         slide = self.prs.slides.add_slide(self.blank_layout)
-        
+        self._add_slide_title(slide, item)
+
         # Extract item data
         product_name = item.get('product_name', 'Unknown Product')
         sku = item.get('sku', '')
@@ -1042,7 +1081,7 @@ class PresentationGenerationService:
         rrp = item.get('rrp')
         currency = item.get('currency', 'USD')
         images = item.get('images', [])
-        
+
         # Left side: Product image or placeholder
         image_added = False
         
@@ -1180,7 +1219,8 @@ class PresentationGenerationService:
             items: List of 1-2 item dictionaries
         """
         slide = self.prs.slides.add_slide(self.blank_layout)
-        
+        self._add_slide_title(slide, items)
+
         # Process up to 2 items
         for idx, item in enumerate(items[:2]):
             # Calculate position based on column (0 = left, 1 = right)
@@ -1342,7 +1382,8 @@ class PresentationGenerationService:
             items: List of 1-3 item dictionaries
         """
         slide = self.prs.slides.add_slide(self.blank_layout)
-        
+        self._add_slide_title(slide, items)
+
         # Column positions (left edge for each product) - 3 columns with more space
         column_positions = [1.0 * self._w_scale, 4.0 * self._w_scale, 7.0 * self._w_scale]
         column_width = 2.5 * self._w_scale
@@ -1504,7 +1545,8 @@ class PresentationGenerationService:
             items: List of 1-4 item dictionaries
         """
         slide = self.prs.slides.add_slide(self.blank_layout)
-        
+        self._add_slide_title(slide, items)
+
         # Column positions (left edge for each product)
         column_positions = [0.5 * self._w_scale, 2.9 * self._w_scale, 5.3 * self._w_scale, 7.7 * self._w_scale]
         column_width = 2.1 * self._w_scale
