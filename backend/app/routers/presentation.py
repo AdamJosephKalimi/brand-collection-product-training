@@ -80,13 +80,26 @@ async def generate_presentation(
             )
         
         logger.info(f"Generating presentation for collection: {collection_id}, user: {user_id}, products_per_slide: {products_per_slide}")
-        
+
+        # Fetch brand typography settings
+        collection = await collection_service.get_collection(collection_id, user_id)
+        deck_typography = None
+        if collection and collection.brand_id:
+            try:
+                brand = await brand_service.get_brand(collection.brand_id, user_id)
+                if brand and hasattr(brand, 'deck_typography') and brand.deck_typography:
+                    dt = brand.deck_typography
+                    deck_typography = dt if isinstance(dt, dict) else dt.dict()
+            except Exception as e:
+                logger.warning(f"Could not fetch brand typography: {e}")
+
         # Generate presentation
         download_url = await presentation_generation_service.generate_presentation(
             collection_id=collection_id,
             user_id=user_id,
             products_per_slide=products_per_slide,
-            slide_aspect_ratio=slide_aspect_ratio
+            slide_aspect_ratio=slide_aspect_ratio,
+            deck_typography=deck_typography
         )
         
         # Get slide count from the service

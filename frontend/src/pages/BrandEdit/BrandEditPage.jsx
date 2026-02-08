@@ -13,6 +13,7 @@ import { useUpdateBrand, useUploadLogo } from '../../hooks/useBrandMutations';
 import { useDeleteBrand } from '../../hooks/useDeleteBrand';
 import { useDeleteCollection } from '../../hooks/useDeleteCollection';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
+import TypographyModal from '../../components/ui/TypographyModal';
 import styles from './BrandEditPage.module.css';
 
 function BrandEditPage() {
@@ -39,6 +40,10 @@ function BrandEditPage() {
   
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
+
+  // Typography modal state
+  const [typographyModal, setTypographyModal] = useState({ isVisible: false, group: null });
+  const [deckTypography, setDeckTypography] = useState({ heading: {}, body: {}, slide_title: {} });
   
   // Local state
   const [error, setError] = useState(null);
@@ -64,7 +69,14 @@ function BrandEditPage() {
         logo: null,
         logoPreview: brandData.logo_url || null
       });
-      setLogoError(false); // Reset logo error when new brand data loads
+      setLogoError(false);
+      if (brandData.deck_typography) {
+        setDeckTypography({
+          heading: brandData.deck_typography.heading || {},
+          body: brandData.deck_typography.body || {},
+          slide_title: brandData.deck_typography.slide_title || {},
+        });
+      }
     }
   }, [brandData]);
 
@@ -134,6 +146,29 @@ function BrandEditPage() {
     }
   };
 
+  // Save typography for a text group
+  const handleTypographySave = async (values) => {
+    const group = typographyModal.group;
+    const updated = { ...deckTypography, [group]: values };
+    setDeckTypography(updated);
+    setTypographyModal({ isVisible: false, group: null });
+
+    try {
+      await updateBrand.mutateAsync({
+        brandId,
+        data: { deck_typography: updated }
+      });
+    } catch (err) {
+      console.error('Failed to save typography:', err);
+    }
+  };
+
+  const typographyGroups = [
+    { key: 'heading', label: 'Headings', description: 'Cover title, category dividers' },
+    { key: 'body', label: 'Body Text', description: 'Product details, descriptions' },
+    { key: 'slide_title', label: 'Slide Titles', description: 'Category-subcategory labels on product slides' },
+  ];
+
   const [activeBrand] = useState(brandId);
   const [activeCollection] = useState(null);
 
@@ -172,6 +207,7 @@ function BrandEditPage() {
             activeCollection={activeCollection}
             onCollectionClick={handleCollectionClick}
             onDeleteBrand={(bId, bName) => setDeleteModal({ isVisible: true, type: 'brand', id: bId, name: bName })}
+            onEditBrand={(brandId) => navigate('/brand/' + brandId + '/edit')}
             onDeleteCollection={(cId, cName) => setDeleteModal({ isVisible: true, type: 'collection', id: cId, name: cName })}
           />
           <main className={styles.mainContent}>
@@ -195,9 +231,10 @@ function BrandEditPage() {
           activeCollection={activeCollection}
           onCollectionClick={handleCollectionClick}
           onDeleteBrand={(bId, bName) => setDeleteModal({ isVisible: true, type: 'brand', id: bId, name: bName })}
+          onEditBrand={(brandId) => navigate('/brand/' + brandId + '/edit')}
           onDeleteCollection={(cId, cName) => setDeleteModal({ isVisible: true, type: 'collection', id: cId, name: cName })}
         />
-        
+
         <main className={styles.mainContent}>
           <div className={styles.contentContainer}>
             {/* Back button */}
@@ -292,6 +329,52 @@ function BrandEditPage() {
             </div>
           </div>
 
+          {/* Deck Typography Section */}
+          <div className={styles.typographySection}>
+            <h2 className={styles.typographyHeader}>Deck Typography</h2>
+            <p className={styles.typographySubtitle}>
+              Customize font family, size, and color for your generated presentation slides.
+            </p>
+            <div className={styles.typographyGroups}>
+              {typographyGroups.map(({ key, label, description }) => {
+                const settings = deckTypography[key] || {};
+                const hasSettings = settings.font_family || settings.font_size || settings.font_color;
+                return (
+                  <div key={key} className={styles.typographyGroupCard}>
+                    <div className={styles.typographyGroupInfo}>
+                      <span className={styles.typographyGroupLabel}>{label}</span>
+                      <span className={styles.typographyGroupDesc}>{description}</span>
+                      {hasSettings && (
+                        <span className={styles.typographyGroupValues}>
+                          {[
+                            settings.font_family,
+                            settings.font_size && `${settings.font_size}pt`,
+                            settings.font_color,
+                          ].filter(Boolean).join(' / ')}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      className={styles.typographyEditButton}
+                      onClick={() => setTypographyModal({ isVisible: true, group: key })}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                        <path
+                          d="M14.166 2.5009C14.3849 2.28203 14.6447 2.10842 14.9307 1.98996C15.2167 1.87151 15.5232 1.81055 15.8327 1.81055C16.1422 1.81055 16.4487 1.87151 16.7347 1.98996C17.0206 2.10842 17.2805 2.28203 17.4993 2.5009C17.7182 2.71977 17.8918 2.97961 18.0103 3.26558C18.1287 3.55154 18.1897 3.85804 18.1897 4.16757C18.1897 4.4771 18.1287 4.7836 18.0103 5.06956C17.8918 5.35553 17.7182 5.61537 17.4993 5.83424L6.24935 17.0842L1.66602 18.3342L2.91602 13.7509L14.166 2.5009Z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      Edit
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
             {/* Action buttons */}
             <div className={styles.actions}>
               <Button
@@ -308,6 +391,16 @@ function BrandEditPage() {
       </div>
       
       <Footer />
+
+      {/* Typography Modal */}
+      <TypographyModal
+        title={`Edit ${typographyGroups.find(g => g.key === typographyModal.group)?.label || ''}`}
+        subtitle={typographyGroups.find(g => g.key === typographyModal.group)?.description || ''}
+        isVisible={typographyModal.isVisible}
+        initialValues={typographyModal.group ? (deckTypography[typographyModal.group] || {}) : {}}
+        onSave={handleTypographySave}
+        onClose={() => setTypographyModal({ isVisible: false, group: null })}
+      />
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal
