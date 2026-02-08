@@ -30,6 +30,10 @@ async def generate_presentation(
         le=4,
         description="Number of products to display per slide (1, 2, 3, or 4)"
     ),
+    slide_aspect_ratio: str = Query(
+        default="16:9",
+        description="Slide aspect ratio: '4:3' (standard) or '16:9' (widescreen)"
+    ),
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
@@ -64,8 +68,15 @@ async def generate_presentation(
         # Validate products_per_slide
         if products_per_slide not in [1, 2, 3, 4]:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"products_per_slide must be 1, 2, 3, or 4. Got: {products_per_slide}"
+            )
+
+        # Validate slide_aspect_ratio
+        if slide_aspect_ratio not in ["4:3", "16:9"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"slide_aspect_ratio must be '4:3' or '16:9'. Got: {slide_aspect_ratio}"
             )
         
         logger.info(f"Generating presentation for collection: {collection_id}, user: {user_id}, products_per_slide: {products_per_slide}")
@@ -74,7 +85,8 @@ async def generate_presentation(
         download_url = await presentation_generation_service.generate_presentation(
             collection_id=collection_id,
             user_id=user_id,
-            products_per_slide=products_per_slide
+            products_per_slide=products_per_slide,
+            slide_aspect_ratio=slide_aspect_ratio
         )
         
         # Get slide count from the service

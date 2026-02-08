@@ -1,0 +1,126 @@
+/* Section container */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3);
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+}
+
+/* Section header */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semi-bold);
+  line-height: var(--line-height-md);
+  color: var(--text-brand);
+}
+
+/* Ratio options grid */
+.ratioGrid {
+  display: flex;
+  gap: var(--spacing-3);
+  width: 100%;
+}
+
+/* Ratio card */
+.ratioCard {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  height: 124px;
+  padding: var(--spacing-3);
+  background-color: var(--background-light);
+  border: 2px solid var(--border-medium);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  /* Remove button defaults */
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Selected state */
+.ratioCard.selected {
+  background-color: var(--background-active);
+  border-color: var(--border-primary);
+}
+
+/* Hover state */
+.ratioCard:hover:not(.selected) {
+  border-color: var(--color-grey-50);
+}
+
+/* Focus state */
+.ratioCard:focus-visible {
+  outline: 2px solid var(--color-brand-wine);
+  outline-offset: 2px;
+}
+
+/* Icon wrapper */
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Widescreen icon (16:9 rectangle) */
+.iconWide {
+  width: 48px;
+  height: 27px;
+  background-color: var(--color-grey-30);
+  border-radius: 4px;
+}
+
+/* Standard icon (4:3 rectangle) */
+.iconStandard {
+  width: 36px;
+  height: 27px;
+  background-color: var(--color-grey-30);
+  border-radius: 4px;
+}
+
+/* Selected state - make icons match brand */
+.selected .iconWide,
+.selected .iconStandard {
+  background-color: var(--background-primary);
+}
+
+/* Card label */
+.cardLabel {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-xs);
+  color: var(--text-brand);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Checkmark (top-right corner) */
+.checkmark {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--color-grey-40);
+}

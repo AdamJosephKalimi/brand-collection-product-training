@@ -55,6 +55,7 @@ class CollectionSettings(BaseModel):
     selected_language: str = Field(default="en")
     available_languages: List[str] = Field(default_factory=lambda: ["en"])
     products_per_slide: int = Field(default=2, ge=1, le=4)  # 1, 2, or 4
+    slide_aspect_ratio: str = Field(default="16:9")  # "4:3" or "16:9"
     
     # Product display controls
     show_product_name: bool = Field(default=True)

@@ -34,21 +34,25 @@ class PresentationGenerationService:
         self.blank_layout = None
         self.title_slide_layout = None
         self.title_content_layout = None
+        self._w_scale = 1.0  # Horizontal scale factor (1.0 for 4:3, 1.333 for 16:9)
+        self._h_offset = 0  # Horizontal offset in inches to center 10"-wide content in wider slides
     
     async def generate_presentation(
-        self, 
+        self,
         collection_id: str,
         user_id: str,
-        products_per_slide: int = 1
+        products_per_slide: int = 1,
+        slide_aspect_ratio: str = "16:9"
     ) -> str:
         """
         Generate complete PowerPoint presentation for a collection.
-        
+
         Args:
             collection_id: ID of the collection
             user_id: ID of the user requesting generation
             products_per_slide: Number of products per slide (1, 2, or 4)
-            
+            slide_aspect_ratio: Slide aspect ratio ("4:3" or "16:9")
+
         Returns:
             Download URL for the generated presentation
         """
@@ -70,10 +74,27 @@ class PresentationGenerationService:
             
             # 2. Initialize presentation
             self.prs = Presentation()
+
+            # Set slide dimensions based on aspect ratio
+            if slide_aspect_ratio == "16:9":
+                self.prs.slide_width = Inches(13.333)
+                self.prs.slide_height = Inches(7.5)
+                self._w_scale = 13.333 / 10.0  # ~1.333
+                self._h_offset = (13.333 - 10.0) / 2.0  # ~1.667" per side
+            else:
+                # 4:3 (default python-pptx dimensions)
+                self.prs.slide_width = Inches(10)
+                self.prs.slide_height = Inches(7.5)
+                self._w_scale = 1.0
+                self._h_offset = 0
+
             self.blank_layout = self.prs.slide_layouts[6]  # Blank layout
             self.title_slide_layout = self.prs.slide_layouts[0]  # Title Slide
             self.title_content_layout = self.prs.slide_layouts[1]  # Title and Content
-            
+
+            # Center intro layout placeholders for widescreen (no-op for 4:3)
+            self._center_layout_placeholders()
+
             # 3. Generate intro slides
             await self._generate_intro_slides(intro_slides)
             
@@ -146,6 +167,33 @@ class PresentationGenerationService:
         
         logger.info(f"Generated {slides_generated} slides")
     
+    def _center_layout_placeholders(self):
+        """
+        Center title and content placeholders in the intro slide layouts
+        for widescreen. Modifies the LAYOUT-level placeholders so that
+        slide-level shapes inherit correct centered positions.
+
+        CRITICAL: Must read ALL four geometry properties (left, top, width,
+        height) BEFORE writing ANY of them. Setting just `ph.left` on a
+        placeholder that inherits its xfrm from the slide master creates a
+        new xfrm element with zeroed width/height, making it invisible.
+        """
+        if self._h_offset == 0:
+            return
+        slide_w = self.prs.slide_width
+        for layout in [self.title_slide_layout, self.title_content_layout]:
+            for ph in layout.placeholders:
+                if ph.placeholder_format.idx in (0, 1):
+                    # Read ALL inherited values BEFORE any setter triggers xfrm creation
+                    w = ph.width
+                    h = ph.height
+                    t = ph.top
+                    # Write all four to create a complete xfrm element
+                    ph.left = (slide_w - w) // 2
+                    ph.top = t
+                    ph.width = w
+                    ph.height = h
+
     def _create_cover_slide(self, data: Dict[str, Any]):
         """
         Create cover page slide using Title Slide layout.
@@ -160,7 +208,7 @@ class PresentationGenerationService:
         """
         slide = self.prs.slides.add_slide(self.title_slide_layout)
         content = data.get('content', {})
-        
+
         # Use title placeholder
         title = slide.shapes.title
         title.text = content.get('title', data.get('title', 'Collection'))
@@ -181,12 +229,15 @@ class PresentationGenerationService:
             p = tf.paragraphs[0]
             p.font.size = Pt(24)
         
-        # Tagline - add as manual textbox at bottom
+        # Tagline - add as manual textbox at bottom, centered across full slide width
         if content.get('tagline'):
+            tagline_width = 8.0  # inches
+            slide_w = 13.333 if self._w_scale > 1 else 10.0
+            tagline_left = (slide_w - tagline_width) / 2.0
             tagline_box = slide.shapes.add_textbox(
-                left=Inches(1),
+                left=Inches(tagline_left),
                 top=Inches(6.5),
-                width=Inches(8),
+                width=Inches(tagline_width),
                 height=Inches(0.5)
             )
             tf = tagline_box.text_frame
@@ -908,9 +959,9 @@ class PresentationGenerationService:
         
         # Category title - centered
         title_box = slide.shapes.add_textbox(
-            left=Inches(1),
+            left=Inches(1 * self._w_scale),
             top=Inches(3.5),
-            width=Inches(8),
+            width=Inches(8 * self._w_scale),
             height=Inches(1)
         )
         tf = title_box.text_frame
@@ -1005,10 +1056,10 @@ class PresentationGenerationService:
                     # Smaller width (3.5" instead of 4.5") and max height (5")
                     picture = slide.shapes.add_picture(
                         image_stream,
-                        left=Inches(0.75),  # Adjusted for smaller width
-                        top=Inches(1.5),    # More top padding
-                        width=Inches(3.5),  # Smaller width
-                        height=Inches(5)    # Max height constraint
+                        left=Inches(0.75 * self._w_scale),
+                        top=Inches(1.5),
+                        width=Inches(3.5),
+                        height=Inches(5)
                     )
                     image_added = True
                     logger.debug(f"Image added for product: {product_name}")
@@ -1018,7 +1069,7 @@ class PresentationGenerationService:
         # Show placeholder if no image was added
         if not image_added:
             image_box = slide.shapes.add_textbox(
-                left=Inches(0.5),
+                left=Inches(0.5 * self._w_scale),
                 top=Inches(1),
                 width=Inches(4.5),
                 height=Inches(6)
@@ -1037,9 +1088,9 @@ class PresentationGenerationService:
         
         # Right side: Product details
         details_box = slide.shapes.add_textbox(
-            left=Inches(5.5),
+            left=Inches(5.5 * self._w_scale),
             top=Inches(1),
-            width=Inches(4),
+            width=Inches(4 * self._w_scale),
             height=Inches(6)
         )
         tf = details_box.text_frame
@@ -1133,8 +1184,8 @@ class PresentationGenerationService:
         # Process up to 2 items
         for idx, item in enumerate(items[:2]):
             # Calculate position based on column (0 = left, 1 = right)
-            column_offset = idx * 5  # 5 inches between columns
-            
+            column_offset = idx * 5 * self._w_scale  # 5 inches between columns, scaled
+
             # Extract item data
             product_name = item.get('product_name', 'Unknown Product')
             sku = item.get('sku', '')
@@ -1150,7 +1201,7 @@ class PresentationGenerationService:
             
             # Product image or placeholder (left side of column)
             image_added = False
-            image_left = Inches(0.5 + column_offset)
+            image_left = Inches(0.5 * self._w_scale + column_offset)
             image_top = Inches(1.5)
             image_width = Inches(2)
             image_height = Inches(3)
@@ -1187,8 +1238,8 @@ class PresentationGenerationService:
                 p.alignment = PP_ALIGN.CENTER
             
             # Product details (right side of column)
-            details_left = Inches(2.75 + column_offset)
-            details_width = Inches(2)
+            details_left = Inches(2.75 * self._w_scale + column_offset)
+            details_width = Inches(2 * self._w_scale)
             
             details_box = slide.shapes.add_textbox(
                 left=details_left,
@@ -1293,8 +1344,8 @@ class PresentationGenerationService:
         slide = self.prs.slides.add_slide(self.blank_layout)
         
         # Column positions (left edge for each product) - 3 columns with more space
-        column_positions = [1.0, 4.0, 7.0]  # Inches - more centered and spaced
-        column_width = 2.5  # Width for each column (wider than 4-up)
+        column_positions = [1.0 * self._w_scale, 4.0 * self._w_scale, 7.0 * self._w_scale]
+        column_width = 2.5 * self._w_scale
         
         # Process up to 3 items
         for idx, item in enumerate(items[:3]):
@@ -1316,15 +1367,15 @@ class PresentationGenerationService:
             currency = item.get('currency', 'USD')
             images = item.get('images', [])
             
-            # Top row: Product image
+            # Top row: Product image (keep original size, don't stretch)
             image_added = False
-            image_width = Inches(2.5)  # Larger than 4-up
-            image_height = Inches(3.5)  # Larger than 4-up
+            image_width = Inches(2.5)  # Original 3-up image width
+            image_height = Inches(3.5)
             image_top = Inches(0.75)
-            
+
             if images and len(images) > 0:
                 image_stream = self._download_image_as_stream(images[0])
-                
+
                 if image_stream:
                     try:
                         slide.shapes.add_picture(
@@ -1337,7 +1388,7 @@ class PresentationGenerationService:
                         image_added = True
                     except Exception as e:
                         logger.warning(f"Failed to add image: {e}")
-            
+
             # Show placeholder if no image
             if not image_added:
                 image_box = slide.shapes.add_textbox(
@@ -1455,8 +1506,8 @@ class PresentationGenerationService:
         slide = self.prs.slides.add_slide(self.blank_layout)
         
         # Column positions (left edge for each product)
-        column_positions = [0.5, 2.9, 5.3, 7.7]  # Inches
-        column_width = 2.1  # Width for each column
+        column_positions = [0.5 * self._w_scale, 2.9 * self._w_scale, 5.3 * self._w_scale, 7.7 * self._w_scale]
+        column_width = 2.1 * self._w_scale
         
         # Process up to 4 items
         for idx, item in enumerate(items[:4]):
