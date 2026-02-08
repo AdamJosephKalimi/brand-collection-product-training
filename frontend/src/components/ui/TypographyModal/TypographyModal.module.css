@@ -194,21 +194,13 @@
 /* Light swatches need a visible border */
 .colorSwatch[style*="rgb(255, 255, 255)"],
 .colorSwatch[style*="#FFFFFF"],
-.colorSwatch[style*="#ffffff"],
-.colorSwatch[style*="#F5F5F5"],
-.colorSwatch[style*="#f5f5f5"],
-.colorSwatch[style*="#E8E8E8"],
-.colorSwatch[style*="#e8e8e8"] {
+.colorSwatch[style*="#ffffff"] {
   border-color: var(--border-medium);
 }
 
 .colorSwatchActive[style*="rgb(255, 255, 255)"],
 .colorSwatchActive[style*="#FFFFFF"],
-.colorSwatchActive[style*="#ffffff"],
-.colorSwatchActive[style*="#F5F5F5"],
-.colorSwatchActive[style*="#f5f5f5"],
-.colorSwatchActive[style*="#E8E8E8"],
-.colorSwatchActive[style*="#e8e8e8"] {
+.colorSwatchActive[style*="#ffffff"] {
   border-color: var(--background-highlight);
 }
 
@@ -262,14 +254,23 @@
   flex-direction: column;
   gap: 6px;
   padding: 12px;
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: #FFFFFF;
   border: 1px solid var(--border-medium);
   border-radius: var(--border-radius-sm);
 }
 
+.previewLabel {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-grey-40);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .previewText {
   font-size: 16pt;
-  color: var(--text-white);
+  color: #333333;
   margin: 0;
   line-height: 1.4;
 }

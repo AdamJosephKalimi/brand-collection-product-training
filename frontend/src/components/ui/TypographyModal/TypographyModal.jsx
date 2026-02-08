@@ -15,9 +15,9 @@ const PRESET_FONTS = [
 ];
 
 const PRESET_COLORS = [
-  '#000000', '#2C3528', '#333333', '#555555',
-  '#7D3B51', '#1E3A5F', '#2D5016', '#8B4513',
-  '#FFFFFF', '#F5F5F5', '#E8E8E8', '#9CA3AF',
+  '#000000', '#333333', '#555555', '#9CA3AF',
+  '#1E3A5F', '#2C5F8A', '#7D3B51', '#A65572',
+  '#2D5016', '#4A7A2E', '#8B4513', '#FFFFFF',
 ];
 
 function TypographyModal({
@@ -100,6 +100,7 @@ function TypographyModal({
               className={styles.select}
               value={fontFamily}
               onChange={(e) => setFontFamily(e.target.value)}
+              style={fontFamily ? { fontFamily } : undefined}
             >
               <option value="">Default</option>
               {PRESET_FONTS.map((font) => (
@@ -162,18 +163,20 @@ function TypographyModal({
 
           {/* Preview */}
           {(fontFamily || fontSize || fontColor) && (
-            <div className={styles.preview}>
+            <div className={styles.field}>
               <label className={styles.label}>Preview</label>
-              <p
-                className={styles.previewText}
-                style={{
-                  fontFamily: fontFamily || 'inherit',
-                  fontSize: fontSize ? `${fontSize}pt` : 'inherit',
-                  color: fontColor || 'inherit',
-                }}
-              >
-                The quick brown fox jumps over the lazy dog
-              </p>
+              <div className={styles.preview}>
+                <p
+                  className={styles.previewText}
+                  style={{
+                    fontFamily: fontFamily || 'inherit',
+                    fontSize: fontSize ? `${fontSize}pt` : 'inherit',
+                    color: fontColor || '#333333',
+                  }}
+                >
+                  The quick brown fox jumps over the lazy dog
+                </p>
+              </div>
             </div>
           )}
 
