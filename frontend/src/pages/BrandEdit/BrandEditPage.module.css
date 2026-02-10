@@ -510,6 +510,60 @@
   color: #DC2626;
 }
 
+/* Upload spinner indicator */
+.uploadingIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.uploadSpinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.uploadingText {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+/* Process Documents prompt */
+.processPrompt {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.processButton {
+  animation: subtleGlow 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes subtleGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(125, 59, 81, 0);
+  }
+  50% {
+    box-shadow: 0 0 12px 3px rgba(125, 59, 81, 0.35);
+  }
+}
+
+.processHint {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 /* Action buttons */
 .actions {
   display: flex;

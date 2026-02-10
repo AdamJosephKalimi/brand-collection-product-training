@@ -857,7 +857,16 @@ class PresentationGenerationService:
             p.text = alternative
             p.font.size = Pt(14)
             p.level = 0
-        
+
+        # Safety net: if nothing was written, add a fallback so the slide isn't blank
+        if first_paragraph:
+            brand_name = data.get('title', '').replace('Flagship Stores & Experiences', '').strip()
+            p = tf.paragraphs[0]
+            p.text = "Flagship store and retail experience information is being compiled."
+            p.font.size = Pt(14)
+            p.level = 0
+            logger.warning(f"Flagship stores slide had no content to render — fallback used")
+
         self._apply_body_font(tf)
         logger.info("Flagship stores slide created (using Title and Content layout)")
     

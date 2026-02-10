@@ -9,6 +9,7 @@ import Button from '../../components/ui/Button/Button';
 import LoadingOverlay from '../../components/ui/LoadingOverlay/LoadingOverlay';
 import POFileUpload from '../../components/ui/POFileUpload/POFileUpload';
 import FileUpload from '../../components/ui/FileUpload/FileUpload';
+import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
 import { useBrands, useBrand } from '../../hooks/useBrands';
 import { useUpdateBrand, useUploadLogo } from '../../hooks/useBrandMutations';
 import { useDeleteBrand } from '../../hooks/useDeleteBrand';
@@ -45,7 +46,13 @@ function BrandEditPage() {
   const uploadBrandDoc = useUploadBrandDocument();
   const deleteBrandDoc = useDeleteBrandDocument();
   const processBrandDoc = useProcessBrandDocument();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [docProcessing, setDocProcessing] = useState({
+    status: 'idle',
+    currentPhase: '',
+    progress: { percentage: 0, step: 0, total_steps: 0 },
+    error: null
+  });
 
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
@@ -119,14 +126,16 @@ function BrandEditPage() {
 
   // Handle brand document upload
   const handleBrandDocUpload = async (files) => {
+    setIsUploading(true);
     for (const file of files) {
       try {
         await uploadBrandDoc.mutateAsync({ brandId, file, type: 'other' });
       } catch (err) {
         console.error('Error uploading brand document:', err);
-        setError(err.message || 'Failed to upload document');
+        setDocProcessing(prev => ({ ...prev, status: 'failed', error: err.message || 'Failed to upload document' }));
       }
     }
+    setIsUploading(false);
   };
 
   // Handle brand document removal
@@ -135,27 +144,84 @@ function BrandEditPage() {
       await deleteBrandDoc.mutateAsync({ brandId, documentId });
     } catch (err) {
       console.error('Error deleting brand document:', err);
-      setError(err.message || 'Failed to delete document');
+      setDocProcessing(prev => ({ ...prev, status: 'failed', error: err.message || 'Failed to delete document' }));
     }
+  };
+
+  // Simulated easing progress — advances quickly then decelerates toward a ceiling
+  const startSimulatedProgress = (bandStart, bandCeiling, step, totalSteps) => {
+    let current = bandStart;
+    const interval = setInterval(() => {
+      // Decelerate: each tick covers 8% of remaining distance to ceiling
+      const remaining = bandCeiling - current;
+      const increment = Math.max(0.3, remaining * 0.08);
+      current = Math.min(current + increment, bandCeiling);
+      setDocProcessing(prev => ({
+        ...prev,
+        progress: { ...prev.progress, percentage: Math.round(current) }
+      }));
+    }, 200);
+    return interval;
   };
 
   // Process all unprocessed brand documents
   const handleProcessBrandDocs = async () => {
-    setIsProcessing(true);
-    setError(null);
     const unprocessed = brandDocuments.filter(doc => doc.status !== 'processed' && doc.status !== 'processing');
+    const total = unprocessed.length;
+    if (total === 0) return;
 
-    for (const doc of unprocessed) {
+    setDocProcessing({
+      status: 'processing',
+      currentPhase: `Processing ${unprocessed[0].name}...`,
+      progress: { percentage: 0, step: 1, total_steps: total },
+      error: null
+    });
+
+    for (let i = 0; i < unprocessed.length; i++) {
+      const doc = unprocessed[i];
+      const bandStart = Math.round((i / total) * 100);
+      const bandEnd = Math.round(((i + 1) / total) * 100);
+      // Simulated progress eases toward 90% of the band, leaving room for the jump
+      const bandCeiling = bandStart + (bandEnd - bandStart) * 0.9;
+
+      setDocProcessing(prev => ({
+        ...prev,
+        currentPhase: `Processing ${doc.name}...`,
+        progress: { percentage: bandStart, step: i + 1, total_steps: total }
+      }));
+
+      const timer = startSimulatedProgress(bandStart, bandCeiling, i + 1, total);
+
       try {
         await processBrandDoc.mutateAsync({ brandId, documentId: doc.document_id });
+        clearInterval(timer);
+        // Jump to band end on success
+        setDocProcessing(prev => ({
+          ...prev,
+          progress: { ...prev.progress, percentage: bandEnd }
+        }));
       } catch (err) {
+        clearInterval(timer);
         console.error(`Error processing document ${doc.name}:`, err);
-        setError(err.message || `Failed to process ${doc.name}`);
+        setDocProcessing({
+          status: 'failed',
+          currentPhase: '',
+          progress: { percentage: Math.round(bandStart), step: i + 1, total_steps: total },
+          error: err.message || `Failed to process ${doc.name}`
+        });
+        return;
       }
     }
-    setIsProcessing(false);
+
+    setDocProcessing({
+      status: 'completed',
+      currentPhase: '',
+      progress: { percentage: 100, step: total, total_steps: total },
+      error: null
+    });
   };
 
+  const isProcessing = docProcessing.status === 'processing';
   const hasUnprocessedDocs = brandDocuments.some(doc => doc.status !== 'processed' && doc.status !== 'processing');
 
   // Handle save with React Query mutations
@@ -442,6 +508,26 @@ function BrandEditPage() {
               multiple={true}
             />
 
+            {/* Upload spinner */}
+            {isUploading && (
+              <div className={styles.uploadingIndicator}>
+                <svg className={styles.uploadSpinner} width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <circle cx="9" cy="9" r="7" stroke="var(--border-light)" strokeWidth="2" />
+                  <path d="M9 2a7 7 0 0 1 7 7" stroke="var(--color-brand-wine)" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                <span className={styles.uploadingText}>Uploading documents...</span>
+              </div>
+            )}
+
+            {/* Processing Progress — shown during processing or on failure */}
+            <ProcessingProgress
+              title="Brand Document Processing"
+              status={docProcessing.status}
+              currentPhase={docProcessing.currentPhase}
+              progress={docProcessing.progress}
+              error={docProcessing.error}
+            />
+
             {/* Per-document status indicators */}
             {brandDocuments.length > 0 && (
               <div className={styles.brandDocsStatus}>
@@ -449,26 +535,31 @@ function BrandEditPage() {
                   <div key={doc.document_id} className={styles.brandDocStatusItem}>
                     <span className={styles.brandDocStatusName}>{doc.name}</span>
                     <span className={`${styles.brandDocStatusBadge} ${styles[`status_${doc.status || 'uploaded'}`]}`}>
-                      {doc.status === 'processed' && '✓ '}
-                      {doc.status === 'processing' && '⟳ '}
-                      {doc.status === 'failed' && '✗ '}
+                      {doc.status === 'processed' && '\u2713 '}
+                      {doc.status === 'processing' && '\u27F3 '}
+                      {doc.status === 'failed' && '\u2717 '}
                       {(doc.status || 'uploaded').charAt(0).toUpperCase() + (doc.status || 'uploaded').slice(1)}
-                      {doc.status === 'processed' && doc.chunk_count ? ` (${doc.chunk_count} chunks)` : ''}
                     </span>
                   </div>
                 ))}
               </div>
             )}
 
-            {hasUnprocessedDocs && (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={handleProcessBrandDocs}
-                disabled={isProcessing}
-              >
-                {isProcessing ? 'Processing...' : 'Process Documents'}
-              </Button>
+            {hasUnprocessedDocs && !isProcessing && (
+              <div className={styles.processPrompt}>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleProcessBrandDocs}
+                  disabled={isProcessing}
+                  className={styles.processButton}
+                >
+                  Process Documents
+                </Button>
+                <span className={styles.processHint}>
+                  Click once you've uploaded all documents to process them for your presentations.
+                </span>
+              </div>
             )}
           </div>
 

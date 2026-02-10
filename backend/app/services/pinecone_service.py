@@ -99,6 +99,10 @@ class PineconeService:
     async def upsert_vectors(self, vectors: List[Dict[str, Any]]) -> bool:
         """Upsert vectors to Pinecone index"""
         try:
+            if not self.index:
+                logger.error("Pinecone index not initialized — cannot upsert vectors")
+                return False
+
             # Format vectors for Pinecone
             formatted_vectors = []
             for vector in vectors:
@@ -107,7 +111,7 @@ class PineconeService:
                     "values": vector["embedding"],
                     "metadata": vector.get("metadata", {})
                 })
-            
+
             # Upsert to Pinecone
             self.index.upsert(vectors=formatted_vectors)
             logger.info(f"Successfully upserted {len(vectors)} vectors")
@@ -174,33 +178,43 @@ class PineconeService:
     async def store_document_chunks(
         self,
         document_id: str,
-        collection_id: str,
         brand_id: str,
-        chunks: List[Dict[str, Any]]
+        chunks: List[Dict[str, Any]],
+        collection_id: Optional[str] = None
     ) -> bool:
         """Store document chunks as vectors"""
         try:
+            if not self.index:
+                logger.error("Pinecone index not initialized — cannot store chunks")
+                return False
+
             vectors = []
-            
+
             for i, chunk in enumerate(chunks):
                 # Generate embedding for chunk text
                 embedding = await self.generate_embedding(chunk["text"])
-                
-                # Create vector with metadata
+
+                # Build metadata, pulling nested fields from chunk["metadata"]
+                chunk_meta = chunk.get("metadata", {})
+                metadata = {
+                    "document_id": document_id,
+                    "brand_id": brand_id,
+                    "chunk_index": i,
+                    "text": chunk["text"],
+                }
+                # Only include collection_id if it has a real value
+                if collection_id:
+                    metadata["collection_id"] = collection_id
+                # Pull optional fields from chunk metadata, skip None values
+                for key in ("page_number", "section", "document_type", "created_at"):
+                    val = chunk_meta.get(key)
+                    if val is not None:
+                        metadata[key] = val
+
                 vector = {
                     "id": f"{document_id}_chunk_{i}",
                     "embedding": embedding,
-                    "metadata": {
-                        "document_id": document_id,
-                        "collection_id": collection_id,
-                        "brand_id": brand_id,
-                        "chunk_index": i,
-                        "text": chunk["text"],
-                        "page_number": chunk.get("page_number"),
-                        "section": chunk.get("section"),
-                        "document_type": chunk.get("document_type"),
-                        "created_at": chunk.get("created_at")
-                    }
+                    "metadata": metadata,
                 }
                 vectors.append(vector)
             

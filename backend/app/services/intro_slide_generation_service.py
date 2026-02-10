@@ -319,16 +319,16 @@ Return ONLY valid JSON in this exact format:
 }}"""
 
             logger.info(f"Calling LLM for brand introduction: {brand_name}")
-            
+
             response = await self.llm_service.generate_json_completion(
                 prompt=prompt,
                 temperature=0.7,
-                max_tokens=300
+                max_tokens=800
             )
-            
+
             content = response if isinstance(response, dict) else {}
-            
-            logger.info(f"Generated brand introduction for {brand_name}")
+
+            logger.info(f"Generated brand introduction for {brand_name}: keys={list(content.keys())}")
             
             return {
                 "slide_type": "brand_introduction",
@@ -419,16 +419,16 @@ Return ONLY valid JSON in this exact format:
 }}"""
 
             logger.info(f"Calling LLM for brand history: {brand_name}")
-            
+
             response = await self.llm_service.generate_json_completion(
                 prompt=prompt,
                 temperature=0.7,
-                max_tokens=400
+                max_tokens=800
             )
-            
+
             content = response if isinstance(response, dict) else {}
-            
-            logger.info(f"Generated brand history for {brand_name}")
+
+            logger.info(f"Generated brand history for {brand_name}: keys={list(content.keys())}")
             
             return {
                 "slide_type": "brand_history",
@@ -491,16 +491,16 @@ Return ONLY valid JSON in this exact format:
 }}"""
 
             logger.info(f"Calling LLM for brand values: {brand_name}")
-            
+
             response = await self.llm_service.generate_json_completion(
                 prompt=prompt,
                 temperature=0.7,
-                max_tokens=400
+                max_tokens=800
             )
-            
+
             content = response if isinstance(response, dict) else {}
-            
-            logger.info(f"Generated brand values for {brand_name}")
+
+            logger.info(f"Generated brand values for {brand_name}: keys={list(content.keys())}")
             
             return {
                 "slide_type": "brand_values",
@@ -566,16 +566,16 @@ Return ONLY valid JSON in this exact format:
 }}"""
 
             logger.info(f"Calling LLM for brand personality: {brand_name}")
-            
+
             response = await self.llm_service.generate_json_completion(
                 prompt=prompt,
                 temperature=0.7,
-                max_tokens=400
+                max_tokens=800
             )
-            
+
             content = response if isinstance(response, dict) else {}
-            
-            logger.info(f"Generated brand personality for {brand_name}")
+
+            logger.info(f"Generated brand personality for {brand_name}: keys={list(content.keys())}")
             
             return {
                 "slide_type": "brand_personality",
@@ -652,16 +652,17 @@ Return ONLY valid JSON in this exact format:
 }}"""
 
             logger.info(f"Calling LLM for flagship stores: {brand_name}")
-            
+
             response = await self.llm_service.generate_json_completion(
                 prompt=prompt,
                 temperature=0.7,
-                max_tokens=400
+                max_tokens=800
             )
-            
+
             content = response if isinstance(response, dict) else {}
-            
-            logger.info(f"Generated flagship stores for {brand_name}")
+
+            stores = content.get('flagship_stores', [])
+            logger.info(f"Generated flagship stores for {brand_name}: {len(stores)} stores returned")
             
             return {
                 "slide_type": "flagship_stores",
@@ -748,11 +749,11 @@ Return ONLY valid JSON in this exact format:
 }}"""
 
             logger.info(f"Calling LLM for core collection: {brand_name} {collection_name}")
-            
+
             response = await self.llm_service.generate_json_completion(
                 prompt=prompt,
                 temperature=0.7,
-                max_tokens=600
+                max_tokens=800
             )
             
             content = response if isinstance(response, dict) else {}

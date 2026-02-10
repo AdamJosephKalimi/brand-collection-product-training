@@ -378,7 +378,6 @@ class BrandDocumentService:
             # Store chunks in Pinecone (generates embeddings internally)
             success = await pinecone_service.store_document_chunks(
                 document_id=document_id,
-                collection_id="",  # Brand-level docs have no collection
                 brand_id=brand_id,
                 chunks=chunks
             )
