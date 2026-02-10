@@ -424,6 +424,92 @@
   height: 14px;
 }
 
+/* Brand Context Documents Section */
+.brandDocsSection {
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: var(--spacing-3);
+}
+
+.brandDocsHeader {
+  margin: 0;
+  font-family: 'Inter', var(--font-family-body);
+  font-size: 18px;
+  font-weight: 500;
+  color: #2c2f29;
+  line-height: normal;
+  height: 28px;
+  margin-bottom: 4px;
+  text-align: left;
+}
+
+.brandDocsSubtitle {
+  margin: 0 0 16px 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: var(--line-height-xs);
+}
+
+.brandDocsStatus {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.brandDocStatusItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: #F9FAFB;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+}
+
+.brandDocStatusName {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
+}
+
+.brandDocStatusBadge {
+  font-family: var(--font-family-body);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.status_uploaded {
+  background-color: #EEF2FF;
+  color: #4F46E5;
+}
+
+.status_processing {
+  background-color: #FFF7ED;
+  color: #C2410C;
+}
+
+.status_processed {
+  background-color: #F0FDF4;
+  color: #15803D;
+}
+
+.status_failed {
+  background-color: #FEF2F2;
+  color: #DC2626;
+}
+
 /* Action buttons */
 .actions {
   display: flex;

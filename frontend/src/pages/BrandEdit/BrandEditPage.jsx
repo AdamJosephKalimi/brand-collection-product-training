@@ -8,10 +8,12 @@ import SectionHeader from '../../components/ui/SectionHeader/SectionHeader';
 import Button from '../../components/ui/Button/Button';
 import LoadingOverlay from '../../components/ui/LoadingOverlay/LoadingOverlay';
 import POFileUpload from '../../components/ui/POFileUpload/POFileUpload';
+import FileUpload from '../../components/ui/FileUpload/FileUpload';
 import { useBrands, useBrand } from '../../hooks/useBrands';
 import { useUpdateBrand, useUploadLogo } from '../../hooks/useBrandMutations';
 import { useDeleteBrand } from '../../hooks/useDeleteBrand';
 import { useDeleteCollection } from '../../hooks/useDeleteCollection';
+import { useBrandDocuments, useUploadBrandDocument, useDeleteBrandDocument, useProcessBrandDocument } from '../../hooks/useBrandDocuments';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import TypographyModal from '../../components/ui/TypographyModal';
 import styles from './BrandEditPage.module.css';
@@ -38,13 +40,20 @@ function BrandEditPage() {
   const deleteBrandMutation = useDeleteBrand();
   const deleteCollectionMutation = useDeleteCollection();
   
+  // Brand document hooks
+  const { data: brandDocuments = [], isLoading: docsLoading } = useBrandDocuments(brandId);
+  const uploadBrandDoc = useUploadBrandDocument();
+  const deleteBrandDoc = useDeleteBrandDocument();
+  const processBrandDoc = useProcessBrandDocument();
+  const [isProcessing, setIsProcessing] = useState(false);
+
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
 
   // Typography modal state
   const [typographyModal, setTypographyModal] = useState({ isVisible: false, group: null });
   const [deckTypography, setDeckTypography] = useState({ heading: {}, body: {} });
-  
+
   // Local state
   const [error, setError] = useState(null);
   const [logoError, setLogoError] = useState(false);
@@ -107,6 +116,47 @@ function BrandEditPage() {
       setLogoError(false);
     }
   };
+
+  // Handle brand document upload
+  const handleBrandDocUpload = async (files) => {
+    for (const file of files) {
+      try {
+        await uploadBrandDoc.mutateAsync({ brandId, file, type: 'other' });
+      } catch (err) {
+        console.error('Error uploading brand document:', err);
+        setError(err.message || 'Failed to upload document');
+      }
+    }
+  };
+
+  // Handle brand document removal
+  const handleBrandDocRemove = async (documentId) => {
+    try {
+      await deleteBrandDoc.mutateAsync({ brandId, documentId });
+    } catch (err) {
+      console.error('Error deleting brand document:', err);
+      setError(err.message || 'Failed to delete document');
+    }
+  };
+
+  // Process all unprocessed brand documents
+  const handleProcessBrandDocs = async () => {
+    setIsProcessing(true);
+    setError(null);
+    const unprocessed = brandDocuments.filter(doc => doc.status !== 'processed' && doc.status !== 'processing');
+
+    for (const doc of unprocessed) {
+      try {
+        await processBrandDoc.mutateAsync({ brandId, documentId: doc.document_id });
+      } catch (err) {
+        console.error(`Error processing document ${doc.name}:`, err);
+        setError(err.message || `Failed to process ${doc.name}`);
+      }
+    }
+    setIsProcessing(false);
+  };
+
+  const hasUnprocessedDocs = brandDocuments.some(doc => doc.status !== 'processed' && doc.status !== 'processing');
 
   // Handle save with React Query mutations
   const handleSave = async () => {
@@ -370,6 +420,56 @@ function BrandEditPage() {
                 );
               })}
             </div>
+          </div>
+
+          {/* Brand Context Documents Section */}
+          <div className={styles.brandDocsSection}>
+            <h2 className={styles.brandDocsHeader}>Brand Context Documents</h2>
+            <p className={styles.brandDocsSubtitle}>
+              Upload documents about your brand (press materials, brand overviews, about pages).
+              These are used to generate accurate intro slides for your presentations.
+            </p>
+
+            <FileUpload
+              onFilesSelected={handleBrandDocUpload}
+              onFileRemove={handleBrandDocRemove}
+              initialFiles={brandDocuments}
+              title="Upload brand context documents"
+              subtitle="PDF, DOCX, TXT (max 25MB)"
+              buttonText="Select Documents"
+              addMoreButtonText="Add More Documents"
+              accept=".pdf,.docx,.txt"
+              multiple={true}
+            />
+
+            {/* Per-document status indicators */}
+            {brandDocuments.length > 0 && (
+              <div className={styles.brandDocsStatus}>
+                {brandDocuments.map(doc => (
+                  <div key={doc.document_id} className={styles.brandDocStatusItem}>
+                    <span className={styles.brandDocStatusName}>{doc.name}</span>
+                    <span className={`${styles.brandDocStatusBadge} ${styles[`status_${doc.status || 'uploaded'}`]}`}>
+                      {doc.status === 'processed' && '✓ '}
+                      {doc.status === 'processing' && '⟳ '}
+                      {doc.status === 'failed' && '✗ '}
+                      {(doc.status || 'uploaded').charAt(0).toUpperCase() + (doc.status || 'uploaded').slice(1)}
+                      {doc.status === 'processed' && doc.chunk_count ? ` (${doc.chunk_count} chunks)` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {hasUnprocessedDocs && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handleProcessBrandDocs}
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Processing...' : 'Process Documents'}
+              </Button>
+            )}
           </div>
 
             {/* Action buttons */}

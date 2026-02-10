@@ -242,6 +242,44 @@ class ParserService:
         
         return images
     
+    async def parse_txt(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
+        """
+        Parse plain text document.
+
+        Args:
+            file_bytes: TXT file content as bytes
+            filename: Original filename
+
+        Returns:
+            Dictionary containing extracted text and metadata
+        """
+        try:
+            # Try UTF-8 first, fall back to latin-1
+            try:
+                text = file_bytes.decode('utf-8')
+            except UnicodeDecodeError:
+                text = file_bytes.decode('latin-1')
+
+            # Strip leading/trailing whitespace
+            text = text.strip()
+
+            return {
+                "document_type": "txt",
+                "filename": filename,
+                "extracted_text": text,
+                "metadata": {
+                    "parser": "plain-text",
+                    "total_characters": len(text),
+                    "line_count": text.count('\n') + 1 if text else 0
+                }
+            }
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to parse TXT '{filename}': {str(e)}"
+            )
+
     async def parse_docx(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
         """
         Parse DOCX document and extract text, tables, and images.

@@ -15,6 +15,7 @@ from app.services.firebase_service import firebase_service
 from app.services.brand_service import brand_service
 from app.services.collection_service import collection_service
 from app.services.llm_service import llm_service
+from app.services.pinecone_service import pinecone_service
 
 logger = logging.getLogger(__name__)
 
@@ -78,41 +79,42 @@ class IntroSlideGenerationService:
                     logger.warning(f"Could not fetch product names: {e}")
             
             # 2. Check enabled slides and generate
+            brand_id = collection.brand_id
             slides = []
-            
+
             if settings.include_cover_page_slide:
                 logger.info("Generating cover page slide...")
                 slide = await self._generate_cover_page(brand_name, collection_name, collection_type, year)
                 slides.append(slide)
-            
+
             if settings.include_brand_introduction_slide:
                 logger.info("Generating brand introduction slide...")
-                slide = await self._generate_brand_introduction(brand_name)
+                slide = await self._generate_brand_introduction(brand_name, brand_id)
                 slides.append(slide)
-            
+
             if settings.include_brand_history_slide:
                 logger.info("Generating brand history slide...")
-                slide = await self._generate_brand_history(brand_name)
+                slide = await self._generate_brand_history(brand_name, brand_id)
                 slides.append(slide)
-            
+
             if settings.include_brand_values_slide:
                 logger.info("Generating brand values slide...")
-                slide = await self._generate_brand_values(brand_name)
+                slide = await self._generate_brand_values(brand_name, brand_id)
                 slides.append(slide)
-            
+
             if settings.include_brand_personality_slide:
                 logger.info("Generating brand personality slide...")
-                slide = await self._generate_brand_personality(brand_name)
+                slide = await self._generate_brand_personality(brand_name, brand_id)
                 slides.append(slide)
-            
+
             if settings.include_flagship_store_and_experiences_slide:
                 logger.info("Generating flagship stores slide...")
-                slide = await self._generate_flagship_stores(brand_name)
+                slide = await self._generate_flagship_stores(brand_name, brand_id)
                 slides.append(slide)
-            
+
             if settings.include_core_collection_and_signature_categories_slide:
                 logger.info("Generating core collection slide...")
-                slide = await self._generate_core_collection(brand_name, collection_name, categories, product_names)
+                slide = await self._generate_core_collection(brand_name, collection_name, categories, product_names, brand_id)
                 slides.append(slide)
             
             # 3. Prepare result
@@ -142,6 +144,47 @@ class IntroSlideGenerationService:
                 detail=f"Failed to generate intro slides: {str(e)}"
             )
     
+    async def _retrieve_brand_context(self, brand_id: str, query: str, top_k: int = 5) -> str:
+        """
+        Retrieve relevant brand context from Pinecone for RAG injection.
+
+        Args:
+            brand_id: The brand ID to search context for
+            query: Semantic search query tailored to the slide type
+            top_k: Number of chunks to retrieve
+
+        Returns:
+            Formatted context string, or empty string if no context available
+        """
+        try:
+            results = await pinecone_service.search_brand_context(
+                brand_id=brand_id,
+                query=query,
+                top_k=top_k
+            )
+            if results:
+                chunks = [r["metadata"]["text"] for r in results if r.get("metadata", {}).get("text")]
+                if chunks:
+                    return "\n\n".join(chunks)
+        except Exception as e:
+            logger.warning(f"Failed to retrieve brand context for RAG: {e}")
+        return ""
+
+    def _build_context_block(self, rag_context: str) -> str:
+        """Build the RAG context block to prepend to prompts."""
+        if not rag_context:
+            return ""
+        return f"""
+IMPORTANT: The following is verified information from official brand documents.
+Use this as your PRIMARY source. Only supplement with general knowledge if
+the documents don't cover the topic. Never contradict the documents.
+
+--- BRAND REFERENCE MATERIAL ---
+{rag_context}
+--- END REFERENCE MATERIAL ---
+
+"""
+
     # ========================================
     # LLM Prompt Methods (8 Slide Types)
     # ========================================
@@ -220,18 +263,27 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_brand_introduction(self, brand_name: str) -> Dict[str, Any]:
+    async def _generate_brand_introduction(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
         """
         Generate brand introduction slide.
-        
+
         Args:
             brand_name: Name of the brand
-            
+            brand_id: Brand ID for RAG context retrieval
+
         Returns:
             Dictionary containing slide type, title, and content
         """
         try:
-            prompt = f"""Generate a brand introduction slide for {brand_name}.
+            # Retrieve RAG context
+            context_block = ""
+            if brand_id:
+                rag_context = await self._retrieve_brand_context(
+                    brand_id, f"{brand_name} brand introduction overview identity"
+                )
+                context_block = self._build_context_block(rag_context)
+
+            prompt = f"""{context_block}Generate a brand introduction slide for {brand_name}.
 
 Create a compelling brand introduction that captures the essence and identity of {brand_name}.
 The intro should include unique and core brand details, key elements that 
@@ -296,18 +348,27 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_brand_history(self, brand_name: str) -> Dict[str, Any]:
+    async def _generate_brand_history(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
         """
         Generate brand history slide.
-        
+
         Args:
             brand_name: Name of the brand
-            
+            brand_id: Brand ID for RAG context retrieval
+
         Returns:
             Dictionary containing slide type, title, and content
         """
         try:
-            prompt = f"""Generate a brand history slide for {brand_name}.
+            # Retrieve RAG context
+            context_block = ""
+            if brand_id:
+                rag_context = await self._retrieve_brand_context(
+                    brand_id, f"{brand_name} brand history founding story heritage"
+                )
+                context_block = self._build_context_block(rag_context)
+
+            prompt = f"""{context_block}Generate a brand history slide for {brand_name}.
 
 Create a compelling brand history that tells the story of {brand_name}.
 Include the founder and brief background on how their experience led to the founding of the brand.
@@ -389,18 +450,27 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_brand_values(self, brand_name: str) -> Dict[str, Any]:
+    async def _generate_brand_values(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
         """
         Generate brand values slide.
-        
+
         Args:
             brand_name: Name of the brand
-            
+            brand_id: Brand ID for RAG context retrieval
+
         Returns:
             Dictionary containing slide type, title, and content
         """
         try:
-            prompt = f"""Generate a brand values slide for {brand_name}.
+            # Retrieve RAG context
+            context_block = ""
+            if brand_id:
+                rag_context = await self._retrieve_brand_context(
+                    brand_id, f"{brand_name} brand values principles philosophy"
+                )
+                context_block = self._build_context_block(rag_context)
+
+            prompt = f"""{context_block}Generate a brand values slide for {brand_name}.
 
 You are creating a brand values training slide for retail staff for the brand {brand_name}. Identify its 3–5 core values.
 For each value, provide:
@@ -449,18 +519,27 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_brand_personality(self, brand_name: str) -> Dict[str, Any]:
+    async def _generate_brand_personality(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
         """
         Generate brand personality slide.
-        
+
         Args:
             brand_name: Name of the brand
-            
+            brand_id: Brand ID for RAG context retrieval
+
         Returns:
             Dictionary containing slide type, title, and content
         """
         try:
-            prompt = f"""Generate a brand personality slide for {brand_name}.
+            # Retrieve RAG context
+            context_block = ""
+            if brand_id:
+                rag_context = await self._retrieve_brand_context(
+                    brand_id, f"{brand_name} brand personality style aesthetic tone"
+                )
+                context_block = self._build_context_block(rag_context)
+
+            prompt = f"""{context_block}Generate a brand personality slide for {brand_name}.
 
 You are creating a brand personality training slide for retail staff for the brand {brand_name}. Identify its most defining personality traits and values.
 Where relevant, include:
@@ -516,18 +595,27 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_flagship_stores(self, brand_name: str) -> Dict[str, Any]:
+    async def _generate_flagship_stores(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
         """
         Generate flagship stores & experiences slide.
-        
+
         Args:
             brand_name: Name of the brand
-            
+            brand_id: Brand ID for RAG context retrieval
+
         Returns:
             Dictionary containing slide type, title, and content
         """
         try:
-            prompt = f"""Generate a flagship stores and experiences slide for {brand_name}.
+            # Retrieve RAG context
+            context_block = ""
+            if brand_id:
+                rag_context = await self._retrieve_brand_context(
+                    brand_id, f"{brand_name} flagship stores retail locations experiences"
+                )
+                context_block = self._build_context_block(rag_context)
+
+            prompt = f"""{context_block}Generate a flagship stores and experiences slide for {brand_name}.
 
 You are creating a flagship stores training slide for retail staff for the brand {brand_name}. Identify its most significant flagship stores, concept stores, or major retail experiences.
 Where relevant, cover:
@@ -594,33 +682,43 @@ Return ONLY valid JSON in this exact format:
             }
     
     async def _generate_core_collection(
-        self, 
+        self,
         brand_name: str,
         collection_name: str,
         categories: List[Dict[str, Any]],
-        product_names: List[str]
+        product_names: List[str],
+        brand_id: str = None
     ) -> Dict[str, Any]:
         """
         Generate core collection & signature categories slide.
-        
+
         Args:
             brand_name: Name of the brand
             collection_name: Name of the collection
             categories: List of category objects from collection
             product_names: List of actual product names from items
-            
+            brand_id: Brand ID for RAG context retrieval
+
         Returns:
             Dictionary containing slide type, title, and content
         """
         try:
             # Extract category names
             category_names = [cat.get('name', cat) if isinstance(cat, dict) else str(cat) for cat in categories]
-            
+
             # Build prompt with real data
             categories_text = ", ".join(category_names) if category_names else "Various categories"
             products_text = ", ".join(product_names[:10]) if product_names else "Collection pieces"  # Limit to first 10
-            
-            prompt = f"""Generate a core collections slide for {brand_name}.
+
+            # Retrieve RAG context
+            context_block = ""
+            if brand_id:
+                rag_context = await self._retrieve_brand_context(
+                    brand_id, f"{brand_name} core collection signature categories key products"
+                )
+                context_block = self._build_context_block(rag_context)
+
+            prompt = f"""{context_block}Generate a core collections slide for {brand_name}.
 
 You are creating a core collections training slide for retail staff for the brand {brand_name}. Identify its 3–6 signature product categories.
 Only include as many as needed (there may only be 3 and that's okay).

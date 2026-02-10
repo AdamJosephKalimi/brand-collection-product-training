@@ -10,6 +10,9 @@ from ..models.brand_document import BrandDocument, BrandDocumentCreate, BrandDoc
 from .firebase_service import firebase_service
 from .storage_service import storage_service
 from .brand_service import brand_service
+from .parser_service import parser_service
+from .chunking_service import chunking_service
+from .pinecone_service import pinecone_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -285,6 +288,147 @@ class BrandDocumentService:
                 detail=f"Failed to update document: {str(e)}"
             )
     
+    async def process_document(
+        self,
+        brand_id: str,
+        document_id: str,
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        Process a brand document through the RAG pipeline: parse, chunk, embed, store in Pinecone.
+
+        Args:
+            brand_id: The brand ID
+            document_id: The document ID to process
+            user_id: The authenticated user's ID
+
+        Returns:
+            Processing stats
+
+        Raises:
+            HTTPException: If document not found, user doesn't have access, or processing fails
+        """
+        try:
+            # Validate brand ownership
+            if not await self.validate_brand_ownership(brand_id, user_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to process this brand's documents"
+                )
+
+            # Get document record
+            doc_ref = self.db.collection(self.brands_collection).document(brand_id).collection('documents').document(document_id)
+            doc = doc_ref.get()
+
+            if not doc.exists:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document with ID {document_id} not found"
+                )
+
+            doc_data = doc.to_dict()
+            storage_path = doc_data.get('storage_path')
+            file_type = doc_data.get('file_type', '').lower()
+
+            # Mark as processing
+            doc_ref.update({
+                'status': 'processing',
+                'updated_at': datetime.utcnow()
+            })
+
+            # Download file bytes from Firebase Storage
+            file_bytes = await storage_service.download_file(storage_path)
+
+            # Parse based on file type
+            filename = doc_data.get('name', 'document')
+            if file_type == 'pdf':
+                parsed = await parser_service.parse_pdf(file_bytes, filename)
+            elif file_type == 'docx':
+                parsed = await parser_service.parse_docx(file_bytes, filename)
+            elif file_type == 'txt':
+                parsed = await parser_service.parse_txt(file_bytes, filename)
+            else:
+                doc_ref.update({
+                    'status': 'failed',
+                    'updated_at': datetime.utcnow()
+                })
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unsupported file type for RAG processing: {file_type}"
+                )
+
+            extracted_text = parsed.get('extracted_text', '')
+
+            if not extracted_text.strip():
+                doc_ref.update({
+                    'status': 'failed',
+                    'updated_at': datetime.utcnow()
+                })
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No text could be extracted from the document"
+                )
+
+            # Chunk the text
+            chunks = chunking_service.create_chunks(
+                text=extracted_text,
+                document_id=document_id
+            )
+
+            # Store chunks in Pinecone (generates embeddings internally)
+            success = await pinecone_service.store_document_chunks(
+                document_id=document_id,
+                collection_id="",  # Brand-level docs have no collection
+                brand_id=brand_id,
+                chunks=chunks
+            )
+
+            if not success:
+                doc_ref.update({
+                    'status': 'failed',
+                    'updated_at': datetime.utcnow()
+                })
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to store document chunks in vector database"
+                )
+
+            # Update Firestore document record with processing results
+            doc_ref.update({
+                'status': 'processed',
+                'chunk_count': len(chunks),
+                'parsed_text_preview': extracted_text[:200],
+                'updated_at': datetime.utcnow()
+            })
+
+            logger.info(f"Successfully processed brand document {document_id}: {len(chunks)} chunks")
+
+            return {
+                "document_id": document_id,
+                "status": "processed",
+                "chunk_count": len(chunks),
+                "total_characters": len(extracted_text),
+                "parsed_text_preview": extracted_text[:200]
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error processing brand document: {e}")
+            # Try to mark as failed
+            try:
+                doc_ref = self.db.collection(self.brands_collection).document(brand_id).collection('documents').document(document_id)
+                doc_ref.update({
+                    'status': 'failed',
+                    'updated_at': datetime.utcnow()
+                })
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to process document: {str(e)}"
+            )
+
     async def delete_document(
         self, 
         brand_id: str, 
@@ -327,10 +471,18 @@ class BrandDocumentService:
             storage_path = doc_data.get('storage_path')
             file_size = doc_data.get('file_size_bytes', 0)
             
+            # Delete vectors from Pinecone if document was processed
+            if doc_data.get('status') == 'processed':
+                try:
+                    await pinecone_service.delete_by_metadata({"document_id": document_id})
+                    logger.info(f"Deleted Pinecone vectors for document {document_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete Pinecone vectors for document {document_id}: {e}")
+
             # Delete from Firebase Storage
             if storage_path:
                 await storage_service.delete_file(storage_path)
-            
+
             # Delete from Firestore
             doc_ref.delete()
             
