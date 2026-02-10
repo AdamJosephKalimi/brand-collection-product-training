@@ -317,7 +317,8 @@ class PresentationGenerationService:
             p.font.size = Pt(18)
             p.font.italic = True
             p.alignment = PP_ALIGN.CENTER
-        
+            self._apply_body_font(tf)
+
         logger.info("Cover slide created (using Title Slide layout)")
     
     def _create_brand_history_slide(self, data: Dict[str, Any]):
@@ -333,13 +334,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Brand History')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Extract nested founding structure
         founding = content.get('founding', {})
         if founding and isinstance(founding, dict):
@@ -478,6 +480,7 @@ class PresentationGenerationService:
             p.font.italic = True
             p.level = 0
         
+        self._apply_body_font(tf)
         logger.info("Brand history slide created (using Title and Content layout)")
     
     def _create_brand_introduction_slide(self, data: Dict[str, Any]):
@@ -493,13 +496,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Brand Introduction')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Add overview section (nested object with summary and positioning)
         overview = content.get('overview', {})
         if isinstance(overview, dict):
@@ -605,6 +609,7 @@ class PresentationGenerationService:
                     p.font.size = Pt(13)
                     p.level = 0
         
+        self._apply_body_font(tf)
         logger.info("Brand introduction slide created (using Title and Content layout)")
     
     def _create_brand_values_slide(self, data: Dict[str, Any]):
@@ -620,11 +625,12 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Brand Values')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         # Add values - LLM returns {headline, explanation} for each value
         values = content.get('values', [])
         if values:
@@ -658,6 +664,7 @@ class PresentationGenerationService:
                     p.text = value_name
                     p.font.size = Pt(14)
         
+        self._apply_body_font(tf)
         logger.info("Brand values slide created (using Title and Content layout)")
     
     def _create_brand_personality_slide(self, data: Dict[str, Any]):
@@ -673,13 +680,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Brand Personality')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Add quote section if present
         quote = content.get('quote', {})
         if quote and isinstance(quote, dict):
@@ -740,6 +748,7 @@ class PresentationGenerationService:
                 
                 p.level = 1
         
+        self._apply_body_font(tf)
         logger.info("Brand personality slide created (using Title and Content layout)")
     
     def _create_flagship_stores_slide(self, data: Dict[str, Any]):
@@ -755,13 +764,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Flagship Stores & Experiences')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Add flagship stores - LLM returns nested structure with name, location, design_elements, etc.
         stores = content.get('flagship_stores', content.get('store_locations', content.get('stores', [])))
         alternative = content.get('alternative_experiences', '')
@@ -848,6 +858,7 @@ class PresentationGenerationService:
             p.font.size = Pt(14)
             p.level = 0
         
+        self._apply_body_font(tf)
         logger.info("Flagship stores slide created (using Title and Content layout)")
     
     def _create_core_collection_slide(self, data: Dict[str, Any]):
@@ -863,13 +874,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Core Collection & Signature Categories')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Add signature categories - LLM returns {headline, description, iconic_staple}
         categories = content.get('signature_categories', [])
         if categories:
@@ -924,6 +936,7 @@ class PresentationGenerationService:
                     p.font.size = Pt(13)
                     p.level = 1
         
+        self._apply_body_font(tf)
         logger.info("Core collection slide created (using Title and Content layout)")
     
     async def _fetch_collection_items(self, collection_id: str) -> list:
