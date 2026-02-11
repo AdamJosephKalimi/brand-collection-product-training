@@ -45,6 +45,17 @@ export const introSlideInfo = {
 • Value headline (e.g., "Craftsmanship", "Innovation")
 • 1–2 sentences on how each value appears in the brand's products, culture, or philosophy`
   },
+  collectionIntro: {
+    title: 'Collection Introduction',
+    description: `Generates an introduction to this specific collection, pulling from any uploaded collection context documents (press releases, creative direction briefs, etc.). This slide may include:
+
+• The collection's story and creative inspiration
+• Color palette and key prints or patterns
+• Defining silhouettes and design themes
+• Notable pieces or highlights from the collection
+
+This slide is most effective when you've uploaded collection context documents in the Collection Info tab.`
+  },
   coreCollections: {
     title: 'Core Collections & Signature Categories',
     description: `Breaks down the brand's 3–6 most important product categories. For each category, the slide may include:

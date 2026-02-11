@@ -170,6 +170,11 @@ class PresentationGenerationService:
                 self._create_flagship_stores_slide(slide_data)
                 slides_generated += 1
                 
+            elif slide_type == 'collection_introduction':
+                logger.info("Creating collection introduction slide...")
+                self._create_collection_introduction_slide(slide_data)
+                slides_generated += 1
+
             elif slide_type == 'core_collection':
                 logger.info("Creating core collection slide...")
                 self._create_core_collection_slide(slide_data)
@@ -870,10 +875,131 @@ class PresentationGenerationService:
         self._apply_body_font(tf)
         logger.info("Flagship stores slide created (using Title and Content layout)")
     
+    def _create_collection_introduction_slide(self, data: Dict[str, Any]):
+        """
+        Create collection introduction slide using Title and Content layout.
+
+        Args:
+            data: Slide data containing title, content with collection_story, key_themes, highlights
+        """
+        slide = self.prs.slides.add_slide(self.title_content_layout)
+        content = data.get('content', {})
+
+        # Use title placeholder
+        title = slide.shapes.title
+        title.text = data.get('title', 'Collection Introduction')
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
+        # Use content placeholder
+        content_placeholder = slide.placeholders[1]
+        tf = content_placeholder.text_frame
+
+        first_paragraph = True
+
+        # Collection story section
+        story = content.get('collection_story', {})
+        if isinstance(story, dict):
+            narrative = story.get('narrative', '')
+            creative_direction = story.get('creative_direction', '')
+
+            if narrative:
+                p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+                first_paragraph = False
+                p.text = narrative
+                p.font.size = Pt(14)
+                p.level = 0
+
+            if creative_direction:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = "Creative Direction: "
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run = p.add_run()
+                run.text = creative_direction
+                run.font.size = Pt(14)
+                p.level = 0
+
+        # Key themes section
+        themes = content.get('key_themes', {})
+        if themes:
+            color_palette = themes.get('color_palette', '')
+            prints = themes.get('prints_and_patterns', '')
+            silhouettes = themes.get('silhouettes', '')
+
+            if color_palette or prints or silhouettes:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+
+            if color_palette:
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = "Color Palette: "
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run = p.add_run()
+                run.text = color_palette
+                run.font.size = Pt(14)
+                p.level = 0
+
+            if prints:
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = "Prints & Patterns: "
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run = p.add_run()
+                run.text = prints
+                run.font.size = Pt(14)
+                p.level = 0
+
+            if silhouettes:
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = "Silhouettes: "
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run = p.add_run()
+                run.text = silhouettes
+                run.font.size = Pt(14)
+                p.level = 0
+
+        # Highlights section
+        highlights = content.get('highlights', [])
+        if highlights:
+            p = tf.add_paragraph()
+            p.text = ""  # Spacing
+
+            p = tf.add_paragraph()
+            p.text = "Collection Highlights:"
+            p.font.bold = True
+            p.font.size = Pt(14)
+            p.level = 0
+
+            for highlight in highlights:
+                p = tf.add_paragraph()
+                p.text = highlight
+                p.font.size = Pt(13)
+                p.level = 1
+
+        # Fallback if nothing rendered
+        if first_paragraph:
+            p = tf.paragraphs[0]
+            p.text = "Collection introduction details are being compiled."
+            p.font.size = Pt(14)
+            p.level = 0
+            logger.warning("Collection introduction slide had no content — fallback used")
+
+        self._apply_body_font(tf)
+        logger.info("Collection introduction slide created (using Title and Content layout)")
+
     def _create_core_collection_slide(self, data: Dict[str, Any]):
         """
         Create core collection slide using Title and Content layout.
-        
+
         Args:
             data: Slide data containing title, content with signature_categories (headline, description, iconic_staple)
         """

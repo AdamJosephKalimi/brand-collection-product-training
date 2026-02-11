@@ -15,6 +15,7 @@ class CollectionDocumentType(str, Enum):
     PURCHASE_ORDER = "purchase_order"
     BRAND_GUIDELINES = "brand_guidelines"
     MARKETING_MATERIALS = "marketing_materials"
+    COLLECTION_CONTEXT = "collection_context"
     OTHER = "other"
 
 

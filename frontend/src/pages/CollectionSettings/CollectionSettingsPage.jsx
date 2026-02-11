@@ -160,17 +160,20 @@ function CollectionSettingsPage() {
   // Filter documents by type
   const linesheetDocuments = documents.filter(doc => doc.type === 'line_sheet');
   const purchaseOrderDocuments = documents.filter(doc => doc.type === 'purchase_order');
-  
+  const contextDocuments = documents.filter(doc => doc.type === 'collection_context');
+
   // Compute Process Documents button state
   // Button should be ENABLED when:
   // - At least 1 Line Sheet AND at least 1 PO exist AND (never processed OR failed OR cancelled OR stale)
+  //   OR at least 1 context doc exists (context docs can be processed independently)
   // Button should be DISABLED when:
-  // - Missing Line Sheet OR missing PO OR processing in progress OR (completed AND not stale)
+  // - No processable docs OR processing in progress OR (completed AND not stale)
   const docProcessingStatus = processingStatus?.document_processing;
-  const stagedDocIds = [...linesheetDocuments, ...purchaseOrderDocuments].map(d => d.document_id);
+  const stagedDocIds = [...linesheetDocuments, ...purchaseOrderDocuments, ...contextDocuments].map(d => d.document_id);
   const hasLineSheet = linesheetDocuments.length > 0;
   const hasPurchaseOrder = purchaseOrderDocuments.length > 0;
-  const hasRequiredDocuments = hasLineSheet && hasPurchaseOrder;
+  const hasContextDocs = contextDocuments.length > 0;
+  const hasRequiredDocuments = (hasLineSheet && hasPurchaseOrder) || hasContextDocs;
   const isProcessing = docProcessingStatus?.status === 'processing';
   const isCompleted = docProcessingStatus?.status === 'completed';
   const isFailed = docProcessingStatus?.status === 'failed';
@@ -781,6 +784,7 @@ function CollectionSettingsPage() {
     brandHistory: true,
     brandPersonality: true,
     brandValues: true,
+    collectionIntro: true,
     coreCollections: true,
     flagshipStores: true
   });
@@ -795,6 +799,7 @@ function CollectionSettingsPage() {
     brandHistory: 'include_brand_history_slide',
     brandPersonality: 'include_brand_personality_slide',
     brandValues: 'include_brand_values_slide',
+    collectionIntro: 'include_collection_introduction_slide',
     coreCollections: 'include_core_collection_and_signature_categories_slide',
     flagshipStores: 'include_flagship_store_and_experiences_slide'
   };
@@ -813,6 +818,7 @@ function CollectionSettingsPage() {
         brandHistory: settings.include_brand_history_slide !== false,
         brandPersonality: settings.include_brand_personality_slide !== false,
         brandValues: settings.include_brand_values_slide !== false,
+        collectionIntro: settings.include_collection_introduction_slide !== false,
         coreCollections: settings.include_core_collection_and_signature_categories_slide !== false,
         flagshipStores: settings.include_flagship_store_and_experiences_slide !== false
       });
@@ -1569,6 +1575,94 @@ function CollectionSettingsPage() {
                     />
                   </div>
 
+                  {/* Collection Context Documents Upload */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px'
+                  }}>
+                    {/* Title with Optional Tag */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <h3 style={{
+                        fontFamily: 'var(--font-family-body)',
+                        fontSize: 'var(--font-size-xs)',
+                        fontWeight: 'var(--font-weight-semi-bold)',
+                        lineHeight: 'var(--line-height-xs)',
+                        color: 'var(--text-brand)',
+                        margin: 0
+                      }}>
+                        Collection Context Documents
+                      </h3>
+                      <span style={{
+                        backgroundColor: 'rgba(107, 114, 128, 0.1)',
+                        color: 'var(--text-secondary)',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 'var(--font-weight-regular)',
+                        lineHeight: '16px'
+                      }}>
+                        Optional
+                      </span>
+                    </div>
+
+                    {/* Description Text */}
+                    <p style={{
+                      fontFamily: 'var(--font-family-body)',
+                      fontSize: 'var(--font-size-xs)',
+                      fontWeight: 'var(--font-weight-regular)',
+                      lineHeight: 'var(--line-height-xs)',
+                      color: 'var(--text-secondary)',
+                      margin: 0,
+                      textAlign: 'left'
+                    }}>
+                      Upload press releases, collection inspiration documents, or creative direction briefs. These are used to generate an accurate collection introduction slide in your presentations.
+                    </p>
+
+                    {/* FileUpload Component for Context Documents */}
+                    <FileUpload
+                      key={`context-${collectionId}`}
+                      initialFiles={contextDocuments}
+                      addMoreButtonText="Add More Context Documents"
+                      onFilesSelected={async (files) => {
+                        for (const file of files) {
+                          try {
+                            await uploadDocumentMutation.mutateAsync({
+                              collectionId,
+                              file,
+                              type: 'collection_context',
+                              process: false
+                            });
+                          } catch (error) {
+                            console.error('Failed to upload context document:', error);
+                          }
+                        }
+                        // Mark processing as stale if previously completed
+                        if (isCompleted) {
+                          markDocumentsStaleMutation.mutate({ collectionId });
+                        }
+                      }}
+                      onFileRemove={async (documentId) => {
+                        try {
+                          await deleteDocumentMutation.mutateAsync({
+                            collectionId,
+                            documentId
+                          });
+                          // Mark processing as stale if previously completed
+                          if (isCompleted) {
+                            markDocumentsStaleMutation.mutate({ collectionId });
+                          }
+                        } catch (error) {
+                          console.error('Failed to delete context document:', error);
+                        }
+                      }}
+                    />
+                  </div>
+
                   {/* Process Documents - at bottom so users can see it after scrolling */}
                   <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 'var(--spacing-2)' }}>
                     <Button
@@ -1742,7 +1836,15 @@ function CollectionSettingsPage() {
                 showInfo={true}
                 onInfoClick={() => setActiveInfoModal('brandValues')}
               />
-              
+
+              <Checkbox
+                checked={introSlides.collectionIntro}
+                onChange={() => handleIntroSlideChange('collectionIntro')}
+                label="Collection Introduction"
+                showInfo={true}
+                onInfoClick={() => setActiveInfoModal('collectionIntro')}
+              />
+
               <Checkbox
                 checked={introSlides.coreCollections}
                 onChange={() => handleIntroSlideChange('coreCollections')}

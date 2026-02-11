@@ -112,11 +112,19 @@ class IntroSlideGenerationService:
                 slide = await self._generate_flagship_stores(brand_name, brand_id)
                 slides.append(slide)
 
+            if settings.include_collection_introduction_slide:
+                logger.info("Generating collection introduction slide...")
+                slide = await self._generate_collection_introduction(
+                    brand_name, collection_name, collection_type, year,
+                    brand_id=brand_id, collection_id=collection_id
+                )
+                slides.append(slide)
+
             if settings.include_core_collection_and_signature_categories_slide:
                 logger.info("Generating core collection slide...")
                 slide = await self._generate_core_collection(brand_name, collection_name, categories, product_names, brand_id)
                 slides.append(slide)
-            
+
             # 3. Prepare result
             result = {
                 "generated_at": datetime.utcnow().isoformat(),
@@ -170,20 +178,53 @@ class IntroSlideGenerationService:
             logger.warning(f"Failed to retrieve brand context for RAG: {e}")
         return ""
 
-    def _build_context_block(self, rag_context: str) -> str:
+    def _build_context_block(self, rag_context: str, label: str = "BRAND REFERENCE MATERIAL") -> str:
         """Build the RAG context block to prepend to prompts."""
         if not rag_context:
             return ""
         return f"""
-IMPORTANT: The following is verified information from official brand documents.
-Use this as your PRIMARY source. Only supplement with general knowledge if
-the documents don't cover the topic. Never contradict the documents.
+IMPORTANT: The following is verified information from official documents.
+Use this as your ONLY source of facts. Extract and use SPECIFIC names, numbers,
+colors, and details EXACTLY as they appear below. Do NOT paraphrase, generalize,
+or invent details that are not in this material. Never contradict the documents.
 
---- BRAND REFERENCE MATERIAL ---
+--- {label} ---
 {rag_context}
---- END REFERENCE MATERIAL ---
+--- END {label} ---
 
 """
+
+    async def _retrieve_collection_context(self, collection_id: str, query: str, top_k: int = 5) -> str:
+        """
+        Retrieve relevant collection context from Pinecone for RAG injection.
+
+        Args:
+            collection_id: The collection ID to search context for
+            query: Semantic search query tailored to the slide type
+            top_k: Number of chunks to retrieve
+
+        Returns:
+            Formatted context string, or empty string if no context available
+        """
+        try:
+            logger.info(f"Searching Pinecone for collection context: collection_id={collection_id}, query='{query[:80]}...', top_k={top_k}")
+            results = await pinecone_service.search_collection_context(
+                collection_id=collection_id,
+                query=query,
+                top_k=top_k
+            )
+            logger.info(f"Pinecone returned {len(results) if results else 0} results for collection {collection_id}")
+            if results:
+                for i, r in enumerate(results[:3]):
+                    score = r.get("score", "N/A")
+                    text_preview = r.get("metadata", {}).get("text", "")[:100]
+                    logger.info(f"  Result {i+1}: score={score}, text='{text_preview}...'")
+                chunks = [r["metadata"]["text"] for r in results if r.get("metadata", {}).get("text")]
+                if chunks:
+                    return "\n\n".join(chunks)
+        except Exception as e:
+            logger.warning(f"Failed to retrieve collection context for RAG: {e}")
+        return ""
 
     # ========================================
     # LLM Prompt Methods (8 Slide Types)
@@ -777,6 +818,128 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
+
+    async def _generate_collection_introduction(
+        self,
+        brand_name: str,
+        collection_name: str,
+        collection_type: Optional[str],
+        year: Optional[int],
+        brand_id: str = None,
+        collection_id: str = None
+    ) -> Dict[str, Any]:
+        """
+        Generate collection introduction slide using collection context documents.
+
+        Args:
+            brand_name: Name of the brand
+            collection_name: Name of the collection
+            collection_type: Season type (spring_summer, fall_winter, etc.)
+            year: Collection year
+            brand_id: Brand ID for brand RAG context
+            collection_id: Collection ID for collection RAG context
+
+        Returns:
+            Dictionary containing slide type, title, and content
+        """
+        try:
+            # Retrieve collection context from Pinecone
+            collection_context_block = ""
+            if collection_id:
+                logger.info(f"Retrieving collection context from Pinecone for collection_id={collection_id}")
+                collection_context = await self._retrieve_collection_context(
+                    collection_id,
+                    f"{brand_name} {collection_name} collection creative direction inspiration colors prints backstory"
+                )
+                logger.info(f"Collection RAG context retrieved: {len(collection_context)} chars, preview: {collection_context[:200] if collection_context else 'EMPTY'}")
+                collection_context_block = self._build_context_block(
+                    collection_context, label="COLLECTION REFERENCE MATERIAL"
+                )
+            else:
+                logger.warning("No collection_id provided — skipping collection context retrieval")
+
+            # Also retrieve brand context for brand voice/identity
+            brand_context_block = ""
+            if brand_id:
+                brand_context = await self._retrieve_brand_context(
+                    brand_id, f"{brand_name} brand identity personality aesthetic"
+                )
+                logger.info(f"Brand RAG context retrieved: {len(brand_context)} chars")
+                brand_context_block = self._build_context_block(brand_context)
+
+            season_label = ""
+            if collection_type:
+                season_label = collection_type.replace("_", "/").title()
+            year_label = str(year) if year else ""
+            full_label = f"{season_label} {year_label}".strip()
+
+            prompt = f"""{collection_context_block}{brand_context_block}Generate a collection introduction slide for {brand_name} — {collection_name}{f' ({full_label})' if full_label else ''}.
+
+This is for a brand training deck for retail staff. The slide should help staff understand
+the story behind this collection so they can speak to it authentically with customers.
+
+CRITICAL INSTRUCTIONS:
+- You MUST use SPECIFIC details from the reference material above (exact collection names,
+  exact color names, exact piece names, exact print names, exact prices).
+- Do NOT paraphrase or generalize. If the document says "dusty sage green", write "dusty sage green",
+  not "earth tones" or "forest greens".
+- Do NOT invent product names, piece names, or details that are not in the reference material.
+- If the reference material names specific pieces (e.g. jackets, jeans, coats), reference them
+  by their exact names as stated in the documents.
+- If the reference material mentions a collection name (e.g. "Concrete Gardens"), use that name.
+- Write up to 250 words but only write as much as necessary.
+
+Return ONLY valid JSON in this exact format:
+{{
+"title": "Collection Introduction: {collection_name}",
+"collection_story": {{
+    "narrative": "2-3 sentence overview using SPECIFIC details from the reference material",
+    "creative_direction": "The creative vision — use exact quotes and details from the documents"
+}},
+"key_themes": {{
+    "color_palette": "List the EXACT color names from the reference material",
+    "prints_and_patterns": "Name the SPECIFIC prints and patterns from the documents",
+    "silhouettes": "Describe silhouettes using the language from the reference material"
+}},
+"highlights": [
+    "A specific key piece BY NAME with details from the reference material",
+    "Another specific highlight BY NAME from the reference material"
+]
+}}"""
+
+            logger.info(f"Calling LLM for collection introduction: {brand_name} {collection_name}")
+
+            response = await self.llm_service.generate_json_completion(
+                prompt=prompt,
+                temperature=0.3,
+                max_tokens=800
+            )
+
+            content = response if isinstance(response, dict) else {}
+
+            logger.info(f"Generated collection introduction for {collection_name}: keys={list(content.keys())}")
+
+            return {
+                "slide_type": "collection_introduction",
+                "title": content.get("title", f"Collection Introduction: {collection_name}"),
+                "content": content
+            }
+
+        except Exception as e:
+            logger.error(f"Error generating collection introduction: {e}")
+            return {
+                "slide_type": "collection_introduction",
+                "title": f"Collection Introduction: {collection_name}",
+                "content": {
+                    "title": f"Collection Introduction: {collection_name}",
+                    "collection_story": {
+                        "narrative": f"The {collection_name} collection by {brand_name}.",
+                        "creative_direction": ""
+                    },
+                    "key_themes": {},
+                    "highlights": []
+                }
+            }
 
 
 # Global service instance

@@ -518,17 +518,13 @@ async def process_collection_documents_task(
 ) -> None:
     """
     FastAPI background task for processing collection documents.
-    
-    This task:
-    1. Extracts images from documents
-    2. Extracts text with positions
-    3. Filters product images
-    4. Generates categories
-    5. Extracts structured products
-    6. Matches images to products
-    
+
+    Routes documents to the appropriate pipeline based on type:
+    - line_sheet/purchase_order: Image extraction, text parsing, product extraction
+    - collection_context: RAG pipeline (parse → chunk → embed → Pinecone)
+
     Updates progress in Firestore and checks for cancellation between phases.
-    
+
     Args:
         collection_id: Collection ID
         document_ids: List of document IDs to process
@@ -536,73 +532,149 @@ async def process_collection_documents_task(
     """
     from .collection_document_service import collection_document_service
     from .storage_service import storage_service
-    
+    from .parser_service import parser_service
+    from .chunking_service import chunking_service
+    from .pinecone_service import pinecone_service
+
     try:
         logger.info(f"Starting document processing for collection {collection_id} with {len(document_ids)} documents")
-        
+
         # NOTE: Cleanup and status initialization are now done in the API endpoint
         # before this background task starts. This ensures the frontend sees
         # 'processing' status immediately without race conditions.
-        
+
+        # Get brand_id from collection (needed for Pinecone storage)
+        collection_ref = db.collection('collections').document(collection_id)
+        collection_doc = collection_ref.get()
+        brand_id = collection_doc.to_dict().get('brand_id') if collection_doc.exists else None
+
         # Process each document
         for idx, document_id in enumerate(document_ids):
             logger.info(f"Processing document {idx + 1} of {len(document_ids)}: {document_id}")
-            
+
             # Check for cancellation before processing each document
             if check_cancelled(db, collection_id, 'document_processing'):
                 logger.info("Cancellation detected, cleaning up...")
                 await cleanup_partial_document_data(db, collection_id, document_ids)
                 mark_cancelled(db, collection_id, 'document_processing')
                 return
-            
+
             # Get document metadata
             doc_ref = db.collection('collections').document(collection_id).collection('documents').document(document_id)
             doc = doc_ref.get()
-            
+
             if not doc.exists:
                 logger.warning(f"Document {document_id} not found, skipping")
                 continue
-            
+
             doc_data = doc.to_dict()
             storage_path = doc_data.get('storage_path')
             filename = doc_data.get('name')
             document_type = doc_data.get('type')
-            
+
             if not storage_path:
                 logger.warning(f"No storage path for document {document_id}, skipping")
                 continue
-            
+
             # Download file
             logger.info(f"Downloading file: {filename}")
             file_bytes = await storage_service.download_file(storage_path)
-            
-            # Define progress callback
-            async def progress_callback(phase: int, message: str):
-                """Update progress in Firestore"""
-                percentage = int((phase / 6) * 100)
+
+            # Route to appropriate pipeline based on document type
+            if document_type == 'collection_context':
+                # RAG pipeline: parse → chunk → embed → store in Pinecone
+                logger.info(f"Processing collection context document via RAG pipeline: {filename}")
+
                 update_progress(
                     db, collection_id, 'document_processing',
                     status='processing',
-                    current_phase=message,
-                    progress={'phase': phase, 'total_phases': 6, 'percentage': percentage}
+                    current_phase=f"Parsing context document: {filename}",
+                    progress={'phase': 1, 'total_phases': 3, 'percentage': int(((idx) / len(document_ids)) * 100)}
                 )
-                
-                # Check for cancellation after each phase
+
+                # Parse based on file type
+                file_ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+                if file_ext == 'pdf':
+                    parsed = await parser_service.parse_pdf(file_bytes, filename)
+                elif file_ext == 'docx':
+                    parsed = await parser_service.parse_docx(file_bytes, filename)
+                elif file_ext == 'txt':
+                    parsed = await parser_service.parse_txt(file_bytes, filename)
+                else:
+                    logger.warning(f"Unsupported file type for RAG: {file_ext}, skipping {filename}")
+                    continue
+
+                extracted_text = parsed.get('extracted_text', '')
+                if not extracted_text.strip():
+                    logger.warning(f"No text extracted from context document {filename}, skipping")
+                    continue
+
+                # Check cancellation
                 if check_cancelled(db, collection_id, 'document_processing'):
                     raise Exception("Processing cancelled by user")
-            
-            # Process document with progress callback
-            await collection_document_service._parse_and_store_text(
-                collection_id=collection_id,
-                document_id=document_id,
-                file_bytes=file_bytes,
-                filename=filename,
-                document_type=document_type,
-                progress_callback=progress_callback
-            )
-            
+
+                update_progress(
+                    db, collection_id, 'document_processing',
+                    status='processing',
+                    current_phase=f"Chunking & embedding: {filename}",
+                    progress={'phase': 2, 'total_phases': 3, 'percentage': int(((idx + 0.5) / len(document_ids)) * 100)}
+                )
+
+                # Chunk the text
+                chunks = chunking_service.create_chunks(
+                    text=extracted_text,
+                    document_id=document_id
+                )
+
+                # Store in Pinecone with collection_id
+                success = await pinecone_service.store_document_chunks(
+                    document_id=document_id,
+                    brand_id=brand_id or '',
+                    chunks=chunks,
+                    collection_id=collection_id
+                )
+
+                # Update Firestore document record
+                doc_ref.update({
+                    'parsed_text': extracted_text,
+                    'status': 'processed' if success else 'failed',
+                    'chunk_count': len(chunks) if success else 0,
+                    'updated_at': datetime.utcnow()
+                })
+
+                if success:
+                    logger.info(f"RAG processing complete for {filename}: {len(chunks)} chunks stored in Pinecone")
+                else:
+                    logger.error(f"Failed to store chunks in Pinecone for {filename}")
+            else:
+                # Standard pipeline: images, text, categories, products
+                # Define progress callback
+                async def progress_callback(phase: int, message: str):
+                    """Update progress in Firestore"""
+                    percentage = int((phase / 6) * 100)
+                    update_progress(
+                        db, collection_id, 'document_processing',
+                        status='processing',
+                        current_phase=message,
+                        progress={'phase': phase, 'total_phases': 6, 'percentage': percentage}
+                    )
+
+                    # Check for cancellation after each phase
+                    if check_cancelled(db, collection_id, 'document_processing'):
+                        raise Exception("Processing cancelled by user")
+
+                # Process document with progress callback
+                await collection_document_service._parse_and_store_text(
+                    collection_id=collection_id,
+                    document_id=document_id,
+                    file_bytes=file_bytes,
+                    filename=filename,
+                    document_type=document_type,
+                    progress_callback=progress_callback
+                )
+
             logger.info(f"Completed processing document {idx + 1} of {len(document_ids)}")
-        
+
         # Mark as completed
         mark_completed(db, collection_id, 'document_processing')
         logger.info(f"Document processing completed for collection {collection_id}")

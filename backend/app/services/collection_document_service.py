@@ -409,11 +409,21 @@ class CollectionDocumentService:
             doc_data = doc.to_dict()
             storage_path = doc_data.get('storage_path')
             file_size = doc_data.get('file_size_bytes', 0)
-            
+            document_type = doc_data.get('type')
+
             # Delete from Firebase Storage
             if storage_path:
                 await storage_service.delete_file(storage_path)
-            
+
+            # Clean up Pinecone vectors for collection context documents
+            if document_type == 'collection_context' and doc_data.get('status') == 'processed':
+                try:
+                    from .pinecone_service import pinecone_service
+                    await pinecone_service.delete_by_metadata({"document_id": document_id})
+                    logger.info(f"Cleaned up Pinecone vectors for collection context document {document_id}")
+                except Exception as e:
+                    logger.error(f"Failed to clean up Pinecone vectors for {document_id}: {e}")
+
             # Delete from Firestore
             doc_ref.delete()
             
