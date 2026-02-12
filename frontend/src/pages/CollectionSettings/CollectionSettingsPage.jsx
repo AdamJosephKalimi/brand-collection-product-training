@@ -33,6 +33,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
+import Spinner from '../../components/ui/Spinner/Spinner';
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
 import ReorderCategoriesModal from '../../components/ui/ReorderCategoriesModal';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
@@ -89,7 +90,7 @@ function CollectionSettingsPage() {
   const { data: collectionData } = useCollection(collectionId);
   
   // Fetch collection documents
-  const { data: documents = [] } = useCollectionDocuments(collectionId);
+  const { data: documents = [], isLoading: docsLoading } = useCollectionDocuments(collectionId);
   
   // Fetch processing status (with refetch for manual polling)
   const { data: processingStatus, refetch: refetchProcessingStatus } = useProcessingStatus(collectionId);
@@ -157,10 +158,27 @@ function CollectionSettingsPage() {
     })
   );
   
+  // Track which section is currently uploading
+  const [uploadingSection, setUploadingSection] = useState(null);
+
   // Filter documents by type
   const linesheetDocuments = documents.filter(doc => doc.type === 'line_sheet');
   const purchaseOrderDocuments = documents.filter(doc => doc.type === 'purchase_order');
   const contextDocuments = documents.filter(doc => doc.type === 'collection_context');
+
+  // Derive per-document status for status indicators
+  const getDocStatus = (doc) => {
+    if (doc.status) return doc.status;
+    if (doc.parsed_at) return 'processed';
+    return 'uploaded';
+  };
+
+  const statusBadgeStyles = {
+    uploaded:   { backgroundColor: '#EEF2FF', color: '#4F46E5' },
+    processing: { backgroundColor: '#FFF7ED', color: '#C2410C' },
+    processed:  { backgroundColor: '#F0FDF4', color: '#15803D' },
+    failed:     { backgroundColor: '#FEF2F2', color: '#DC2626' },
+  };
 
   // Compute Process Documents button state
   // Button should be ENABLED when:
@@ -385,6 +403,8 @@ function CollectionSettingsPage() {
     if (docCompleted) {
       // Refetch collection data to get updated categories
       queryClient.invalidateQueries({ queryKey: ['collection', collectionId] });
+      // Refetch documents to get updated status (parsed_at / status fields)
+      queryClient.invalidateQueries({ queryKey: ['collectionDocuments', collectionId] });
     }
     
     if (itemCompleted) {
@@ -1445,45 +1465,79 @@ function CollectionSettingsPage() {
                       </span>
                     </div>
                     
-                    {/* FileUpload Component */}
-                    <FileUpload
-                      key={`linesheet-${collectionId}`}
-                      initialFiles={linesheetDocuments}
-                      onFilesSelected={async (files) => {
-                        // Upload each file (staged, not processed)
-                        for (const file of files) {
-                          try {
-                            await uploadDocumentMutation.mutateAsync({
-                              collectionId,
-                              file,
-                              type: 'line_sheet',
-                              process: false
-                            });
-                          } catch (error) {
-                            console.error('Failed to upload linesheet:', error);
+                    {/* FileUpload Component (or loading spinner while docs fetch) */}
+                    {docsLoading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px 0' }}>
+                        <Spinner size={18} />
+                        <span style={{ fontFamily: 'var(--font-family-body)', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)', color: 'var(--text-secondary)' }}>Loading files...</span>
+                      </div>
+                    ) : (
+                      <FileUpload
+                        key={`linesheet-${collectionId}`}
+                        initialFiles={linesheetDocuments}
+                        onFilesSelected={async (files) => {
+                          setUploadingSection('linesheet');
+                          // Upload each file (staged, not processed)
+                          for (const file of files) {
+                            try {
+                              await uploadDocumentMutation.mutateAsync({
+                                collectionId,
+                                file,
+                                type: 'line_sheet',
+                                process: false
+                              });
+                            } catch (error) {
+                              console.error('Failed to upload linesheet:', error);
+                            }
                           }
-                        }
-                        // Mark processing as stale if previously completed
-                        if (isCompleted) {
-                          markDocumentsStaleMutation.mutate({ collectionId });
-                        }
-                      }}
-                      onFileRemove={async (documentId) => {
-                        // Delete file immediately
-                        try {
-                          await deleteDocumentMutation.mutateAsync({
-                            collectionId,
-                            documentId
-                          });
+                          setUploadingSection(null);
                           // Mark processing as stale if previously completed
                           if (isCompleted) {
                             markDocumentsStaleMutation.mutate({ collectionId });
                           }
-                        } catch (error) {
-                          console.error('Failed to delete linesheet:', error);
-                        }
-                      }}
-                    />
+                        }}
+                        onFileRemove={async (documentId) => {
+                          // Delete file immediately
+                          try {
+                            await deleteDocumentMutation.mutateAsync({
+                              collectionId,
+                              documentId
+                            });
+                            // Mark processing as stale if previously completed
+                            if (isCompleted) {
+                              markDocumentsStaleMutation.mutate({ collectionId });
+                            }
+                          } catch (error) {
+                            console.error('Failed to delete linesheet:', error);
+                          }
+                        }}
+                      />
+                    )}
+                    {/* Per-document status indicators */}
+                    {(linesheetDocuments.length > 0 || uploadingSection === 'linesheet') && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+                        {linesheetDocuments.map(doc => {
+                          const docStatus = getDocStatus(doc);
+                          return (
+                            <div key={doc.document_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: '#F9FAFB', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
+                              <span style={{ fontFamily: 'var(--font-family-body)', fontSize: 'var(--font-size-xs)', color: 'var(--text-primary)', fontWeight: 'var(--font-weight-medium)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{doc.name}</span>
+                              <span style={{ fontFamily: 'var(--font-family-body)', fontSize: '11px', fontWeight: 'var(--font-weight-medium)', padding: '2px 8px', borderRadius: '10px', ...statusBadgeStyles[docStatus] }}>
+                                {docStatus === 'processed' && '\u2713 '}
+                                {docStatus === 'processing' && '\u27F3 '}
+                                {docStatus === 'failed' && '\u2717 '}
+                                {docStatus.charAt(0).toUpperCase() + docStatus.slice(1)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {uploadingSection === 'linesheet' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: '#F9FAFB', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
+                            <Spinner size={14} />
+                            <span style={{ fontFamily: 'var(--font-family-body)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontWeight: 'var(--font-weight-medium)' }}>Uploading...</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Purchase Order Files Upload */}
@@ -1534,45 +1588,79 @@ function CollectionSettingsPage() {
                       Uploading a purchase order will match it against your linesheet and automatically include only the items you've ordered in your training deck. Items not ordered will be hidden by default, but you can still view and manage all items anytime in the Collection Items tab.
                     </p>
                     
-                    {/* POFileUpload Component */}
-                    <POFileUpload
-                      key={`po-${collectionId}`}
-                      initialFiles={purchaseOrderDocuments}
-                      onFilesSelected={async (files) => {
-                        // Upload each file (staged, not processed)
-                        for (const file of files) {
-                          try {
-                            await uploadDocumentMutation.mutateAsync({
-                              collectionId,
-                              file,
-                              type: 'purchase_order',
-                              process: false
-                            });
-                          } catch (error) {
-                            console.error('Failed to upload purchase order:', error);
+                    {/* POFileUpload Component (or loading spinner while docs fetch) */}
+                    {docsLoading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px 0' }}>
+                        <Spinner size={18} />
+                        <span style={{ fontFamily: 'var(--font-family-body)', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)', color: 'var(--text-secondary)' }}>Loading files...</span>
+                      </div>
+                    ) : (
+                      <POFileUpload
+                        key={`po-${collectionId}`}
+                        initialFiles={purchaseOrderDocuments}
+                        onFilesSelected={async (files) => {
+                          setUploadingSection('po');
+                          // Upload each file (staged, not processed)
+                          for (const file of files) {
+                            try {
+                              await uploadDocumentMutation.mutateAsync({
+                                collectionId,
+                                file,
+                                type: 'purchase_order',
+                                process: false
+                              });
+                            } catch (error) {
+                              console.error('Failed to upload purchase order:', error);
+                            }
                           }
-                        }
-                        // Mark processing as stale if previously completed
-                        if (isCompleted) {
-                          markDocumentsStaleMutation.mutate({ collectionId });
-                        }
-                      }}
-                      onFileRemove={async (documentId) => {
-                        // Delete file immediately
-                        try {
-                          await deleteDocumentMutation.mutateAsync({
-                            collectionId,
-                            documentId
-                          });
+                          setUploadingSection(null);
                           // Mark processing as stale if previously completed
                           if (isCompleted) {
                             markDocumentsStaleMutation.mutate({ collectionId });
                           }
-                        } catch (error) {
-                          console.error('Failed to delete purchase order:', error);
-                        }
-                      }}
-                    />
+                        }}
+                        onFileRemove={async (documentId) => {
+                          // Delete file immediately
+                          try {
+                            await deleteDocumentMutation.mutateAsync({
+                              collectionId,
+                              documentId
+                            });
+                            // Mark processing as stale if previously completed
+                            if (isCompleted) {
+                              markDocumentsStaleMutation.mutate({ collectionId });
+                            }
+                          } catch (error) {
+                            console.error('Failed to delete purchase order:', error);
+                          }
+                        }}
+                      />
+                    )}
+                    {/* Per-document status indicators */}
+                    {(purchaseOrderDocuments.length > 0 || uploadingSection === 'po') && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+                        {purchaseOrderDocuments.map(doc => {
+                          const docStatus = getDocStatus(doc);
+                          return (
+                            <div key={doc.document_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: '#F9FAFB', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
+                              <span style={{ fontFamily: 'var(--font-family-body)', fontSize: 'var(--font-size-xs)', color: 'var(--text-primary)', fontWeight: 'var(--font-weight-medium)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{doc.name}</span>
+                              <span style={{ fontFamily: 'var(--font-family-body)', fontSize: '11px', fontWeight: 'var(--font-weight-medium)', padding: '2px 8px', borderRadius: '10px', ...statusBadgeStyles[docStatus] }}>
+                                {docStatus === 'processed' && '\u2713 '}
+                                {docStatus === 'processing' && '\u27F3 '}
+                                {docStatus === 'failed' && '\u2717 '}
+                                {docStatus.charAt(0).toUpperCase() + docStatus.slice(1)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {uploadingSection === 'po' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: '#F9FAFB', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
+                            <Spinner size={14} />
+                            <span style={{ fontFamily: 'var(--font-family-body)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontWeight: 'var(--font-weight-medium)' }}>Uploading...</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Collection Context Documents Upload */}
@@ -1623,44 +1711,81 @@ function CollectionSettingsPage() {
                       Upload press releases, collection inspiration documents, or creative direction briefs. These are used to generate an accurate collection introduction slide in your presentations.
                     </p>
 
-                    {/* FileUpload Component for Context Documents */}
-                    <FileUpload
-                      key={`context-${collectionId}`}
-                      initialFiles={contextDocuments}
-                      addMoreButtonText="Add More Context Documents"
-                      onFilesSelected={async (files) => {
-                        for (const file of files) {
-                          try {
-                            await uploadDocumentMutation.mutateAsync({
-                              collectionId,
-                              file,
-                              type: 'collection_context',
-                              process: false
-                            });
-                          } catch (error) {
-                            console.error('Failed to upload context document:', error);
+                    {/* FileUpload Component for Context Documents (or loading spinner while docs fetch) */}
+                    {docsLoading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px 0' }}>
+                        <Spinner size={18} />
+                        <span style={{ fontFamily: 'var(--font-family-body)', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)', color: 'var(--text-secondary)' }}>Loading files...</span>
+                      </div>
+                    ) : (
+                      <FileUpload
+                        key={`context-${collectionId}`}
+                        initialFiles={contextDocuments}
+                        title="Upload Context Documents"
+                        subtitle="Press releases, inspiration docs, or creative briefs"
+                        buttonText="Select Context Documents"
+                        addMoreButtonText="Add More Context Documents"
+                        onFilesSelected={async (files) => {
+                          setUploadingSection('context');
+                          for (const file of files) {
+                            try {
+                              await uploadDocumentMutation.mutateAsync({
+                                collectionId,
+                                file,
+                                type: 'collection_context',
+                                process: false
+                              });
+                            } catch (error) {
+                              console.error('Failed to upload context document:', error);
+                            }
                           }
-                        }
-                        // Mark processing as stale if previously completed
-                        if (isCompleted) {
-                          markDocumentsStaleMutation.mutate({ collectionId });
-                        }
-                      }}
-                      onFileRemove={async (documentId) => {
-                        try {
-                          await deleteDocumentMutation.mutateAsync({
-                            collectionId,
-                            documentId
-                          });
+                          setUploadingSection(null);
                           // Mark processing as stale if previously completed
                           if (isCompleted) {
                             markDocumentsStaleMutation.mutate({ collectionId });
                           }
-                        } catch (error) {
-                          console.error('Failed to delete context document:', error);
-                        }
-                      }}
-                    />
+                        }}
+                        onFileRemove={async (documentId) => {
+                          try {
+                            await deleteDocumentMutation.mutateAsync({
+                              collectionId,
+                              documentId
+                            });
+                            // Mark processing as stale if previously completed
+                            if (isCompleted) {
+                              markDocumentsStaleMutation.mutate({ collectionId });
+                            }
+                          } catch (error) {
+                            console.error('Failed to delete context document:', error);
+                          }
+                        }}
+                      />
+                    )}
+                    {/* Per-document status indicators */}
+                    {(contextDocuments.length > 0 || uploadingSection === 'context') && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+                        {contextDocuments.map(doc => {
+                          const docStatus = getDocStatus(doc);
+                          return (
+                            <div key={doc.document_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: '#F9FAFB', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
+                              <span style={{ fontFamily: 'var(--font-family-body)', fontSize: 'var(--font-size-xs)', color: 'var(--text-primary)', fontWeight: 'var(--font-weight-medium)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{doc.name}</span>
+                              <span style={{ fontFamily: 'var(--font-family-body)', fontSize: '11px', fontWeight: 'var(--font-weight-medium)', padding: '2px 8px', borderRadius: '10px', ...statusBadgeStyles[docStatus] }}>
+                                {docStatus === 'processed' && '\u2713 '}
+                                {docStatus === 'processing' && '\u27F3 '}
+                                {docStatus === 'failed' && '\u2717 '}
+                                {docStatus.charAt(0).toUpperCase() + docStatus.slice(1)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {uploadingSection === 'context' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: '#F9FAFB', border: '1px solid var(--border-light)', borderRadius: '6px' }}>
+                            <Spinner size={14} />
+                            <span style={{ fontFamily: 'var(--font-family-body)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontWeight: 'var(--font-weight-medium)' }}>Uploading...</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Process Documents - at bottom so users can see it after scrolling */}

@@ -238,6 +238,8 @@ class CollectionDocumentService:
                     doc_data['structured_products'] = None
                 if 'extraction_progress' not in doc_data:
                     doc_data['extraction_progress'] = None
+                if 'status' not in doc_data:
+                    doc_data['status'] = None
                 documents.append(CollectionDocumentResponse(**doc_data))
             
             return documents
@@ -297,6 +299,8 @@ class CollectionDocumentService:
                 doc_data['structured_products'] = None
             if 'extraction_progress' not in doc_data:
                 doc_data['extraction_progress'] = None
+            if 'status' not in doc_data:
+                doc_data['status'] = None
             return CollectionDocumentResponse(**doc_data)
             
         except HTTPException:
