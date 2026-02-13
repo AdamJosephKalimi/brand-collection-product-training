@@ -1390,39 +1390,6 @@ function CollectionSettingsPage() {
                   title="Upload Collection Assets"
                 />
                 
-                {/* Processing Progress - shown during processing, failed, or cancelled */}
-                <ProcessingProgress
-                  title="Document Processing Progress"
-                  status={processingStatus?.document_processing?.status || 'idle'}
-                  currentPhase={processingStatus?.document_processing?.current_phase}
-                  progress={processingStatus?.document_processing?.progress}
-                  error={processingStatus?.document_processing?.error}
-                  isStale={isStale}
-                  onCancel={() => cancelDocProcessingMutation.mutate({ collectionId })}
-                />
-                
-                {/* Success Message - shown when completed and not stale */}
-                {isCompleted && !isStale && (
-                  <div style={{
-                    textAlign: 'center',
-                    paddingTop: 'var(--spacing-3)',
-                    paddingBottom: 0,
-                    paddingLeft: 'var(--spacing-3)',
-                    paddingRight: 'var(--spacing-3)'
-                  }}>
-                    <h3 style={{
-                      fontFamily: 'var(--font-family-body)',
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      lineHeight: '20px',
-                      color: 'var(--color-brand-wine)',
-                      margin: 0
-                    }}>
-                      Documents Successfully Processed
-                    </h3>
-                  </div>
-                )}
-                
                 {/* Section Content */}
                 <div style={{
                   display: 'flex',
@@ -1787,6 +1754,37 @@ function CollectionSettingsPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Processing Progress - shown during processing, failed, or cancelled */}
+                  <ProcessingProgress
+                    title="Document Processing Progress"
+                    status={processingStatus?.document_processing?.status || 'idle'}
+                    currentPhase={processingStatus?.document_processing?.current_phase}
+                    progress={processingStatus?.document_processing?.progress}
+                    error={processingStatus?.document_processing?.error}
+                    isStale={isStale}
+                    onCancel={() => cancelDocProcessingMutation.mutate({ collectionId })}
+                  />
+
+                  {/* Success Message - shown when completed and not stale */}
+                  {isCompleted && !isStale && (
+                    <div style={{
+                      textAlign: 'center',
+                      paddingTop: 'var(--spacing-1)',
+                      paddingBottom: 0
+                    }}>
+                      <h3 style={{
+                        fontFamily: 'var(--font-family-body)',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        lineHeight: '20px',
+                        color: 'var(--color-brand-wine)',
+                        margin: 0
+                      }}>
+                        Documents Successfully Processed
+                      </h3>
+                    </div>
+                  )}
 
                   {/* Process Documents - at bottom so users can see it after scrolling */}
                   <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 'var(--spacing-2)' }}>
