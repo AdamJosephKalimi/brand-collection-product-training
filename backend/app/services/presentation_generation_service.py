@@ -1095,7 +1095,10 @@ class PresentationGenerationService:
                 item_data['item_id'] = doc.id
                 items.append(item_data)
             
-            logger.info(f"Fetched {len(items)} items for collection {collection_id}")
+            # Filter out excluded items (included defaults to True if not set)
+            items = [item for item in items if item.get('included', True) is not False]
+
+            logger.info(f"Fetched {len(items)} included items for collection {collection_id}")
             return items
             
         except Exception as e:
