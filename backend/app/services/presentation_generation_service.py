@@ -1289,6 +1289,30 @@ class PresentationGenerationService:
         p.font.italic = True
         self._apply_typo(p.font, 'heading', default_size=11)
 
+    def _add_highlight_star(self, slide, image_left, image_top):
+        """
+        Add a grey star icon to the top-left of a product image for highlighted items.
+
+        Args:
+            slide: The slide object
+            image_left: Left position of the product image (Emu)
+            image_top: Top position of the product image (Emu)
+        """
+        star_size = Inches(0.3)
+        star_box = slide.shapes.add_textbox(
+            left=image_left - Inches(0.35),
+            top=image_top,
+            width=star_size,
+            height=star_size
+        )
+        tf = star_box.text_frame
+        tf.word_wrap = False
+        p = tf.paragraphs[0]
+        p.text = "\u2605"  # Black star
+        p.font.size = Pt(16)
+        p.font.color.rgb = RGBColor(0x99, 0x99, 0x99)  # Neutral grey
+        p.alignment = PP_ALIGN.CENTER
+
     def _create_1up_product_slide(self, item: dict):
         """
         Create a slide with 1 product (full slide layout).
@@ -1338,7 +1362,11 @@ class PresentationGenerationService:
                     logger.debug(f"Image added for product: {product_name}")
                 except Exception as e:
                     logger.warning(f"Failed to add image to slide: {e}")
-        
+
+        # Add highlight star if item is highlighted
+        if item.get('highlighted_item'):
+            self._add_highlight_star(slide, Inches(0.75 * self._w_scale), Inches(1.5))
+
         # Show placeholder if no image was added
         if not image_added:
             image_box = slide.shapes.add_textbox(
@@ -1496,7 +1524,11 @@ class PresentationGenerationService:
                         image_added = True
                     except Exception as e:
                         logger.warning(f"Failed to add image: {e}")
-            
+
+            # Add highlight star if item is highlighted
+            if item.get('highlighted_item'):
+                self._add_highlight_star(slide, image_left, image_top)
+
             # Show placeholder if no image
             if not image_added:
                 image_box = slide.shapes.add_textbox(
@@ -1511,7 +1543,7 @@ class PresentationGenerationService:
                 p.font.size = Pt(12)
                 p.font.italic = True
                 p.alignment = PP_ALIGN.CENTER
-            
+
             # Product details (right side of column)
             details_left = Inches(2.75 * self._w_scale + column_offset)
             details_width = Inches(2 * self._w_scale)
@@ -1667,6 +1699,10 @@ class PresentationGenerationService:
                     except Exception as e:
                         logger.warning(f"Failed to add image: {e}")
 
+            # Add highlight star if item is highlighted
+            if item.get('highlighted_item'):
+                self._add_highlight_star(slide, col_left, image_top)
+
             # Show placeholder if no image
             if not image_added:
                 image_box = slide.shapes.add_textbox(
@@ -1681,7 +1717,7 @@ class PresentationGenerationService:
                 p.font.size = Pt(11)
                 p.font.italic = True
                 p.alignment = PP_ALIGN.CENTER
-            
+
             # Bottom row: Product details
             details_top = Inches(4.5)
             details_height = Inches(3)  # 3" height
@@ -1831,7 +1867,11 @@ class PresentationGenerationService:
                         image_added = True
                     except Exception as e:
                         logger.warning(f"Failed to add image: {e}")
-            
+
+            # Add highlight star if item is highlighted
+            if item.get('highlighted_item'):
+                self._add_highlight_star(slide, col_left, image_top)
+
             # Show placeholder if no image
             if not image_added:
                 image_box = slide.shapes.add_textbox(
@@ -1846,7 +1886,7 @@ class PresentationGenerationService:
                 p.font.size = Pt(10)
                 p.font.italic = True
                 p.alignment = PP_ALIGN.CENTER
-            
+
             # Bottom row: Product details
             details_top = Inches(4)
             details_height = Inches(3.5)  # Extended to 7.5" from top
