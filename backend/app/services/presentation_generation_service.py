@@ -1313,6 +1313,40 @@ class PresentationGenerationService:
         p.font.color.rgb = RGBColor(0x99, 0x99, 0x99)  # Neutral grey
         p.alignment = PP_ALIGN.CENTER
 
+    def _add_sales_talk(self, slide, item: dict, left, top, width, font_size: int = 10):
+        """
+        Add sales talk text below the product details area.
+
+        Renders bold, centered, capped to the image/column width.
+        Only adds if the item has a non-empty sales_talk field.
+
+        Args:
+            slide: The slide object
+            item: Item dictionary
+            left: Left position (Emu or Inches)
+            top: Top position for the text box (Emu or Inches)
+            width: Max width (should match the image/column width)
+            font_size: Font size in points (varies by layout density)
+        """
+        sales_talk = (item.get('sales_talk') or '').strip()
+        if not sales_talk:
+            return
+
+        box = slide.shapes.add_textbox(
+            left=left,
+            top=top,
+            width=width,
+            height=Inches(0.4)
+        )
+        tf = box.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = sales_talk
+        p.font.bold = True
+        p.font.size = Pt(font_size)
+        p.alignment = PP_ALIGN.CENTER
+        self._apply_body_font(tf)
+
     def _create_1up_product_slide(self, item: dict):
         """
         Create a slide with 1 product (full slide layout).
@@ -1470,6 +1504,16 @@ class PresentationGenerationService:
             p.font.size = Pt(11)
         
         self._apply_body_font(tf)
+
+        # Sales talk — below details, spanning image width, centered under image
+        self._add_sales_talk(
+            slide, item,
+            left=Inches(0.75 * self._w_scale),
+            top=Inches(6.8),
+            width=Inches(3.5),
+            font_size=14
+        )
+
         logger.info(f"1-up product slide created: {product_name}")
 
     def _create_2up_product_slide(self, items: list):
@@ -1638,6 +1682,15 @@ class PresentationGenerationService:
                 p.font.size = Pt(9)
         
             self._apply_body_font(tf)
+
+            # Sales talk — below image, spanning image width
+            self._add_sales_talk(
+                slide, item,
+                left=image_left,
+                top=Inches(4.7),
+                width=image_width,
+                font_size=10
+            )
 
         logger.info(f"2-up product slide created with {len(items)} item(s)")
 
@@ -1808,6 +1861,15 @@ class PresentationGenerationService:
         
             self._apply_body_font(tf)
 
+            # Sales talk — below details area
+            self._add_sales_talk(
+                slide, item,
+                left=col_left,
+                top=Inches(7.1),
+                width=image_width,
+                font_size=8
+            )
+
         logger.info(f"3-up product slide created with {len(items)} item(s)")
 
     def _create_4up_product_slide(self, items: list):
@@ -1976,6 +2038,15 @@ class PresentationGenerationService:
                 p.font.size = Pt(7)
         
             self._apply_body_font(tf)
+
+            # Sales talk — below details area
+            self._add_sales_talk(
+                slide, item,
+                left=col_left,
+                top=Inches(7.2),
+                width=image_width,
+                font_size=7
+            )
 
         logger.info(f"4-up product slide created with {len(items)} item(s)")
 

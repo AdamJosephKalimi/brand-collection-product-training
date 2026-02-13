@@ -1,3 +1,9 @@
+/* Wrapper to hold item row + expandable sales talk input */
+.listItemWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
 /* List item container */
 .listItem {
   display: flex;
@@ -163,6 +169,77 @@
 .toggleLabel svg:last-child {
   width: 16px;
   height: 10px;
+}
+
+/* Sales Talk Button */
+.salesTalkButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-grey-40);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.salesTalkButton:hover {
+  color: var(--color-grey-50);
+  background-color: var(--color-grey-20, #f3f4f6);
+}
+
+.salesTalkButton.salesTalkActive {
+  color: #7d3b51;
+}
+
+.salesTalkButton.salesTalkActive:hover {
+  color: #5c2a3c;
+  background-color: #f5e6ec;
+}
+
+/* Sales Talk Expandable Row */
+.salesTalkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px 12px 110px;
+  box-sizing: border-box;
+}
+
+.salesTalkInput {
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--color-grey-30, #d1d5db);
+  border-radius: 6px;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  line-height: 32px;
+  color: var(--text-primary);
+  background: var(--background-white, #fff);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.salesTalkInput:focus {
+  border-color: #7d3b51;
+}
+
+.salesTalkInput::placeholder {
+  color: var(--color-grey-40);
+}
+
+.salesTalkCount {
+  font-family: var(--font-family-body);
+  font-size: 11px;
+  color: var(--color-grey-40);
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: right;
 }
 
 /* Unmatched buttons */

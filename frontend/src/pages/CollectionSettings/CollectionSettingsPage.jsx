@@ -2549,6 +2549,8 @@ function CollectionSettingsPage() {
                                 onHighlightChange={(checked) => handleItemUpdate(item.item_id, { highlighted_item: checked })}
                                 included={item.included !== false}
                                 onIncludeChange={(checked) => handleItemUpdate(item.item_id, { included: checked })}
+                                salesTalk={item.sales_talk || ''}
+                                onSalesTalkChange={(value) => handleItemUpdate(item.item_id, { sales_talk: value })}
                               />
                             </SortableItem>
                           ))}

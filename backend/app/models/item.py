@@ -75,6 +75,9 @@ class Item(BaseModel):
     # Highlighting and Inclusion
     highlighted_item: bool = Field(default=False, description="Whether this is a featured/hero item")
     included: bool = Field(default=True, description="Whether to include this item in the final deck")
+
+    # Sales Talk
+    sales_talk: Optional[str] = Field(None, max_length=80, description="Short sales talking points for this item")
     
     # Ordering (within category)
     display_order: int = Field(default=0, ge=0, description="Display order within the item's category")
@@ -123,6 +126,7 @@ class ItemCreate(BaseModel):
     currency: Currency
     highlighted_item: Optional[bool] = False
     included: Optional[bool] = True
+    sales_talk: Optional[str] = None
     display_order: Optional[int] = Field(default=0, ge=0)
     images: Optional[List[ItemImage]] = None
     sizes: Optional[Dict[str, int]] = None
@@ -151,6 +155,7 @@ class ItemUpdate(BaseModel):
     currency: Optional[Currency] = None
     highlighted_item: Optional[bool] = None
     included: Optional[bool] = None
+    sales_talk: Optional[str] = Field(None, max_length=80)
     display_order: Optional[int] = Field(None, ge=0)
     images: Optional[List[ItemImage]] = None
     sizes: Optional[Dict[str, int]] = None
@@ -196,6 +201,7 @@ class ItemResponse(BaseModel):
     currency: Optional[str] = None  # Allow string for flexibility
     highlighted_item: Optional[bool] = False
     included: Optional[bool] = True
+    sales_talk: Optional[str] = None
     display_order: Optional[int] = 0
     images: Optional[List[ItemImage]] = None
     sizes: Optional[Dict[str, int]] = None
