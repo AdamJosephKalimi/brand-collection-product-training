@@ -67,6 +67,8 @@ function CollectionListItem({
   };
 
   const handleSalesTalkKeyDown = (e) => {
+    // Stop propagation so dnd-kit's keyboard sensor doesn't capture space/enter
+    e.stopPropagation();
     if (e.key === 'Enter') {
       e.preventDefault();
       const trimmed = salesTalkDraft.trim();
