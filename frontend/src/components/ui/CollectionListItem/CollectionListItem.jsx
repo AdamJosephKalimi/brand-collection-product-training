@@ -182,7 +182,7 @@ function CollectionListItem({
                 className={styles.toggleGroup}
                 onClick={() => onHighlightChange(!highlighted)}
                 style={{ cursor: 'pointer' }}
-                title="Feature this item as a hero product in the presentation"
+                title="Feature this item as a hero product — a star icon will appear next to it in the presentation"
               >
                 <Toggle
                   checked={highlighted}
