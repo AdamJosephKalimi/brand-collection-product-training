@@ -228,6 +228,8 @@ function CollectionSettingsPage() {
   
   // Delete Modal state
   const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
+  // Regenerate Items confirmation modal
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const deleteBrandMutation = useDeleteBrand();
   const deleteCollectionMutation = useDeleteCollection();
   
@@ -2227,8 +2229,12 @@ function CollectionSettingsPage() {
                 title="Collection Items"
                 buttonText={processingStatus?.item_generation?.status === 'completed' ? 'Regenerate Items' : 'Generate Items'}
                 onButtonClick={() => {
-                  console.log('[CollectionSettingsPage] Generate Items clicked');
-                  generateItemsMutation.mutate({ collectionId });
+                  if (processingStatus?.item_generation?.status === 'completed') {
+                    setShowRegenerateConfirm(true);
+                  } else {
+                    console.log('[CollectionSettingsPage] Generate Items clicked');
+                    generateItemsMutation.mutate({ collectionId });
+                  }
                 }}
                 buttonDisabled={!hasCategories || processingStatus?.item_generation?.status === 'processing'}
               />
@@ -2789,6 +2795,22 @@ function CollectionSettingsPage() {
             setCollectionLoadingMessage('Creating...');
           }
         }}
+      />
+
+      {/* Regenerate Items Confirmation Modal */}
+      <ConfirmModal
+        isVisible={showRegenerateConfirm}
+        onClose={() => setShowRegenerateConfirm(false)}
+        onConfirm={() => {
+          setShowRegenerateConfirm(false);
+          console.log('[CollectionSettingsPage] Regenerate Items confirmed');
+          generateItemsMutation.mutate({ collectionId });
+        }}
+        title="Regenerate Items"
+        message="Are you sure you want to regenerate all items? This will replace your current items and any manual edits (reordering, highlights, sales talk, etc.) will be lost."
+        confirmText="Regenerate"
+        cancelText="Cancel"
+        isDangerous={true}
       />
 
       {/* Delete Confirmation Modal */}
