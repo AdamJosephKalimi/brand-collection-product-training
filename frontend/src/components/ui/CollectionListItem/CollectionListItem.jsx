@@ -182,6 +182,7 @@ function CollectionListItem({
                 className={styles.toggleGroup}
                 onClick={() => onHighlightChange(!highlighted)}
                 style={{ cursor: 'pointer' }}
+                title="Feature this item as a hero product in the presentation"
               >
                 <Toggle
                   checked={highlighted}
@@ -200,6 +201,7 @@ function CollectionListItem({
                 className={styles.toggleGroup}
                 onClick={() => onIncludeChange(!included)}
                 style={{ cursor: 'pointer' }}
+                title="Include this item in the generated presentation"
               >
                 <Toggle
                   checked={included}
@@ -218,7 +220,8 @@ function CollectionListItem({
               <button
                 className={`${styles.salesTalkButton} ${hasSalesTalk ? styles.salesTalkActive : ''}`}
                 onClick={handleSalesTalkToggle}
-                title={hasSalesTalk ? salesTalk : 'Add sales talk'}
+                onMouseDown={(e) => { if (salesTalkOpen) e.preventDefault(); }}
+                title={hasSalesTalk ? salesTalk : 'Add a short selling point for this item'}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   {hasSalesTalk ? (
