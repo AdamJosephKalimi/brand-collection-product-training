@@ -103,12 +103,11 @@
   align-items: center;
 }
 
-/* Icon 4 (2x2 grid) */
+/* Icon 4 (4 squares in a row) */
 .icon4 {
-  display: grid;
-  grid-template-columns: repeat(2, 16px);
-  grid-template-rows: repeat(2, 16px);
+  display: flex;
   gap: 4px;
+  align-items: center;
 }
 
 /* Square for icons 2, 3, 4 */
@@ -121,8 +120,8 @@
 }
 
 .icon4 .square {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   background-color: var(--color-grey-30);
   border-radius: 4px;
 }
