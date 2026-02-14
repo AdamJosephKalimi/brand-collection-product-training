@@ -1339,7 +1339,7 @@ class PresentationGenerationService:
         total_height_pt = 0
         for p in tf.paragraphs:
             if p.font.size:
-                total_height_pt += p.font.size.pt * 1.0
+                total_height_pt += p.font.size.pt * 1.3
             else:
                 total_height_pt += 8  # empty/spacing paragraph
         content_height_inches = total_height_pt / 72.0
