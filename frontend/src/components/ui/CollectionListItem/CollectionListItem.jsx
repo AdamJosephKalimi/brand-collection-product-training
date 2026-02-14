@@ -150,10 +150,14 @@ function CollectionListItem({
             />
 
             {/* Highlight Toggle */}
-            <div className={styles.toggleGroup}>
+            <div
+              className={styles.toggleGroup}
+              onClick={() => onHighlightChange(!highlighted)}
+              style={{ cursor: 'pointer' }}
+            >
               <Toggle
                 checked={highlighted}
-                onChange={(e) => onHighlightChange(e.target.checked)}
+                onChange={(e) => { e.stopPropagation(); onHighlightChange(e.target.checked); }}
               />
               <div className={styles.toggleLabel}>
                 <span>Highlight</span>
@@ -164,10 +168,14 @@ function CollectionListItem({
             </div>
 
             {/* Include Toggle */}
-            <div className={styles.toggleGroup}>
+            <div
+              className={styles.toggleGroup}
+              onClick={() => onIncludeChange(!included)}
+              style={{ cursor: 'pointer' }}
+            >
               <Toggle
                 checked={included}
-                onChange={(e) => onIncludeChange(e.target.checked)}
+                onChange={(e) => { e.stopPropagation(); onIncludeChange(e.target.checked); }}
               />
               <div className={styles.toggleLabel}>
                 <span>Include</span>
