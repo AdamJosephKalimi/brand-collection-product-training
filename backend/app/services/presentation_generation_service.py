@@ -1361,7 +1361,7 @@ Return ONLY valid JSON like:
         p = tf.paragraphs[0]
         p.text = title_text
         p.font.bold = True
-        self._apply_typo(p.font, 'heading', default_size=24)
+        self._apply_typo(p.font, 'heading', default_size=18)
 
     def _add_highlight_star(self, slide, image_left, image_top):
         """
