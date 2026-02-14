@@ -1313,39 +1313,53 @@ class PresentationGenerationService:
         p.font.color.rgb = RGBColor(0x99, 0x99, 0x99)  # Neutral grey
         p.alignment = PP_ALIGN.CENTER
 
-    def _append_sales_talk(self, tf, item: dict, font_size: int = 12,
-                           frame_width_emu=None, max_width_emu=None):
+    def _add_sales_talk_below(self, slide, tf, item: dict, details_left,
+                              details_top, image_width, font_size: int = 12):
         """
-        Append sales talk inline to the details text frame, right after
-        all other product info. Bold, centered, with spacing above.
-        Width constrained to max_width_emu via paragraph margins.
+        Add sales talk in a separate text box positioned right below the
+        existing details content. Width matches the image.
+
+        Estimates the rendered height of paragraphs in the details text
+        frame to calculate the vertical position.
 
         Args:
-            tf: The text frame to append to
+            slide: The slide object
+            tf: The details text frame (used to count paragraphs)
             item: Item dictionary
-            font_size: Font size in points (varies by layout density)
-            frame_width_emu: Width of the text frame in EMU
-            max_width_emu: Max width for sales talk in EMU (image width)
+            details_left: Left position of the details text box
+            details_top: Top position of the details text box (in inches)
+            image_width: Width to constrain the sales talk to
+            font_size: Font size in points
         """
         sales_talk = (item.get('sales_talk') or '').strip()
         if not sales_talk:
             return
 
-        p = tf.add_paragraph()
-        p.text = ""
+        # Estimate content height from paragraphs in the text frame
+        total_height_pt = 0
+        for p in tf.paragraphs:
+            if p.font.size:
+                total_height_pt += p.font.size.pt * 1.4  # line height ~1.4x
+            else:
+                total_height_pt += 12  # default empty/spacing line
+        content_height_inches = total_height_pt / 72.0  # convert pt to inches
 
-        p = tf.add_paragraph()
+        sales_top = details_top + content_height_inches + 0.15  # small gap
+
+        box = slide.shapes.add_textbox(
+            left=details_left,
+            top=Inches(sales_top),
+            width=image_width,
+            height=Inches(0.5)
+        )
+        stf = box.text_frame
+        stf.word_wrap = True
+        p = stf.paragraphs[0]
         p.text = sales_talk
         p.font.bold = True
         p.font.size = Pt(font_size)
         p.alignment = PP_ALIGN.CENTER
-
-        # Constrain paragraph width to image width via left/right margins
-        if frame_width_emu and max_width_emu and frame_width_emu > max_width_emu:
-            margin = int((frame_width_emu - max_width_emu) / 2)
-            pPr = p._p.get_or_add_pPr()
-            pPr.set('marL', str(margin))
-            pPr.set('marR', str(margin))
+        self._apply_body_font(stf)
 
     def _create_1up_product_slide(self, item: dict):
         """
@@ -1503,10 +1517,15 @@ class PresentationGenerationService:
             p.text = pricing_text
             p.font.size = Pt(11)
         
-        self._append_sales_talk(tf, item, font_size=16,
-                               frame_width_emu=Inches(4 * self._w_scale),
-                               max_width_emu=Inches(3.5))
         self._apply_body_font(tf)
+
+        self._add_sales_talk_below(
+            slide, tf, item,
+            details_left=Inches(5.5 * self._w_scale),
+            details_top=1.0,
+            image_width=Inches(3.5),
+            font_size=16
+        )
 
         logger.info(f"1-up product slide created: {product_name}")
 
@@ -1675,10 +1694,15 @@ class PresentationGenerationService:
                 p.text = pricing_text
                 p.font.size = Pt(9)
         
-            self._append_sales_talk(tf, item, font_size=12,
-                                   frame_width_emu=Inches(2 * self._w_scale),
-                                   max_width_emu=Inches(2))
             self._apply_body_font(tf)
+
+            self._add_sales_talk_below(
+                slide, tf, item,
+                details_left=details_left,
+                details_top=1.0,
+                image_width=image_width,
+                font_size=12
+            )
 
         logger.info(f"2-up product slide created with {len(items)} item(s)")
 
@@ -1847,10 +1871,15 @@ class PresentationGenerationService:
                 p.text = f"RRP: {currency} {rrp:.2f}"
                 p.font.size = Pt(8)
         
-            self._append_sales_talk(tf, item, font_size=10,
-                                   frame_width_emu=Inches(column_width),
-                                   max_width_emu=Inches(2.5))
             self._apply_body_font(tf)
+
+            self._add_sales_talk_below(
+                slide, tf, item,
+                details_left=col_left,
+                details_top=4.5,
+                image_width=Inches(2.5),
+                font_size=10
+            )
 
         logger.info(f"3-up product slide created with {len(items)} item(s)")
 
@@ -2019,10 +2048,15 @@ class PresentationGenerationService:
                 p.text = f"RRP: {currency} {rrp:.2f}"
                 p.font.size = Pt(7)
         
-            self._append_sales_talk(tf, item, font_size=9,
-                                   frame_width_emu=Inches(column_width),
-                                   max_width_emu=Inches(1.8))
             self._apply_body_font(tf)
+
+            self._add_sales_talk_below(
+                slide, tf, item,
+                details_left=col_left,
+                details_top=4.0,
+                image_width=Inches(1.8),
+                font_size=9
+            )
 
         logger.info(f"4-up product slide created with {len(items)} item(s)")
 
