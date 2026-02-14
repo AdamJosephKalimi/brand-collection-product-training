@@ -1339,12 +1339,12 @@ class PresentationGenerationService:
         total_height_pt = 0
         for p in tf.paragraphs:
             if p.font.size:
-                total_height_pt += p.font.size.pt * 1.4  # line height ~1.4x
+                total_height_pt += p.font.size.pt * 1.0
             else:
-                total_height_pt += 12  # default empty/spacing line
-        content_height_inches = total_height_pt / 72.0  # convert pt to inches
+                total_height_pt += 8  # empty/spacing paragraph
+        content_height_inches = total_height_pt / 72.0
 
-        sales_top = details_top + content_height_inches + 0.15  # small gap
+        sales_top = details_top + content_height_inches
 
         box = slide.shapes.add_textbox(
             left=details_left,
