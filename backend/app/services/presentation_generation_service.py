@@ -1352,17 +1352,16 @@ Return ONLY valid JSON like:
 
         title_box = slide.shapes.add_textbox(
             left=Inches(0.4),
-            top=Inches(0.25),
-            width=Inches(5),
-            height=Inches(0.4)
+            top=Inches(0.15),
+            width=Inches(8),
+            height=Inches(0.6)
         )
         tf = title_box.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = title_text
         p.font.bold = True
-        p.font.italic = True
-        self._apply_typo(p.font, 'heading', default_size=11)
+        self._apply_typo(p.font, 'heading', default_size=24)
 
     def _add_highlight_star(self, slide, image_left, image_top):
         """
