@@ -230,6 +230,8 @@ function CollectionSettingsPage() {
   const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
   // Regenerate Items confirmation modal
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  // Uncategorized items warning modal
+  const [showUncategorizedWarning, setShowUncategorizedWarning] = useState(false);
   const deleteBrandMutation = useDeleteBrand();
   const deleteCollectionMutation = useDeleteCollection();
   
@@ -563,6 +565,18 @@ function CollectionSettingsPage() {
     return groups;
   }, [items, searchQuery, categoryFilter, statusFilter, collectionData?.categories]);
   
+  // Count uncategorized items across ALL items (ignoring filters) for deck generation gate
+  const uncategorizedItemCount = React.useMemo(() => {
+    const deckCategories = collectionData?.categories || [];
+    const categoryNames = new Set(deckCategories.map(c => c.name.toLowerCase()));
+    return items.filter(item => {
+      // Skip unmatched items (no product name) — they're a separate concern
+      if (!item.product_name || item.product_name === item.sku) return false;
+      // Uncategorized: no category or category not in deck settings
+      return !item.category || !categoryNames.has(item.category.toLowerCase());
+    }).length;
+  }, [items, collectionData?.categories]);
+
   // Get category options for dropdowns (from collection categories)
   const categoryOptions = React.useMemo(() => {
     return (collectionData?.categories || []).map(cat => ({
@@ -713,6 +727,11 @@ function CollectionSettingsPage() {
   
   // Generate Training Deck handler
   const handleGenerateDeck = async () => {
+    // Block if there are uncategorized items
+    if (uncategorizedItemCount > 0) {
+      setShowUncategorizedWarning(true);
+      return;
+    }
     setDeckGenerationStatus('processing');
     setDeckGenerationError(null);
     setDeckDownloadUrl(null);
@@ -2723,6 +2742,14 @@ function CollectionSettingsPage() {
           onClose={() => setActiveInfoModal(null)}
         />
       )}
+
+      {/* Uncategorized Items Warning Modal */}
+      <InfoModal
+        title="Items Need Categories"
+        description={`You have ${uncategorizedItemCount} item${uncategorizedItemCount === 1 ? '' : 's'} that ${uncategorizedItemCount === 1 ? "isn't" : "aren't"} assigned to a category. Please assign all items to a primary category before generating the deck.`}
+        isVisible={showUncategorizedWarning}
+        onClose={() => setShowUncategorizedWarning(false)}
+      />
 
       {/* Add Subcategory Modal */}
       {subcategoryModalCategoryIndex !== null && (
