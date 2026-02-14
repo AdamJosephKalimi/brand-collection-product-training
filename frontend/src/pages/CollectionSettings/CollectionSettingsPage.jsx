@@ -2140,14 +2140,14 @@ function CollectionSettingsPage() {
             </div>
           </div>
 
-          {/* Deck Localization Section */}
+          {/* Deck Language Localization Section */}
           <div style={{ 
             backgroundColor: 'var(--background-white)',
             border: '1px solid var(--border-light)',
             borderRadius: 'var(--border-radius-md)'
           }}>
             <SectionHeader
-              title="Deck Localization"
+              title="Deck Language Localization"
               description="Generated deck content will be translated to the selected language"
             />
             

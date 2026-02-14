@@ -22,6 +22,8 @@ from pptx.dml.color import RGBColor
 
 from app.services.firebase_service import firebase_service
 from app.services.collection_service import collection_service
+from app.services.llm_service import llm_service
+from app.services.intro_slide_generation_service import LANGUAGE_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,8 @@ class PresentationGenerationService:
         self._w_scale = 1.0  # Horizontal scale factor (1.0 for 4:3, 1.333 for 16:9)
         self._h_offset = 0  # Horizontal offset in inches to center 10"-wide content in wider slides
         self._typo = None  # Deck typography settings dict
+        self._language = "en"  # Deck output language
+        self._translations = {}  # {original_string: translated_string}
     
     async def generate_presentation(
         self,
@@ -46,7 +50,8 @@ class PresentationGenerationService:
         user_id: str,
         products_per_slide: int = 1,
         slide_aspect_ratio: str = "16:9",
-        deck_typography: dict = None
+        deck_typography: dict = None,
+        selected_language: str = "en"
     ) -> str:
         """
         Generate complete PowerPoint presentation for a collection.
@@ -57,13 +62,17 @@ class PresentationGenerationService:
             products_per_slide: Number of products per slide (1, 2, or 4)
             slide_aspect_ratio: Slide aspect ratio ("4:3" or "16:9")
             deck_typography: Optional dict with heading/body text style overrides
+            selected_language: Language code for translatable deck content (default "en")
 
         Returns:
             Download URL for the generated presentation
         """
         try:
             logger.info(f"Starting presentation generation for collection: {collection_id}")
-            
+
+            self._language = selected_language
+            self._translations = {}
+
             # 1. Fetch collection data
             collection = await collection_service.get_collection(collection_id, user_id)
             
@@ -267,6 +276,58 @@ class PresentationGenerationService:
                     p.font.color.rgb = self._parse_hex_color(style['font_color'])
                 except (ValueError, IndexError):
                     pass
+
+    def _t(self, text: str) -> str:
+        """Look up a translated string, falling back to the original."""
+        if not text or self._language == "en":
+            return text
+        return self._translations.get(text, text)
+
+    async def _translate_strings(self, strings: list) -> dict:
+        """
+        Batch-translate a list of strings via LLM.
+
+        Args:
+            strings: List of unique strings to translate
+
+        Returns:
+            Dict mapping original string -> translated string
+        """
+        if not strings or self._language == "en":
+            return {}
+
+        lang_name = LANGUAGE_NAMES.get(self._language, self._language)
+        # Deduplicate while preserving order
+        unique = list(dict.fromkeys(s for s in strings if s))
+        if not unique:
+            return {}
+
+        import json as _json
+        prompt = f"""Translate the following strings from English to {lang_name}.
+Return ONLY a JSON object mapping each original English string to its {lang_name} translation.
+Do NOT translate proper nouns (brand names, product names, city names).
+Keep the translations concise and natural.
+
+Strings to translate:
+{_json.dumps(unique, ensure_ascii=False)}
+
+Return ONLY valid JSON like:
+{{
+    "Original string": "Translated string"
+}}"""
+
+        try:
+            result = await llm_service.generate_json_completion(
+                prompt=prompt,
+                temperature=0.3,
+                max_tokens=1000
+            )
+            if isinstance(result, dict):
+                logger.info(f"Translated {len(result)} strings to {lang_name}")
+                return result
+        except Exception as e:
+            logger.warning(f"Batch translation failed: {e}")
+        return {}
 
     def _create_cover_slide(self, data: Dict[str, Any]):
         """
@@ -1139,6 +1200,18 @@ class PresentationGenerationService:
 
         logger.info(f"Grouped {len(items)} items into {len(items_by_category)} categories")
 
+        # Batch-translate categories, subcategories, and sales talk if non-English
+        if self._language != "en":
+            translatable = []
+            for item in items:
+                if item.get('category'):
+                    translatable.append(item['category'])
+                if item.get('subcategory'):
+                    translatable.append(item['subcategory'])
+                if item.get('sales_talk'):
+                    translatable.append(item['sales_talk'].strip())
+            self._translations = await self._translate_strings(translatable)
+
         # Sort categories by display_order (falls back to alphabetical for unknown categories)
         sorted_categories = sorted(
             items_by_category.keys(),
@@ -1190,7 +1263,9 @@ class PresentationGenerationService:
             category: Category name
         """
         slide = self.prs.slides.add_slide(self.blank_layout)
-        
+
+        display_category = self._t(category)
+
         # Category title - centered
         title_box = slide.shapes.add_textbox(
             left=Inches(1 * self._w_scale),
@@ -1199,15 +1274,15 @@ class PresentationGenerationService:
             height=Inches(1)
         )
         tf = title_box.text_frame
-        tf.text = category
-        
+        tf.text = display_category
+
         # Format title
         p = tf.paragraphs[0]
         p.font.bold = True
         p.alignment = PP_ALIGN.CENTER
         self._apply_typo(p.font, 'heading', default_size=48)
 
-        logger.info(f"Category divider slide created: {category}")
+        logger.info(f"Category divider slide created: {display_category}")
     
     def _download_image_as_stream(self, image_dict: dict) -> Optional[BytesIO]:
         """
@@ -1265,8 +1340,8 @@ class PresentationGenerationService:
             return
 
         first = items[0]
-        category = first.get('category', '')
-        subcategory = first.get('subcategory', '')
+        category = self._t(first.get('category', ''))
+        subcategory = self._t(first.get('subcategory', ''))
 
         if category and subcategory:
             title_text = f"{category} - {subcategory}"
@@ -1334,6 +1409,7 @@ class PresentationGenerationService:
         sales_talk = (item.get('sales_talk') or '').strip()
         if not sales_talk:
             return
+        sales_talk = self._t(sales_talk)
 
         # Estimate content height from paragraphs in the text frame
         total_height_pt = 0

@@ -97,13 +97,19 @@ async def generate_presentation(
             except Exception as e:
                 logger.warning(f"Could not fetch brand typography: {e}")
 
+        # Read deck language from collection settings
+        selected_language = "en"
+        if collection and collection.settings:
+            selected_language = collection.settings.selected_language or "en"
+
         # Generate presentation
         download_url = await presentation_generation_service.generate_presentation(
             collection_id=collection_id,
             user_id=user_id,
             products_per_slide=products_per_slide,
             slide_aspect_ratio=slide_aspect_ratio,
-            deck_typography=deck_typography
+            deck_typography=deck_typography,
+            selected_language=selected_language
         )
         
         # Get slide count from the service

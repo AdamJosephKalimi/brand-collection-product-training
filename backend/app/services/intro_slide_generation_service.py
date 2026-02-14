@@ -19,6 +19,16 @@ from app.services.pinecone_service import pinecone_service
 
 logger = logging.getLogger(__name__)
 
+LANGUAGE_NAMES = {
+    "en": "English",
+    "zh": "Chinese (Simplified)",
+    "fr": "French",
+    "es": "Spanish",
+    "de": "German",
+    "it": "Italian",
+    "pt": "Portuguese",
+}
+
 
 class IntroSlideGenerationService:
     """Service for generating intro slide content using LLM"""
@@ -30,7 +40,15 @@ class IntroSlideGenerationService:
         self.collection_service = collection_service
         self.llm_service = llm_service
         logger.info("IntroSlideGenerationService initialized")
-    
+
+    @staticmethod
+    def _language_instruction(language: str) -> str:
+        """Build a language instruction suffix for LLM prompts. Returns empty string for English."""
+        if language == "en":
+            return ""
+        lang_name = LANGUAGE_NAMES.get(language, language)
+        return f"\n\nIMPORTANT: Generate ALL text content in {lang_name}."
+
     async def generate_intro_slides(
         self, 
         collection_id: str, 
@@ -66,6 +84,10 @@ class IntroSlideGenerationService:
             categories = collection.categories
             settings = collection.settings
             
+            # Determine output language
+            selected_language = settings.selected_language if settings else "en"
+            logger.info(f"Deck output language: {selected_language}")
+
             # Get product names (for product-related slides)
             product_names = []
             if settings.include_core_collection_and_signature_categories_slide:
@@ -84,45 +106,46 @@ class IntroSlideGenerationService:
 
             if settings.include_cover_page_slide:
                 logger.info("Generating cover page slide...")
-                slide = await self._generate_cover_page(brand_name, collection_name, collection_type, year)
+                slide = await self._generate_cover_page(brand_name, collection_name, collection_type, year, language=selected_language)
                 slides.append(slide)
 
             if settings.include_brand_introduction_slide:
                 logger.info("Generating brand introduction slide...")
-                slide = await self._generate_brand_introduction(brand_name, brand_id)
+                slide = await self._generate_brand_introduction(brand_name, brand_id, language=selected_language)
                 slides.append(slide)
 
             if settings.include_brand_history_slide:
                 logger.info("Generating brand history slide...")
-                slide = await self._generate_brand_history(brand_name, brand_id)
+                slide = await self._generate_brand_history(brand_name, brand_id, language=selected_language)
                 slides.append(slide)
 
             if settings.include_brand_values_slide:
                 logger.info("Generating brand values slide...")
-                slide = await self._generate_brand_values(brand_name, brand_id)
+                slide = await self._generate_brand_values(brand_name, brand_id, language=selected_language)
                 slides.append(slide)
 
             if settings.include_brand_personality_slide:
                 logger.info("Generating brand personality slide...")
-                slide = await self._generate_brand_personality(brand_name, brand_id)
+                slide = await self._generate_brand_personality(brand_name, brand_id, language=selected_language)
                 slides.append(slide)
 
             if settings.include_flagship_store_and_experiences_slide:
                 logger.info("Generating flagship stores slide...")
-                slide = await self._generate_flagship_stores(brand_name, brand_id)
+                slide = await self._generate_flagship_stores(brand_name, brand_id, language=selected_language)
                 slides.append(slide)
 
             if settings.include_collection_introduction_slide:
                 logger.info("Generating collection introduction slide...")
                 slide = await self._generate_collection_introduction(
                     brand_name, collection_name, collection_type, year,
-                    brand_id=brand_id, collection_id=collection_id
+                    brand_id=brand_id, collection_id=collection_id,
+                    language=selected_language
                 )
                 slides.append(slide)
 
             if settings.include_core_collection_and_signature_categories_slide:
                 logger.info("Generating core collection slide...")
-                slide = await self._generate_core_collection(brand_name, collection_name, categories, product_names, brand_id)
+                slide = await self._generate_core_collection(brand_name, collection_name, categories, product_names, brand_id, language=selected_language)
                 slides.append(slide)
 
             # 3. Prepare result
@@ -231,11 +254,12 @@ or invent details that are not in this material. Never contradict the documents.
     # ========================================
     
     async def _generate_cover_page(
-        self, 
-        brand_name: str, 
+        self,
+        brand_name: str,
         collection_name: str,
         collection_type: Optional[str],
-        year: Optional[int]
+        year: Optional[int],
+        language: str = "en"
     ) -> Dict[str, Any]:
         """
         Generate cover page slide for the collection presentation.
@@ -267,7 +291,7 @@ Return ONLY valid JSON in this exact format:
     "title": "Main title for the cover (collection name with season/year)",
     "subtitle": "Brand name or collection tagline",
     "tagline": "Short compelling tagline (5-10 words)"
-}}"""
+}}{self._language_instruction(language)}"""
 
             logger.info(f"Calling LLM for cover page: {brand_name} - {collection_name}")
             
@@ -304,7 +328,7 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_brand_introduction(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
+    async def _generate_brand_introduction(self, brand_name: str, brand_id: str = None, language: str = "en") -> Dict[str, Any]:
         """
         Generate brand introduction slide.
 
@@ -357,7 +381,7 @@ Return ONLY valid JSON in this exact format:
     "name_origin": "Meaning or origin of the brand name, if applicable",
     "background": "Brief brand history, only if relevant to understanding the brand"
 }}
-}}"""
+}}{self._language_instruction(language)}"""
 
             logger.info(f"Calling LLM for brand introduction: {brand_name}")
 
@@ -389,7 +413,7 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_brand_history(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
+    async def _generate_brand_history(self, brand_name: str, brand_id: str = None, language: str = "en") -> Dict[str, Any]:
         """
         Generate brand history slide.
 
@@ -457,7 +481,7 @@ Return ONLY valid JSON in this exact format:
         "current_footprint": "Present-day scale, markets, or retail distribution"
     }},
     "philosophical_takeaway": "The deeper cultural, symbolic, or ideological meaning of the brand today"
-}}"""
+}}{self._language_instruction(language)}"""
 
             logger.info(f"Calling LLM for brand history: {brand_name}")
 
@@ -491,7 +515,7 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_brand_values(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
+    async def _generate_brand_values(self, brand_name: str, brand_id: str = None, language: str = "en") -> Dict[str, Any]:
         """
         Generate brand values slide.
 
@@ -529,7 +553,7 @@ Return ONLY valid JSON in this exact format:
             "explanation": "1–2 sentence explanation of how this value is expressed in the brand's products, culture, or philosophy"
         }}
     ]
-}}"""
+}}{self._language_instruction(language)}"""
 
             logger.info(f"Calling LLM for brand values: {brand_name}")
 
@@ -560,7 +584,7 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_brand_personality(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
+    async def _generate_brand_personality(self, brand_name: str, brand_id: str = None, language: str = "en") -> Dict[str, Any]:
         """
         Generate brand personality slide.
 
@@ -604,7 +628,7 @@ Return ONLY valid JSON in this exact format:
             "explanation": "Short explanation connecting to the brand's ethos, creative inspiration, or cultural influence"
         }}
     ]
-}}"""
+}}{self._language_instruction(language)}"""
 
             logger.info(f"Calling LLM for brand personality: {brand_name}")
 
@@ -636,7 +660,7 @@ Return ONLY valid JSON in this exact format:
                 }
             }
     
-    async def _generate_flagship_stores(self, brand_name: str, brand_id: str = None) -> Dict[str, Any]:
+    async def _generate_flagship_stores(self, brand_name: str, brand_id: str = None, language: str = "en") -> Dict[str, Any]:
         """
         Generate flagship stores & experiences slide.
 
@@ -690,7 +714,7 @@ Return ONLY valid JSON in this exact format:
         }}
     ],
     "alternative_experiences": "If no flagship stores exist: pop-ups, collaborations, or digital flagships (omit if flagship_stores are provided)"
-}}"""
+}}{self._language_instruction(language)}"""
 
             logger.info(f"Calling LLM for flagship stores: {brand_name}")
 
@@ -729,7 +753,8 @@ Return ONLY valid JSON in this exact format:
         collection_name: str,
         categories: List[Dict[str, Any]],
         product_names: List[str],
-        brand_id: str = None
+        brand_id: str = None,
+        language: str = "en"
     ) -> Dict[str, Any]:
         """
         Generate core collection & signature categories slide.
@@ -787,7 +812,7 @@ Return ONLY valid JSON in this exact format:
             "iconic_staple": "Iconic staple product in this category (only if truly renowned, otherwise null)"
         }}
     ]
-}}"""
+}}{self._language_instruction(language)}"""
 
             logger.info(f"Calling LLM for core collection: {brand_name} {collection_name}")
 
@@ -826,7 +851,8 @@ Return ONLY valid JSON in this exact format:
         collection_type: Optional[str],
         year: Optional[int],
         brand_id: str = None,
-        collection_id: str = None
+        collection_id: str = None,
+        language: str = "en"
     ) -> Dict[str, Any]:
         """
         Generate collection introduction slide using collection context documents.
@@ -905,7 +931,7 @@ Return ONLY valid JSON in this exact format:
     "A specific key piece BY NAME with details from the reference material",
     "Another specific highlight BY NAME from the reference material"
 ]
-}}"""
+}}{self._language_instruction(language)}"""
 
             logger.info(f"Calling LLM for collection introduction: {brand_name} {collection_name}")
 
