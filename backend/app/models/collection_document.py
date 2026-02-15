@@ -15,6 +15,7 @@ class CollectionDocumentType(str, Enum):
     PURCHASE_ORDER = "purchase_order"
     BRAND_GUIDELINES = "brand_guidelines"
     MARKETING_MATERIALS = "marketing_materials"
+    COLLECTION_CONTEXT = "collection_context"
     OTHER = "other"
 
 
@@ -81,6 +82,7 @@ class CollectionDocumentResponse(BaseModel):
     parsed_at: Optional[datetime]
     structured_products: Optional[List[Dict[str, Any]]]
     extraction_progress: Optional[Dict[str, Any]]
+    status: Optional[str] = None
     uploaded_by: str
     uploaded_at: datetime
     updated_at: datetime

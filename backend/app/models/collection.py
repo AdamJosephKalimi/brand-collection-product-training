@@ -79,6 +79,7 @@ class CollectionSettings(BaseModel):
     include_brand_history_slide: bool = Field(default=True)
     include_brand_personality_slide: bool = Field(default=True)
     include_brand_values_slide: bool = Field(default=True)
+    include_collection_introduction_slide: bool = Field(default=True)
     include_core_collection_and_signature_categories_slide: bool = Field(default=True)
     include_flagship_store_and_experiences_slide: bool = Field(default=True)
     

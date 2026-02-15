@@ -66,3 +66,7 @@ class BrandDocumentResponse(BaseModel):
     uploaded_by: str
     uploaded_at: datetime
     updated_at: datetime
+    # RAG processing fields
+    status: Optional[str] = "uploaded"  # uploaded, processing, processed, failed
+    chunk_count: Optional[int] = None
+    parsed_text_preview: Optional[str] = None  # First 200 chars of parsed text

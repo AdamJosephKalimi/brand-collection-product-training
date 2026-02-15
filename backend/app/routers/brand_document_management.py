@@ -71,6 +71,45 @@ async def upload_brand_document(
         )
 
 
+@router.post("/{brand_id}/documents/{document_id}/process")
+async def process_brand_document(
+    brand_id: str,
+    document_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Process a brand document through the RAG pipeline.
+
+    Parses the document, chunks the text, generates embeddings, and stores
+    vectors in Pinecone for retrieval during intro slide generation.
+
+    **Parameters:**
+    - brand_id: Parent brand ID
+    - document_id: Document to process
+
+    **Pipeline:**
+    1. Download file from Firebase Storage
+    2. Parse text (PDF, DOCX, or TXT)
+    3. Chunk text (500 char chunks, 100 overlap)
+    4. Generate embeddings (text-embedding-3-small)
+    5. Store vectors in Pinecone with brand_id metadata
+
+    **Returns:**
+    - Processing stats: chunk_count, total_characters, status
+    """
+    try:
+        user_id = current_user["uid"]
+        return await brand_document_service.process_document(brand_id, document_id, user_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in process_brand_document endpoint: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process document"
+        )
+
+
 @router.get("/{brand_id}/documents", response_model=List[BrandDocumentResponse])
 async def get_brand_documents(
     brand_id: str,

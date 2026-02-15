@@ -22,6 +22,8 @@ from pptx.dml.color import RGBColor
 
 from app.services.firebase_service import firebase_service
 from app.services.collection_service import collection_service
+from app.services.llm_service import llm_service
+from app.services.intro_slide_generation_service import LANGUAGE_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,8 @@ class PresentationGenerationService:
         self._w_scale = 1.0  # Horizontal scale factor (1.0 for 4:3, 1.333 for 16:9)
         self._h_offset = 0  # Horizontal offset in inches to center 10"-wide content in wider slides
         self._typo = None  # Deck typography settings dict
+        self._language = "en"  # Deck output language
+        self._translations = {}  # {original_string: translated_string}
     
     async def generate_presentation(
         self,
@@ -46,7 +50,8 @@ class PresentationGenerationService:
         user_id: str,
         products_per_slide: int = 1,
         slide_aspect_ratio: str = "16:9",
-        deck_typography: dict = None
+        deck_typography: dict = None,
+        selected_language: str = "en"
     ) -> str:
         """
         Generate complete PowerPoint presentation for a collection.
@@ -57,13 +62,17 @@ class PresentationGenerationService:
             products_per_slide: Number of products per slide (1, 2, or 4)
             slide_aspect_ratio: Slide aspect ratio ("4:3" or "16:9")
             deck_typography: Optional dict with heading/body text style overrides
+            selected_language: Language code for translatable deck content (default "en")
 
         Returns:
             Download URL for the generated presentation
         """
         try:
             logger.info(f"Starting presentation generation for collection: {collection_id}")
-            
+
+            self._language = selected_language
+            self._translations = {}
+
             # 1. Fetch collection data
             collection = await collection_service.get_collection(collection_id, user_id)
             
@@ -170,6 +179,11 @@ class PresentationGenerationService:
                 self._create_flagship_stores_slide(slide_data)
                 slides_generated += 1
                 
+            elif slide_type == 'collection_introduction':
+                logger.info("Creating collection introduction slide...")
+                self._create_collection_introduction_slide(slide_data)
+                slides_generated += 1
+
             elif slide_type == 'core_collection':
                 logger.info("Creating core collection slide...")
                 self._create_core_collection_slide(slide_data)
@@ -262,6 +276,58 @@ class PresentationGenerationService:
                     p.font.color.rgb = self._parse_hex_color(style['font_color'])
                 except (ValueError, IndexError):
                     pass
+
+    def _t(self, text: str) -> str:
+        """Look up a translated string, falling back to the original."""
+        if not text or self._language == "en":
+            return text
+        return self._translations.get(text, text)
+
+    async def _translate_strings(self, strings: list) -> dict:
+        """
+        Batch-translate a list of strings via LLM.
+
+        Args:
+            strings: List of unique strings to translate
+
+        Returns:
+            Dict mapping original string -> translated string
+        """
+        if not strings or self._language == "en":
+            return {}
+
+        lang_name = LANGUAGE_NAMES.get(self._language, self._language)
+        # Deduplicate while preserving order
+        unique = list(dict.fromkeys(s for s in strings if s))
+        if not unique:
+            return {}
+
+        import json as _json
+        prompt = f"""Translate the following strings from English to {lang_name}.
+Return ONLY a JSON object mapping each original English string to its {lang_name} translation.
+Do NOT translate proper nouns (brand names, product names, city names).
+Keep the translations concise and natural.
+
+Strings to translate:
+{_json.dumps(unique, ensure_ascii=False)}
+
+Return ONLY valid JSON like:
+{{
+    "Original string": "Translated string"
+}}"""
+
+        try:
+            result = await llm_service.generate_json_completion(
+                prompt=prompt,
+                temperature=0.3,
+                max_tokens=1000
+            )
+            if isinstance(result, dict):
+                logger.info(f"Translated {len(result)} strings to {lang_name}")
+                return result
+        except Exception as e:
+            logger.warning(f"Batch translation failed: {e}")
+        return {}
 
     def _create_cover_slide(self, data: Dict[str, Any]):
         """
@@ -857,14 +923,144 @@ class PresentationGenerationService:
             p.text = alternative
             p.font.size = Pt(14)
             p.level = 0
-        
+
+        # Safety net: if nothing was written, add a fallback so the slide isn't blank
+        if first_paragraph:
+            brand_name = data.get('title', '').replace('Flagship Stores & Experiences', '').strip()
+            p = tf.paragraphs[0]
+            p.text = "Flagship store and retail experience information is being compiled."
+            p.font.size = Pt(14)
+            p.level = 0
+            logger.warning(f"Flagship stores slide had no content to render — fallback used")
+
         self._apply_body_font(tf)
         logger.info("Flagship stores slide created (using Title and Content layout)")
     
+    def _create_collection_introduction_slide(self, data: Dict[str, Any]):
+        """
+        Create collection introduction slide using Title and Content layout.
+
+        Args:
+            data: Slide data containing title, content with collection_story, key_themes, highlights
+        """
+        slide = self.prs.slides.add_slide(self.title_content_layout)
+        content = data.get('content', {})
+
+        # Use title placeholder
+        title = slide.shapes.title
+        title.text = data.get('title', 'Collection Introduction')
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
+        # Use content placeholder
+        content_placeholder = slide.placeholders[1]
+        tf = content_placeholder.text_frame
+
+        first_paragraph = True
+
+        # Collection story section
+        story = content.get('collection_story', {})
+        if isinstance(story, dict):
+            narrative = story.get('narrative', '')
+            creative_direction = story.get('creative_direction', '')
+
+            if narrative:
+                p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+                first_paragraph = False
+                p.text = narrative
+                p.font.size = Pt(14)
+                p.level = 0
+
+            if creative_direction:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = "Creative Direction: "
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run = p.add_run()
+                run.text = creative_direction
+                run.font.size = Pt(14)
+                p.level = 0
+
+        # Key themes section
+        themes = content.get('key_themes', {})
+        if themes:
+            color_palette = themes.get('color_palette', '')
+            prints = themes.get('prints_and_patterns', '')
+            silhouettes = themes.get('silhouettes', '')
+
+            if color_palette or prints or silhouettes:
+                p = tf.add_paragraph()
+                p.text = ""  # Spacing
+
+            if color_palette:
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = "Color Palette: "
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run = p.add_run()
+                run.text = color_palette
+                run.font.size = Pt(14)
+                p.level = 0
+
+            if prints:
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = "Prints & Patterns: "
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run = p.add_run()
+                run.text = prints
+                run.font.size = Pt(14)
+                p.level = 0
+
+            if silhouettes:
+                p = tf.add_paragraph()
+                run = p.add_run()
+                run.text = "Silhouettes: "
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run = p.add_run()
+                run.text = silhouettes
+                run.font.size = Pt(14)
+                p.level = 0
+
+        # Highlights section
+        highlights = content.get('highlights', [])
+        if highlights:
+            p = tf.add_paragraph()
+            p.text = ""  # Spacing
+
+            p = tf.add_paragraph()
+            p.text = "Collection Highlights:"
+            p.font.bold = True
+            p.font.size = Pt(14)
+            p.level = 0
+
+            for highlight in highlights:
+                p = tf.add_paragraph()
+                p.text = highlight
+                p.font.size = Pt(13)
+                p.level = 1
+
+        # Fallback if nothing rendered
+        if first_paragraph:
+            p = tf.paragraphs[0]
+            p.text = "Collection introduction details are being compiled."
+            p.font.size = Pt(14)
+            p.level = 0
+            logger.warning("Collection introduction slide had no content — fallback used")
+
+        self._apply_body_font(tf)
+        logger.info("Collection introduction slide created (using Title and Content layout)")
+
     def _create_core_collection_slide(self, data: Dict[str, Any]):
         """
         Create core collection slide using Title and Content layout.
-        
+
         Args:
             data: Slide data containing title, content with signature_categories (headline, description, iconic_staple)
         """
@@ -960,7 +1156,10 @@ class PresentationGenerationService:
                 item_data['item_id'] = doc.id
                 items.append(item_data)
             
-            logger.info(f"Fetched {len(items)} items for collection {collection_id}")
+            # Filter out excluded items (included defaults to True if not set)
+            items = [item for item in items if item.get('included', True) is not False]
+
+            logger.info(f"Fetched {len(items)} included items for collection {collection_id}")
             return items
             
         except Exception as e:
@@ -1001,6 +1200,18 @@ class PresentationGenerationService:
             items_by_category[category].append(item)
 
         logger.info(f"Grouped {len(items)} items into {len(items_by_category)} categories")
+
+        # Batch-translate categories, subcategories, and sales talk if non-English
+        if self._language != "en":
+            translatable = []
+            for item in items:
+                if item.get('category'):
+                    translatable.append(item['category'])
+                if item.get('subcategory'):
+                    translatable.append(item['subcategory'])
+                if item.get('sales_talk'):
+                    translatable.append(item['sales_talk'].strip())
+            self._translations = await self._translate_strings(translatable)
 
         # Sort categories by display_order (falls back to alphabetical for unknown categories)
         sorted_categories = sorted(
@@ -1053,7 +1264,9 @@ class PresentationGenerationService:
             category: Category name
         """
         slide = self.prs.slides.add_slide(self.blank_layout)
-        
+
+        display_category = self._t(category)
+
         # Category title - centered
         title_box = slide.shapes.add_textbox(
             left=Inches(1 * self._w_scale),
@@ -1062,15 +1275,15 @@ class PresentationGenerationService:
             height=Inches(1)
         )
         tf = title_box.text_frame
-        tf.text = category
-        
+        tf.text = display_category
+
         # Format title
         p = tf.paragraphs[0]
         p.font.bold = True
         p.alignment = PP_ALIGN.CENTER
         self._apply_typo(p.font, 'heading', default_size=48)
 
-        logger.info(f"Category divider slide created: {category}")
+        logger.info(f"Category divider slide created: {display_category}")
     
     def _download_image_as_stream(self, image_dict: dict) -> Optional[BytesIO]:
         """
@@ -1128,8 +1341,8 @@ class PresentationGenerationService:
             return
 
         first = items[0]
-        category = first.get('category', '')
-        subcategory = first.get('subcategory', '')
+        category = self._t(first.get('category', ''))
+        subcategory = self._t(first.get('subcategory', ''))
 
         if category and subcategory:
             title_text = f"{category} - {subcategory}"
@@ -1140,17 +1353,89 @@ class PresentationGenerationService:
 
         title_box = slide.shapes.add_textbox(
             left=Inches(0.4),
-            top=Inches(0.25),
-            width=Inches(5),
-            height=Inches(0.4)
+            top=Inches(0.15),
+            width=Inches(8),
+            height=Inches(0.6)
         )
         tf = title_box.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = title_text
         p.font.bold = True
-        p.font.italic = True
-        self._apply_typo(p.font, 'heading', default_size=11)
+        self._apply_typo(p.font, 'heading', default_size=18)
+
+    def _add_highlight_star(self, slide, image_left, image_top):
+        """
+        Add a grey star icon to the top-left of a product image for highlighted items.
+
+        Args:
+            slide: The slide object
+            image_left: Left position of the product image (Emu)
+            image_top: Top position of the product image (Emu)
+        """
+        star_size = Inches(0.3)
+        star_box = slide.shapes.add_textbox(
+            left=image_left - Inches(0.35),
+            top=image_top,
+            width=star_size,
+            height=star_size
+        )
+        tf = star_box.text_frame
+        tf.word_wrap = False
+        p = tf.paragraphs[0]
+        p.text = "\u2605"  # Black star
+        p.font.size = Pt(16)
+        p.font.color.rgb = RGBColor(0x99, 0x99, 0x99)  # Neutral grey
+        p.alignment = PP_ALIGN.CENTER
+
+    def _add_sales_talk_below(self, slide, tf, item: dict, details_left,
+                              details_top, image_width, font_size: int = 12):
+        """
+        Add sales talk in a separate text box positioned right below the
+        existing details content. Width matches the image.
+
+        Estimates the rendered height of paragraphs in the details text
+        frame to calculate the vertical position.
+
+        Args:
+            slide: The slide object
+            tf: The details text frame (used to count paragraphs)
+            item: Item dictionary
+            details_left: Left position of the details text box
+            details_top: Top position of the details text box (in inches)
+            image_width: Width to constrain the sales talk to
+            font_size: Font size in points
+        """
+        sales_talk = (item.get('sales_talk') or '').strip()
+        if not sales_talk:
+            return
+        sales_talk = self._t(sales_talk)
+
+        # Estimate content height from paragraphs in the text frame
+        total_height_pt = 0
+        for p in tf.paragraphs:
+            if p.font.size:
+                total_height_pt += p.font.size.pt * 1.3
+            else:
+                total_height_pt += 8  # empty/spacing paragraph
+        content_height_inches = total_height_pt / 72.0
+
+        sales_top = details_top + content_height_inches
+
+        box = slide.shapes.add_textbox(
+            left=details_left,
+            top=Inches(sales_top),
+            width=image_width,
+            height=Inches(0.5)
+        )
+        stf = box.text_frame
+        stf.word_wrap = True
+        p = stf.paragraphs[0]
+        p.text = sales_talk
+        p.font.bold = True
+        p.font.size = Pt(font_size)
+        p.alignment = PP_ALIGN.CENTER
+        self._apply_body_font(stf)
 
     def _create_1up_product_slide(self, item: dict):
         """
@@ -1201,7 +1486,11 @@ class PresentationGenerationService:
                     logger.debug(f"Image added for product: {product_name}")
                 except Exception as e:
                     logger.warning(f"Failed to add image to slide: {e}")
-        
+
+        # Add highlight star if item is highlighted
+        if item.get('highlighted_item'):
+            self._add_highlight_star(slide, Inches(0.75 * self._w_scale), Inches(1.5))
+
         # Show placeholder if no image was added
         if not image_added:
             image_box = slide.shapes.add_textbox(
@@ -1305,6 +1594,15 @@ class PresentationGenerationService:
             p.font.size = Pt(11)
         
         self._apply_body_font(tf)
+
+        self._add_sales_talk_below(
+            slide, tf, item,
+            details_left=Inches(5.5 * self._w_scale),
+            details_top=1.0,
+            image_width=Inches(3.5),
+            font_size=16
+        )
+
         logger.info(f"1-up product slide created: {product_name}")
 
     def _create_2up_product_slide(self, items: list):
@@ -1359,7 +1657,11 @@ class PresentationGenerationService:
                         image_added = True
                     except Exception as e:
                         logger.warning(f"Failed to add image: {e}")
-            
+
+            # Add highlight star if item is highlighted
+            if item.get('highlighted_item'):
+                self._add_highlight_star(slide, image_left, image_top)
+
             # Show placeholder if no image
             if not image_added:
                 image_box = slide.shapes.add_textbox(
@@ -1374,7 +1676,7 @@ class PresentationGenerationService:
                 p.font.size = Pt(12)
                 p.font.italic = True
                 p.alignment = PP_ALIGN.CENTER
-            
+
             # Product details (right side of column)
             details_left = Inches(2.75 * self._w_scale + column_offset)
             details_width = Inches(2 * self._w_scale)
@@ -1470,6 +1772,14 @@ class PresentationGenerationService:
         
             self._apply_body_font(tf)
 
+            self._add_sales_talk_below(
+                slide, tf, item,
+                details_left=details_left,
+                details_top=1.0,
+                image_width=image_width,
+                font_size=12
+            )
+
         logger.info(f"2-up product slide created with {len(items)} item(s)")
 
     def _create_3up_product_slide(self, items: list):
@@ -1530,6 +1840,10 @@ class PresentationGenerationService:
                     except Exception as e:
                         logger.warning(f"Failed to add image: {e}")
 
+            # Add highlight star if item is highlighted
+            if item.get('highlighted_item'):
+                self._add_highlight_star(slide, col_left, image_top)
+
             # Show placeholder if no image
             if not image_added:
                 image_box = slide.shapes.add_textbox(
@@ -1544,11 +1858,11 @@ class PresentationGenerationService:
                 p.font.size = Pt(11)
                 p.font.italic = True
                 p.alignment = PP_ALIGN.CENTER
-            
+
             # Bottom row: Product details
             details_top = Inches(4.5)
-            details_height = Inches(3)  # 3" height
-            
+            details_height = Inches(3)
+
             details_box = slide.shapes.add_textbox(
                 left=col_left,
                 top=details_top,
@@ -1635,6 +1949,14 @@ class PresentationGenerationService:
         
             self._apply_body_font(tf)
 
+            self._add_sales_talk_below(
+                slide, tf, item,
+                details_left=col_left,
+                details_top=4.5,
+                image_width=Inches(2.5),
+                font_size=10
+            )
+
         logger.info(f"3-up product slide created with {len(items)} item(s)")
 
     def _create_4up_product_slide(self, items: list):
@@ -1694,7 +2016,11 @@ class PresentationGenerationService:
                         image_added = True
                     except Exception as e:
                         logger.warning(f"Failed to add image: {e}")
-            
+
+            # Add highlight star if item is highlighted
+            if item.get('highlighted_item'):
+                self._add_highlight_star(slide, col_left, image_top)
+
             # Show placeholder if no image
             if not image_added:
                 image_box = slide.shapes.add_textbox(
@@ -1709,10 +2035,10 @@ class PresentationGenerationService:
                 p.font.size = Pt(10)
                 p.font.italic = True
                 p.alignment = PP_ALIGN.CENTER
-            
+
             # Bottom row: Product details
             details_top = Inches(4)
-            details_height = Inches(3.5)  # Extended to 7.5" from top
+            details_height = Inches(3.5)
             
             details_box = slide.shapes.add_textbox(
                 left=col_left,
@@ -1799,6 +2125,14 @@ class PresentationGenerationService:
                 p.font.size = Pt(7)
         
             self._apply_body_font(tf)
+
+            self._add_sales_talk_below(
+                slide, tf, item,
+                details_left=col_left,
+                details_top=4.0,
+                image_width=Inches(1.8),
+                font_size=9
+            )
 
         logger.info(f"4-up product slide created with {len(items)} item(s)")
 
