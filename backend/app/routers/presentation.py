@@ -30,6 +30,10 @@ async def generate_presentation(
         le=4,
         description="Number of products to display per slide (1, 2, 3, or 4)"
     ),
+    slide_aspect_ratio: str = Query(
+        default="16:9",
+        description="Slide aspect ratio: '4:3' (standard) or '16:9' (widescreen)"
+    ),
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
@@ -64,17 +68,42 @@ async def generate_presentation(
         # Validate products_per_slide
         if products_per_slide not in [1, 2, 3, 4]:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"products_per_slide must be 1, 2, 3, or 4. Got: {products_per_slide}"
+            )
+
+        # Validate slide_aspect_ratio
+        if slide_aspect_ratio not in ["4:3", "16:9"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"slide_aspect_ratio must be '4:3' or '16:9'. Got: {slide_aspect_ratio}"
             )
         
         logger.info(f"Generating presentation for collection: {collection_id}, user: {user_id}, products_per_slide: {products_per_slide}")
-        
+
+        # Fetch brand typography settings
+        collection = await collection_service.get_collection(collection_id, user_id)
+        deck_typography = None
+        if collection and collection.brand_id:
+            try:
+                brand = await brand_service.get_brand(collection.brand_id, user_id)
+                if brand and hasattr(brand, 'deck_typography') and brand.deck_typography:
+                    dt = brand.deck_typography
+                    if isinstance(dt, dict):
+                        deck_typography = dt
+                    else:
+                        deck_typography = dt.model_dump(exclude_none=True)
+                    logger.info(f"Brand typography for presentation: {deck_typography}")
+            except Exception as e:
+                logger.warning(f"Could not fetch brand typography: {e}")
+
         # Generate presentation
         download_url = await presentation_generation_service.generate_presentation(
             collection_id=collection_id,
             user_id=user_id,
-            products_per_slide=products_per_slide
+            products_per_slide=products_per_slide,
+            slide_aspect_ratio=slide_aspect_ratio,
+            deck_typography=deck_typography
         )
         
         # Get slide count from the service

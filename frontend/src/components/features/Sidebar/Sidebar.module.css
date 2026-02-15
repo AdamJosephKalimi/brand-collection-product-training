@@ -82,6 +82,37 @@
   color: var(--text-brand);
 }
 
+/* Brand Actions */
+.brandActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Edit Button */
+.editButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-grey-40);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.editButton:hover {
+  color: var(--text-brand);
+}
+
+.editButton svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* Delete Button */
 .deleteButton {
   display: flex;

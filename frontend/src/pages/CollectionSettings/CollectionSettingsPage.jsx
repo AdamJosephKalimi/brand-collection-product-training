@@ -17,6 +17,7 @@ import PillCounter from '../../components/ui/PillCounter/PillCounter';
 import ViewToggle from '../../components/ui/ViewToggle/ViewToggle';
 import SearchBar from '../../components/ui/SearchBar/SearchBar';
 import LayoutOptions from '../../components/features/LayoutOptions/LayoutOptions';
+import AspectRatioOptions from '../../components/features/AspectRatioOptions/AspectRatioOptions';
 import Footer from '../../components/features/Footer/Footer';
 import { useBrands } from '../../hooks/useBrands';
 import { useCollection } from '../../hooks/useCollection';
@@ -695,7 +696,8 @@ function CollectionSettingsPage() {
     try {
       const token = await import('../../utils/auth').then(m => m.getAuthToken());
       const productsPerSlide = collectionData?.settings?.products_per_slide || 1;
-      
+      const aspectRatio = collectionData?.settings?.slide_aspect_ratio || '16:9';
+
       // Step 1: Generate intro slides first
       const introResponse = await fetch(
         `${API_HOST}/collections/${collectionId}/intro-slides/generate`,
@@ -718,7 +720,7 @@ function CollectionSettingsPage() {
       
       // Step 2: Generate presentation
       const response = await fetch(
-        `${API_BASE_URL}/collections/${collectionId}/presentation/generate?products_per_slide=${productsPerSlide}`,
+        `${API_BASE_URL}/collections/${collectionId}/presentation/generate?products_per_slide=${productsPerSlide}&slide_aspect_ratio=${encodeURIComponent(aspectRatio)}`,
         {
           method: 'POST',
           headers: {
@@ -1120,6 +1122,39 @@ function CollectionSettingsPage() {
     }
   };
 
+  // Aspect ratio selection - synced with collection.settings.slide_aspect_ratio in DB
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState('16:9');
+
+  // Initialize aspect ratio from collection settings when data loads
+  useEffect(() => {
+    if (collectionData?.settings?.slide_aspect_ratio) {
+      setSelectedAspectRatio(collectionData.settings.slide_aspect_ratio);
+    }
+  }, [collectionData?.settings?.slide_aspect_ratio]);
+
+  // Handle aspect ratio change with optimistic update and DB save
+  const handleAspectRatioChange = async (ratio) => {
+    const previousRatio = selectedAspectRatio;
+
+    // Optimistic update
+    setSelectedAspectRatio(ratio);
+
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: {
+          settings: {
+            slide_aspect_ratio: ratio
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Failed to save aspect ratio setting:', error);
+      // Revert on error
+      setSelectedAspectRatio(previousRatio);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {/* Top Navigation */}
@@ -1144,6 +1179,7 @@ function CollectionSettingsPage() {
           onNewBrand={() => setIsNewBrandModalVisible(true)}
           onNewCollection={(brandId) => setNewCollectionBrandId(brandId)}
           onDeleteBrand={(brandId, brandName) => setDeleteModal({ isVisible: true, type: 'brand', id: brandId, name: brandName })}
+          onEditBrand={(brandId) => navigate('/brands/' + brandId + '/edit')}
           onDeleteCollection={(collectionId, collectionName) => setDeleteModal({ isVisible: true, type: 'collection', id: collectionId, name: collectionName })}
         />
         
@@ -1326,12 +1362,6 @@ function CollectionSettingsPage() {
               }}>
                 <SectionHeader
                   title="Upload Collection Assets"
-                  buttonText="Process Documents"
-                  onButtonClick={() => {
-                    console.log('[CollectionSettingsPage] Process Documents clicked');
-                    processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds });
-                  }}
-                  buttonDisabled={!shouldEnableProcessButton}
                 />
                 
                 {/* Processing Progress - shown during processing, failed, or cancelled */}
@@ -1537,6 +1567,20 @@ function CollectionSettingsPage() {
                         }
                       }}
                     />
+                  </div>
+
+                  {/* Process Documents - at bottom so users can see it after scrolling */}
+                  <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 'var(--spacing-2)' }}>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        console.log('[CollectionSettingsPage] Process Documents clicked');
+                        processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds });
+                      }}
+                      disabled={!shouldEnableProcessButton}
+                    >
+                      Process Documents
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -1871,6 +1915,12 @@ function CollectionSettingsPage() {
               />
             </div>
           </div>
+
+          {/* Slide Aspect Ratio Section */}
+          <AspectRatioOptions
+            selectedRatio={selectedAspectRatio}
+            onRatioChange={handleAspectRatioChange}
+          />
 
           {/* Deck Layout Options Section */}
           <LayoutOptions
@@ -2231,6 +2281,7 @@ function CollectionSettingsPage() {
                         itemCount={categoryData.items.length}
                         filters={filters}
                         onFilterClick={(subName) => handleSubcategoryFilterClick(categoryName, subName)}
+                        onGroupBySubcategory={() => handleGroupBySubcategory(categoryName, categoryData.items)}
                         defaultExpanded={true}
                       >
                         <SortableContext
@@ -2424,7 +2475,7 @@ function CollectionSettingsPage() {
 
       {/* Reorder Categories Modal */}
       <ReorderCategoriesModal
-        categories={collectionData?.categories || []}
+        categories={(collectionData?.categories || []).filter(cat => items.some(item => item.category === cat.name))}
         isVisible={isReorderCategoriesOpen}
         onSave={handleSaveCategoryOrder}
         onClose={() => setIsReorderCategoriesOpen(false)}

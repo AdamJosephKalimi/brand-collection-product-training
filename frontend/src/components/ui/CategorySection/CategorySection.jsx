@@ -21,6 +21,7 @@ function CategorySection({
   itemCount = 0,
   filters = [],
   onFilterClick,
+  onGroupBySubcategory,
   defaultExpanded = true,
   onToggle,
   children,
@@ -93,16 +94,31 @@ function CategorySection({
           )}
         </div>
 
-        {/* Right side - Filters (categorized only) */}
-        {type === 'categorized' && filters.length > 0 && (
+        {/* Right side - Filters and actions (categorized only) */}
+        {type === 'categorized' && (filters.length > 0 || onGroupBySubcategory) && (
           <div className={styles.filters}>
+            {/* Group by Subcategory action */}
+            {onGroupBySubcategory && filters.length > 1 && (
+              <button
+                className={`${styles.filterButton} ${styles.groupAction}`}
+                onClick={onGroupBySubcategory}
+                title="Group items by subcategory"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: 4 }}>
+                  <path d="M1.5 3H10.5M1.5 6H7.5M1.5 9H5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Group
+              </button>
+            )}
             {/* View All button */}
-            <button
-              className={`${styles.filterButton} ${styles.viewAll} ${!filters.some(f => f.active) ? styles.active : ''}`}
-              onClick={() => onFilterClick && onFilterClick(null)}
-            >
-              View All
-            </button>
+            {filters.length > 0 && (
+              <button
+                className={`${styles.filterButton} ${styles.viewAll} ${!filters.some(f => f.active) ? styles.active : ''}`}
+                onClick={() => onFilterClick && onFilterClick(null)}
+              >
+                View All
+              </button>
+            )}
             {filters.map((filter, index) => (
               <button
                 key={index}

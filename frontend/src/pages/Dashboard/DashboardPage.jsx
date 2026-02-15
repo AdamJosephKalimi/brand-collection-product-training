@@ -96,6 +96,7 @@ function DashboardPage() {
           onNewBrand={() => setIsNewBrandModalVisible(true)}
           onNewCollection={(brandId) => setNewCollectionBrandId(brandId)}
           onDeleteBrand={(brandId, brandName) => setDeleteModal({ isVisible: true, type: 'brand', id: brandId, name: brandName })}
+          onEditBrand={(brandId) => navigate('/brands/' + brandId + '/edit')}
           onDeleteCollection={(collectionId, collectionName) => setDeleteModal({ isVisible: true, type: 'collection', id: collectionId, name: collectionName })}
         />
         
