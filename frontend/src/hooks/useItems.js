@@ -113,45 +113,45 @@ export const useCollectionItems = (collectionId, options = {}) => {
  */
 export const useUpdateItem = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ collectionId, itemId, updateData }) => 
+    mutationFn: ({ collectionId, itemId, updateData }) =>
       updateItem(collectionId, itemId, updateData),
-    
+
     onMutate: async ({ collectionId, itemId, updateData }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['collectionItems', collectionId] });
-      
+
       // Snapshot the previous value
       const previousItems = queryClient.getQueryData(['collectionItems', collectionId]);
-      
+
       // Optimistically update the cache
       queryClient.setQueryData(['collectionItems', collectionId], (old) => {
         if (!old) return old;
-        return old.map(item => 
-          item.item_id === itemId 
+        return old.map(item =>
+          item.item_id === itemId
             ? { ...item, ...updateData }
             : item
         );
       });
-      
+
       // Return context with the previous value
       return { previousItems };
     },
-    
+
     onError: (error, variables, context) => {
       // Rollback on error
       if (context?.previousItems) {
         queryClient.setQueryData(
-          ['collectionItems', variables.collectionId], 
+          ['collectionItems', variables.collectionId],
           context.previousItems
         );
       }
     },
-    
-    onSettled: (data, error, variables) => {
-      // Refetch to ensure cache is in sync
-      queryClient.invalidateQueries({ queryKey: ['collectionItems', variables.collectionId] });
+
+    onSuccess: () => {
+      // Don't invalidate — trust the optimistic update
+      // The next natural refetch (staleTime: 5min) will sync if needed
     }
   });
 };
