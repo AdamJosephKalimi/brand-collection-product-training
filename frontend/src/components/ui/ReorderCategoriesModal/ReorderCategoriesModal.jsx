@@ -35,8 +35,8 @@ function SortableCategoryRow({ id, name, index }) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className={styles.categoryRow}>
-      <div className={styles.dragHandle} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} className={styles.categoryRow} {...attributes} {...listeners}>
+      <div className={styles.dragHandle}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M4 5H12M4 8H12M4 11H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>

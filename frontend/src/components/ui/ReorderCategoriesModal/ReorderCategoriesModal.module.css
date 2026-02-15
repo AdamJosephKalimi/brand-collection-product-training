@@ -111,6 +111,11 @@
   border: 1px solid var(--border-medium);
   border-radius: var(--border-radius-sm);
   transition: background-color 0.15s ease;
+  cursor: grab;
+}
+
+.categoryRow:active {
+  cursor: grabbing;
 }
 
 .categoryRow:hover {
@@ -125,13 +130,9 @@
   width: 20px;
   height: 20px;
   color: var(--color-grey-40);
-  cursor: grab;
   flex-shrink: 0;
 }
 
-.dragHandle:active {
-  cursor: grabbing;
-}
 
 
 /* Category Index */
