@@ -22,7 +22,8 @@ app = FastAPI(
 # Configure CORS
 origins = [
     "http://localhost:3000",  # Local development
-    "https://prokoapp.netlify.app",  # Production frontend
+    "https://prokoapp.netlify.app",  # Production frontend (legacy)
+    "https://app.proko.ai",  # Production frontend
 ]
 
 app.add_middleware(
