@@ -55,7 +55,7 @@ function BrandSection({
             slideCount={deck.slide_count}
             productCount={deck.product_count}
             onEditClick={onEditDeck}
-            onDownloadClick={onDownloadDeck}
+            onDownloadClick={(collectionId) => onDownloadDeck?.(collectionId, deck.collection_name)}
             isDownloading={downloadingId === deck.collection_id}
           />
         ))}

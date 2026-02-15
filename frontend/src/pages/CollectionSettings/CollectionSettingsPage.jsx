@@ -861,14 +861,24 @@ function CollectionSettingsPage() {
         setDeckDownloadUrl(data.download_url);
         setDeckGenerationStatus('completed');
         setDeckGenerationPhase('');
-        
-        // Auto-trigger download
-        const link = document.createElement('a');
-        link.href = data.download_url;
-        link.download = `${collectionData?.name || 'collection'}_training_deck.pptx`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+
+        // Auto-trigger download via fetch+blob so filename is respected
+        const deckName = collectionData?.name || 'Training_Deck';
+        try {
+          const dlResponse = await fetch(data.download_url);
+          const blob = await dlResponse.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = `${deckName}.pptx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(blobUrl);
+        } catch {
+          // Fallback: open the URL directly if blob download fails
+          window.open(data.download_url, '_blank');
+        }
       } else {
         throw new Error('No download URL returned');
       }
@@ -2808,17 +2818,35 @@ function CollectionSettingsPage() {
                     Deck Successfully Generated
                   </h3>
                   {deckDownloadUrl && (
-                    <a 
-                      href={deckDownloadUrl}
-                      download
+                    <button
+                      onClick={async () => {
+                        try {
+                          const dlResponse = await fetch(deckDownloadUrl);
+                          const blob = await dlResponse.blob();
+                          const blobUrl = window.URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = blobUrl;
+                          link.download = `${collectionData?.name || 'Training_Deck'}.pptx`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          window.URL.revokeObjectURL(blobUrl);
+                        } catch {
+                          window.open(deckDownloadUrl, '_blank');
+                        }
+                      }}
                       style={{
                         color: 'var(--color-brand-wine)',
                         textDecoration: 'underline',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0
                       }}
                     >
                       Click here if download didn't start automatically
-                    </a>
+                    </button>
                   )}
                 </div>
               )}

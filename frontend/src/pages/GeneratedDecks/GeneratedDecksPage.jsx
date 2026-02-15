@@ -69,10 +69,10 @@ function GeneratedDecksPage() {
     navigate(`/collection-settings/${collectionId}`);
   };
 
-  const handleDownloadDeck = async (collectionId) => {
+  const handleDownloadDeck = async (collectionId, deckName) => {
     setDownloadingId(collectionId);
     try {
-      await downloadMutation.mutateAsync(collectionId);
+      await downloadMutation.mutateAsync({ collectionId, deckName });
     } catch (err) {
       console.error('Download failed:', err);
     } finally {
