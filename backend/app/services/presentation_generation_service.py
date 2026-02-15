@@ -988,10 +988,11 @@ class PresentationGenerationService:
             logger.warning("No items found for product slides")
             return
 
-        # Sort items by display_order within each category
-        items.sort(key=lambda x: x.get('display_order', 0))
+        # Sort by category (alphabetical, nulls last) then display_order
+        # Matches item_service.get_collection_items sort order
+        items.sort(key=lambda x: (x.get('category') or 'zzz', x.get('display_order', 0)))
 
-        # Group items by category
+        # Group items by category (preserves sort order within each group)
         items_by_category = {}
         for item in items:
             category = item.get('category', 'Uncategorized')
