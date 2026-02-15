@@ -157,6 +157,7 @@ function CollectionSettingsPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
   
   // Track which section is currently uploading
   const [uploadingSection, setUploadingSection] = useState(null);
@@ -476,6 +477,21 @@ function CollectionSettingsPage() {
   const [activeSubcategoryFilters, setActiveSubcategoryFilters] = useState({});
   // Collection Items - Selected items for bulk actions
   const [selectedItems, setSelectedItems] = useState(new Set());
+  // Bulk category modal state
+  const [bulkCategoryModalOpen, setBulkCategoryModalOpen] = useState(false);
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkSubcategory, setBulkSubcategory] = useState('');
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  // Toast notification
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+  const toastTimerRef = React.useRef(null);
+  const showToast = (message) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage(message);
+    setToastVisible(true);
+    toastTimerRef.current = setTimeout(() => setToastVisible(false), 3000);
+  };
   // Reorder Categories modal
   const [isReorderCategoriesOpen, setIsReorderCategoriesOpen] = useState(false);
   
@@ -584,7 +600,17 @@ function CollectionSettingsPage() {
       label: cat.name
     }));
   }, [collectionData?.categories]);
-  
+
+  // Subcategory options for bulk category modal
+  const bulkSubcategoryOptions = React.useMemo(() => {
+    if (!bulkCategory || !collectionData?.categories) return [];
+    const cat = collectionData.categories.find(c => c.name === bulkCategory);
+    return (cat?.subcategories || []).map(sub => ({
+      value: sub.name,
+      label: sub.name
+    }));
+  }, [bulkCategory, collectionData?.categories]);
+
   // Handle item update (highlight, include, category, subcategory)
   const handleItemUpdate = (itemId, updateData) => {
     updateItemMutation.mutate({
@@ -593,7 +619,57 @@ function CollectionSettingsPage() {
       updateData
     });
   };
-  
+
+  // Handle bulk action Apply button
+  const handleBulkApply = async () => {
+    if (bulkAction === 'none' || selectedItems.size === 0) return;
+
+    if (bulkAction === 'category') {
+      setBulkCategoryModalOpen(true);
+      return;
+    }
+
+    setBulkActionLoading(true);
+    const included = bulkAction === 'include';
+    const count = selectedItems.size;
+    for (const itemId of selectedItems) {
+      handleItemUpdate(itemId, { included });
+    }
+    showToast(`${count} item${count !== 1 ? 's' : ''} ${included ? 'included' : 'excluded'}`);
+    setBulkAction('none');
+    setBulkActionLoading(false);
+    // Sync cache with server after all mutations settle
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['collectionItems', collectionId] });
+    }, 1000);
+  };
+
+  // Handle bulk category modal confirm
+  const handleBulkCategoryConfirm = async () => {
+    if (!bulkCategory || selectedItems.size === 0) return;
+
+    setBulkActionLoading(true);
+    const updateData = {
+      category: bulkCategory,
+      subcategory: bulkSubcategory || ''
+    };
+    const count = selectedItems.size;
+    const label = bulkSubcategory ? `${bulkCategory} / ${bulkSubcategory}` : bulkCategory;
+    for (const itemId of selectedItems) {
+      handleItemUpdate(itemId, updateData);
+    }
+    setBulkCategoryModalOpen(false);
+    setBulkCategory('');
+    setBulkSubcategory('');
+    setBulkAction('none');
+    setBulkActionLoading(false);
+    showToast(`${count} item${count !== 1 ? 's' : ''} moved to ${label}`);
+    // Sync cache with server after all mutations settle
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['collectionItems', collectionId] });
+    }, 1000);
+  };
+
   // Handle subcategory filter click
   const handleSubcategoryFilterClick = (categoryName, subcategoryName) => {
     setActiveSubcategoryFilters(prev => {
@@ -618,28 +694,28 @@ function CollectionSettingsPage() {
   // Handle drag end for reordering items within a category
   const handleDragEnd = (event, categoryName, categoryItems) => {
     const { active, over } = event;
-    
+
     if (!over || active.id === over.id) {
       return;
     }
-    
+
     // Find the indices within the category items
     const oldIndex = categoryItems.findIndex(item => item.item_id === active.id);
     const newIndex = categoryItems.findIndex(item => item.item_id === over.id);
-    
+
     if (oldIndex === -1 || newIndex === -1) {
       return;
     }
-    
+
     // Reorder the category items
     const reorderedCategoryItems = arrayMove(categoryItems, oldIndex, newIndex);
-    
+
     // Update display_order for reordered items
     const updatedCategoryItems = reorderedCategoryItems.map((item, index) => ({
       ...item,
       display_order: index
     }));
-    
+
     // Update local state immediately (instant, no delay)
     setLocalItems(prevItems => {
       // Replace items in this category with reordered ones
@@ -653,13 +729,13 @@ function CollectionSettingsPage() {
         return (a.display_order || 0) - (b.display_order || 0);
       });
     });
-    
+
     // Create the order mapping for API
     const itemOrders = updatedCategoryItems.map(item => ({
       item_id: item.item_id,
       display_order: item.display_order
     }));
-    
+
     // Fire API call (no optimistic update needed, local state already updated)
     reorderItemsMutation.mutate({
       collectionId,
@@ -785,14 +861,24 @@ function CollectionSettingsPage() {
         setDeckDownloadUrl(data.download_url);
         setDeckGenerationStatus('completed');
         setDeckGenerationPhase('');
-        
-        // Auto-trigger download
-        const link = document.createElement('a');
-        link.href = data.download_url;
-        link.download = `${collectionData?.name || 'collection'}_training_deck.pptx`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+
+        // Auto-trigger download via fetch+blob so filename is respected
+        const deckName = collectionData?.name || 'Training_Deck';
+        try {
+          const dlResponse = await fetch(data.download_url);
+          const blob = await dlResponse.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = `${deckName}.pptx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(blobUrl);
+        } catch {
+          // Fallback: open the URL directly if blob download fails
+          window.open(data.download_url, '_blank');
+        }
       } else {
         throw new Error('No download URL returned');
       }
@@ -1205,12 +1291,7 @@ function CollectionSettingsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {/* Top Navigation */}
-      <TopNav
-        links={navLinks}
-        logoText="Proko"
-        userAvatarUrl="https://via.placeholder.com/32"
-        userName="User"
-      />
+      <TopNav links={navLinks} />
       
       {/* Main Layout: Sidebar + Content */}
       <div style={{ display: 'flex', flex: 1 }}>
@@ -1237,8 +1318,8 @@ function CollectionSettingsPage() {
           flexDirection: 'column'
         }}>
           {/* Scrollable Content - Full width grey background */}
-          <div style={{ 
-            flex: 1, 
+          <div style={{
+            flex: 1,
             backgroundColor: 'var(--background-light)',
             padding: 'var(--spacing-4) 0',
             overflowY: 'auto'
@@ -2350,37 +2431,95 @@ function CollectionSettingsPage() {
                   </select>
                 </div>
 
-                {/* Bulk Actions Dropdown */}
-                <div style={{ width: '152px' }}>
-                  <select
-                    value={bulkAction}
-                    onChange={(e) => setBulkAction(e.target.value)}
-                    style={{
-                      width: '100%',
-                      height: '42px',
-                      padding: '4px 8px',
+                {/* Bulk Actions Bar - only visible when items are selected */}
+                {selectedItems.size > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '4px 12px',
+                    backgroundColor: 'var(--background-subtle, #f8f9fa)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: 'var(--border-radius-md)',
+                    height: '42px'
+                  }}>
+                    <span style={{
                       fontFamily: 'var(--font-family-body)',
                       fontSize: 'var(--font-size-sm)',
-                      fontWeight: 'var(--font-weight-regular)',
-                      lineHeight: 'var(--line-height-sm)',
+                      fontWeight: 'var(--font-weight-medium)',
                       color: 'var(--text-brand)',
-                      backgroundColor: 'var(--background-white)',
-                      border: '1px solid var(--border-medium)',
-                      borderRadius: 'var(--border-radius-md)',
-                      cursor: 'pointer',
-                      appearance: 'none',
-                      backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'14\' height=\'14\' viewBox=\'0 0 14 14\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M3.5 5.25L7 8.75L10.5 5.25\' stroke=\'%239ca3af\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 8px center',
-                      paddingRight: '30px'
-                    }}
-                  >
-                    <option value="none">Bulk Actions</option>
-                    <option value="include">Include Selected</option>
-                    <option value="exclude">Exclude Selected</option>
-                    <option value="delete">Delete Selected</option>
-                  </select>
-                </div>
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {selectedItems.size} selected
+                    </span>
+                    <select
+                      value={bulkAction}
+                      onChange={(e) => setBulkAction(e.target.value)}
+                      style={{
+                        height: '32px',
+                        padding: '4px 8px',
+                        fontFamily: 'var(--font-family-body)',
+                        fontSize: 'var(--font-size-sm)',
+                        fontWeight: 'var(--font-weight-regular)',
+                        lineHeight: 'var(--line-height-sm)',
+                        color: 'var(--text-brand)',
+                        backgroundColor: 'var(--background-white)',
+                        border: '1px solid var(--border-medium)',
+                        borderRadius: 'var(--border-radius-md)',
+                        cursor: 'pointer',
+                        appearance: 'none',
+                        backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'14\' height=\'14\' viewBox=\'0 0 14 14\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M3.5 5.25L7 8.75L10.5 5.25\' stroke=\'%239ca3af\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 8px center',
+                        paddingRight: '30px'
+                      }}
+                    >
+                      <option value="none">Choose action...</option>
+                      <option value="category">Change Category</option>
+                      <option value="include">Include Selected</option>
+                      <option value="exclude">Exclude Selected</option>
+                    </select>
+                    <button
+                      onClick={handleBulkApply}
+                      disabled={bulkAction === 'none' || bulkActionLoading}
+                      style={{
+                        height: '32px',
+                        padding: '4px 14px',
+                        fontFamily: 'var(--font-family-body)',
+                        fontSize: 'var(--font-size-sm)',
+                        fontWeight: 'var(--font-weight-medium)',
+                        color: bulkAction === 'none' ? 'var(--text-muted, #9ca3af)' : '#fff',
+                        backgroundColor: bulkAction === 'none' ? 'var(--background-white)' : 'var(--color-brand, #2563eb)',
+                        border: bulkAction === 'none' ? '1px solid var(--border-medium)' : '1px solid transparent',
+                        borderRadius: 'var(--border-radius-md)',
+                        cursor: bulkAction === 'none' ? 'not-allowed' : 'pointer',
+                        opacity: bulkActionLoading ? 0.6 : 1
+                      }}
+                    >
+                      {bulkActionLoading ? 'Applying...' : 'Apply'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedItems(new Set());
+                        setBulkAction('none');
+                      }}
+                      style={{
+                        height: '32px',
+                        padding: '4px 14px',
+                        fontFamily: 'var(--font-family-body)',
+                        fontSize: 'var(--font-size-sm)',
+                        fontWeight: 'var(--font-weight-medium)',
+                        color: 'var(--text-brand)',
+                        backgroundColor: 'var(--background-white)',
+                        border: '1px solid var(--border-medium)',
+                        borderRadius: 'var(--border-radius-md)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Unselect
+                    </button>
+                  </div>
+                )}
 
                 {/* Reorder Categories Button */}
                 <button
@@ -2674,17 +2813,35 @@ function CollectionSettingsPage() {
                     Deck Successfully Generated
                   </h3>
                   {deckDownloadUrl && (
-                    <a 
-                      href={deckDownloadUrl}
-                      download
+                    <button
+                      onClick={async () => {
+                        try {
+                          const dlResponse = await fetch(deckDownloadUrl);
+                          const blob = await dlResponse.blob();
+                          const blobUrl = window.URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = blobUrl;
+                          link.download = `${collectionData?.name || 'Training_Deck'}.pptx`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          window.URL.revokeObjectURL(blobUrl);
+                        } catch {
+                          window.open(deckDownloadUrl, '_blank');
+                        }
+                      }}
                       style={{
                         color: 'var(--color-brand-wine)',
                         textDecoration: 'underline',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0
                       }}
                     >
                       Click here if download didn't start automatically
-                    </a>
+                    </button>
                   )}
                 </div>
               )}
@@ -2875,6 +3032,277 @@ function CollectionSettingsPage() {
         isLoading={deleteBrandMutation.isPending || deleteCollectionMutation.isPending}
         isDangerous={true}
       />
+
+      {/* Bulk Category Assignment Modal */}
+      {bulkCategoryModalOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !bulkActionLoading) {
+              setBulkCategoryModalOpen(false);
+              setBulkCategory('');
+              setBulkSubcategory('');
+            }
+          }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+        >
+          <div style={{
+            backgroundColor: '#1a1f17',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '400px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+            border: '1px solid #4a5244'
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '20px 24px',
+              borderBottom: '1px solid #4a5244'
+            }}>
+              <h2 style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: '18px',
+                fontWeight: 600,
+                color: 'white',
+                margin: 0
+              }}>
+                Change Category
+              </h2>
+              <button
+                onClick={() => {
+                  setBulkCategoryModalOpen(false);
+                  setBulkCategory('');
+                  setBulkSubcategory('');
+                }}
+                disabled={bulkActionLoading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  color: '#9ca3af',
+                  cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+                  padding: 0,
+                  lineHeight: 1,
+                  opacity: bulkActionLoading ? 0.5 : 1
+                }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '24px' }}>
+              <p style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: '14px',
+                lineHeight: 1.6,
+                color: '#d1d5db',
+                margin: '0 0 20px 0'
+              }}>
+                Assign category to {selectedItems.size} selected item{selectedItems.size !== 1 ? 's' : ''}
+              </p>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: '#d1d5db'
+                }}>
+                  Category
+                </label>
+                <select
+                  value={bulkCategory}
+                  onChange={(e) => {
+                    setBulkCategory(e.target.value);
+                    setBulkSubcategory('');
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '42px',
+                    padding: '4px 12px',
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: '14px',
+                    color: 'white',
+                    backgroundColor: '#2a2f26',
+                    border: '1px solid #4a5244',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'14\' height=\'14\' viewBox=\'0 0 14 14\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M3.5 5.25L7 8.75L10.5 5.25\' stroke=\'%239ca3af\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 8px center',
+                    paddingRight: '30px'
+                  }}
+                >
+                  <option value="">Select category...</option>
+                  {categoryOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {bulkSubcategoryOptions.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '6px',
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#d1d5db'
+                  }}>
+                    Subcategory
+                  </label>
+                  <select
+                    value={bulkSubcategory}
+                    onChange={(e) => setBulkSubcategory(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      padding: '4px 12px',
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: '14px',
+                      color: 'white',
+                      backgroundColor: '#2a2f26',
+                      border: '1px solid #4a5244',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      appearance: 'none',
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'14\' height=\'14\' viewBox=\'0 0 14 14\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M3.5 5.25L7 8.75L10.5 5.25\' stroke=\'%239ca3af\' stroke-width=\'1.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 8px center',
+                      paddingRight: '30px'
+                    }}
+                  >
+                    <option value="">Select subcategory...</option>
+                    {bulkSubcategoryOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px',
+              padding: '16px 24px',
+              borderTop: '1px solid #4a5244'
+            }}>
+              <button
+                onClick={() => {
+                  setBulkCategoryModalOpen(false);
+                  setBulkCategory('');
+                  setBulkSubcategory('');
+                }}
+                disabled={bulkActionLoading}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px solid #4a5244',
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: 'white',
+                  cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+                  opacity: bulkActionLoading ? 0.5 : 1
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkCategoryConfirm}
+                disabled={!bulkCategory || bulkActionLoading}
+                style={{
+                  backgroundColor: !bulkCategory ? '#4a5244' : '#aec9a3',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: !bulkCategory ? '#9ca3af' : '#1a1f17',
+                  cursor: !bulkCategory ? 'not-allowed' : 'pointer',
+                  opacity: bulkActionLoading ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {bulkActionLoading ? 'Applying...' : 'Apply'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast notification */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 1100,
+          backgroundColor: '#1a1f17',
+          border: '1px solid #4a5244',
+          borderRadius: '10px',
+          padding: '12px 20px',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          opacity: toastVisible ? 1 : 0,
+          transform: toastVisible ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.3s ease, transform 0.3s ease',
+          pointerEvents: 'none'
+        }}
+          onTransitionEnd={() => {
+            if (!toastVisible) setToastMessage('');
+          }}
+        >
+          <span style={{
+            width: '18px',
+            height: '18px',
+            borderRadius: '50%',
+            backgroundColor: '#aec9a3',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M2 5L4.5 7.5L8 3" stroke="#1a1f17" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </span>
+          <span style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: '14px',
+            fontWeight: 500,
+            color: '#d1d5db'
+          }}>
+            {toastMessage}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

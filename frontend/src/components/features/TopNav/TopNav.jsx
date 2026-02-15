@@ -1,25 +1,55 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../../firebase/config';
 import styles from './TopNav.module.css';
 
 /**
  * TopNav Component
- * 
- * Top navigation bar with logo, links, and user avatar
- * 
+ *
+ * Top navigation bar with logo, links, and user avatar.
+ * Reads the signed-in user's photo and name from Firebase Auth automatically.
+ * Clicking the avatar opens a dropdown with account info and sign out.
+ *
  * @param {Array} links - Array of {path, label} objects
  * @param {string} logoText - Logo text
- * @param {string} userAvatarUrl - URL for user avatar image
- * @param {string} userName - User name for alt text
  */
-function TopNav({ 
+function TopNav({
   links = [],
   logoText = 'Proko',
-  userAvatarUrl,
-  userName = 'User',
   className = ''
 }) {
   const location = useLocation();
+  const [avatarError, setAvatarError] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  const user = auth.currentUser;
+  const photoURL = user?.photoURL;
+  const displayName = user?.displayName || 'User';
+  const email = user?.email || '';
+  const initials = (displayName || email || 'U').charAt(0).toUpperCase();
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const handleSignOut = async () => {
+    setMenuOpen(false);
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Sign-out error:', error);
+    }
+  };
 
   return (
     <nav className={`${styles.topNav} ${className}`}>
@@ -28,16 +58,16 @@ function TopNav({
         {/* Logo */}
         <Link to="/" className={styles.logo}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path 
-              d="M3 3H21V21H3V3Z" 
-              fill="var(--color-brand-lime)" 
-              stroke="var(--text-brand)" 
+            <path
+              d="M3 3H21V21H3V3Z"
+              fill="var(--color-brand-lime)"
+              stroke="var(--text-brand)"
               strokeWidth="2"
             />
-            <path 
-              d="M8 8H16M8 12H16M8 16H12" 
-              stroke="var(--text-brand)" 
-              strokeWidth="2" 
+            <path
+              d="M8 8H16M8 12H16M8 16H12"
+              stroke="var(--text-brand)"
+              strokeWidth="2"
               strokeLinecap="round"
             />
           </svg>
@@ -61,17 +91,38 @@ function TopNav({
         </div>
       </div>
 
-      {/* Right side: User Avatar */}
-      <div className={styles.navRight}>
-        {userAvatarUrl ? (
-          <img 
-            src={userAvatarUrl} 
-            alt={userName}
-            className={styles.userAvatar}
-          />
-        ) : (
-          <div className={styles.userAvatarPlaceholder}>
-            {userName.charAt(0).toUpperCase()}
+      {/* Right side: User Avatar + Dropdown */}
+      <div className={styles.navRight} ref={menuRef}>
+        <button
+          className={styles.avatarButton}
+          onClick={() => setMenuOpen(prev => !prev)}
+          aria-label="User menu"
+        >
+          {photoURL && !avatarError ? (
+            <img
+              src={photoURL}
+              alt={displayName}
+              className={styles.userAvatar}
+              referrerPolicy="no-referrer"
+              onError={() => setAvatarError(true)}
+            />
+          ) : (
+            <div className={styles.userAvatarPlaceholder}>
+              {initials}
+            </div>
+          )}
+        </button>
+
+        {menuOpen && (
+          <div className={styles.userMenu}>
+            <div className={styles.userMenuInfo}>
+              <span className={styles.userMenuName}>{displayName}</span>
+              {email && <span className={styles.userMenuEmail}>{email}</span>}
+            </div>
+            <div className={styles.userMenuDivider} />
+            <button className={styles.userMenuItem} onClick={handleSignOut}>
+              Sign out
+            </button>
           </div>
         )}
       </div>

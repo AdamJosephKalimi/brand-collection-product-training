@@ -41,7 +41,7 @@ export const useGeneratedDecks = () => {
  */
 export const useDownloadPresentation = () => {
   return useMutation({
-    mutationFn: async (collectionId) => {
+    mutationFn: async ({ collectionId, deckName }) => {
       const token = await getAuthToken();
       const response = await fetch(
         `${API_BASE_URL}/collections/${collectionId}/presentation/download`,
@@ -51,21 +51,24 @@ export const useDownloadPresentation = () => {
           }
         }
       );
-      
+
       if (!response.ok) {
         throw new Error('Failed to download presentation');
       }
-      
-      // Get the filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'Training_Deck.pptx';
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
+
+      // Use the deck name if provided, otherwise fall back to Content-Disposition header
+      let filename = deckName ? `${deckName}.pptx` : null;
+      if (!filename) {
+        const contentDisposition = response.headers.get('Content-Disposition');
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
         }
+        filename = filename || 'Training_Deck.pptx';
       }
-      
+
       // Get the blob and trigger download
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -76,7 +79,7 @@ export const useDownloadPresentation = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       return { success: true, filename };
     },
   });

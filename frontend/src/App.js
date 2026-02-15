@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase/config';
+import LoginPage from './pages/Login/LoginPage';
 import GoogleSignIn from './components/auth/GoogleSignIn';
 import Dashboard from './pages/Dashboard/Dashboard';
 import DashboardPage from './pages/Dashboard/DashboardPage';
@@ -80,26 +81,7 @@ function App() {
     <BrowserRouter>
       <div className="App">
         {!user ? (
-          <div className="container mt-5">
-            <div className="row justify-content-center">
-              <div className="col-md-8">
-                <div className="card">
-                  <div className="card-header">
-                    <h1 className="text-center mb-0">Product Training AI v1.0</h1>
-                  </div>
-                  <div className="card-body">
-                    <div className="text-center">
-                      <h3 className="mb-4">Welcome to Product Training AI</h3>
-                      <p className="mb-4">
-                        Create AI-powered product training presentations for your fashion brand.
-                      </p>
-                      <GoogleSignIn onAuthStateChange={handleAuthStateChange} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <LoginPage />
         ) : (
           <Routes>
             {/* Main navigation pages */}
