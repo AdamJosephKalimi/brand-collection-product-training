@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../firebase/config';
+import { ReactComponent as ProkoIcon } from '../../../assets/proko-icon.svg';
 import styles from './TopNav.module.css';
 
 /**
@@ -57,20 +58,7 @@ function TopNav({
       <div className={styles.navLeft}>
         {/* Logo */}
         <Link to="/" className={styles.logo}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M3 3H21V21H3V3Z"
-              fill="var(--color-brand-lime)"
-              stroke="var(--text-brand)"
-              strokeWidth="2"
-            />
-            <path
-              d="M8 8H16M8 12H16M8 16H12"
-              stroke="var(--text-brand)"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
+          <ProkoIcon className={styles.logoIcon} />
           <span className={styles.logoText}>{logoText}</span>
         </Link>
 

@@ -28,6 +28,11 @@
   opacity: 0.8;
 }
 
+.logoIcon {
+  width: 24px;
+  height: 24px;
+}
+
 .logoText {
   font-family: var(--font-family-heading);
   font-size: var(--font-size-md);
