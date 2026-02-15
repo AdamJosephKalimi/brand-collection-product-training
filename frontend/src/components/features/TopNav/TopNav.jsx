@@ -1,25 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { auth } from '../../../firebase/config';
 import styles from './TopNav.module.css';
 
 /**
  * TopNav Component
- * 
- * Top navigation bar with logo, links, and user avatar
- * 
+ *
+ * Top navigation bar with logo, links, and user avatar.
+ * Reads the signed-in user's photo and name from Firebase Auth automatically.
+ *
  * @param {Array} links - Array of {path, label} objects
  * @param {string} logoText - Logo text
- * @param {string} userAvatarUrl - URL for user avatar image
- * @param {string} userName - User name for alt text
  */
-function TopNav({ 
+function TopNav({
   links = [],
   logoText = 'Proko',
-  userAvatarUrl,
-  userName = 'User',
   className = ''
 }) {
   const location = useLocation();
+  const [avatarError, setAvatarError] = useState(false);
+
+  const user = auth.currentUser;
+  const photoURL = user?.photoURL;
+  const displayName = user?.displayName || user?.email || 'User';
+  const initials = displayName.charAt(0).toUpperCase();
 
   return (
     <nav className={`${styles.topNav} ${className}`}>
@@ -28,16 +32,16 @@ function TopNav({
         {/* Logo */}
         <Link to="/" className={styles.logo}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path 
-              d="M3 3H21V21H3V3Z" 
-              fill="var(--color-brand-lime)" 
-              stroke="var(--text-brand)" 
+            <path
+              d="M3 3H21V21H3V3Z"
+              fill="var(--color-brand-lime)"
+              stroke="var(--text-brand)"
               strokeWidth="2"
             />
-            <path 
-              d="M8 8H16M8 12H16M8 16H12" 
-              stroke="var(--text-brand)" 
-              strokeWidth="2" 
+            <path
+              d="M8 8H16M8 12H16M8 16H12"
+              stroke="var(--text-brand)"
+              strokeWidth="2"
               strokeLinecap="round"
             />
           </svg>
@@ -63,15 +67,17 @@ function TopNav({
 
       {/* Right side: User Avatar */}
       <div className={styles.navRight}>
-        {userAvatarUrl ? (
-          <img 
-            src={userAvatarUrl} 
-            alt={userName}
+        {photoURL && !avatarError ? (
+          <img
+            src={photoURL}
+            alt={displayName}
             className={styles.userAvatar}
+            referrerPolicy="no-referrer"
+            onError={() => setAvatarError(true)}
           />
         ) : (
           <div className={styles.userAvatarPlaceholder}>
-            {userName.charAt(0).toUpperCase()}
+            {initials}
           </div>
         )}
       </div>

@@ -1291,12 +1291,7 @@ function CollectionSettingsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {/* Top Navigation */}
-      <TopNav
-        links={navLinks}
-        logoText="Proko"
-        userAvatarUrl="https://via.placeholder.com/32"
-        userName="User"
-      />
+      <TopNav links={navLinks} />
       
       {/* Main Layout: Sidebar + Content */}
       <div style={{ display: 'flex', flex: 1 }}>

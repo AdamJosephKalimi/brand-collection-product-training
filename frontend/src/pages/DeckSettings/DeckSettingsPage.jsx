@@ -245,12 +245,7 @@ function DeckSettingsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {/* Top Navigation */}
-      <TopNav
-        links={navLinks}
-        logoText="Proko"
-        userAvatarUrl="https://via.placeholder.com/32"
-        userName="Adam"
-      />
+      <TopNav links={navLinks} />
       
       {/* Main Layout: Sidebar + Content */}
       <div style={{ display: 'flex', flex: 1 }}>
