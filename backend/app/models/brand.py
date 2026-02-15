@@ -27,6 +27,19 @@ class BrandColors(BaseModel):
     accent: Optional[str] = Field(None, description="Accent color hex")
 
 
+class TextStyle(BaseModel):
+    """Typography settings for a single text group"""
+    font_family: Optional[str] = Field(None, description="Font family name")
+    font_size: Optional[int] = Field(None, description="Font size in points")
+    font_color: Optional[str] = Field(None, description="Font color as hex string (e.g. #2C3528)")
+
+
+class DeckTypography(BaseModel):
+    """Deck output typography settings per text group"""
+    heading: Optional[TextStyle] = Field(default_factory=TextStyle, description="Cover title, category dividers, slide labels")
+    body: Optional[TextStyle] = Field(default_factory=TextStyle, description="Product detail text")
+
+
 class Typography(BaseModel):
     """Brand typography settings"""
     heading_font: Optional[str] = Field("Playfair Display", description="Heading font family")
@@ -85,7 +98,8 @@ class Brand(BaseModel):
     logo_storage_path: Optional[str] = Field(None, description="Firebase Storage path for logo")
     brand_colors: Optional[BrandColors] = None
     typography: Optional[Typography] = None
-    
+    deck_typography: Optional[DeckTypography] = None
+
     # Brand Guidelines
     style_guidelines: Optional[StyleGuidelines] = None
     
@@ -112,6 +126,7 @@ class BrandCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     brand_colors: Optional[BrandColors] = None
     typography: Optional[Typography] = None
+    deck_typography: Optional[DeckTypography] = None
     style_guidelines: Optional[StyleGuidelines] = None
     website_url: Optional[HttpUrl] = None
     social_media: Optional[SocialMedia] = None
@@ -125,6 +140,7 @@ class BrandUpdate(BaseModel):
     logo_storage_path: Optional[str] = None
     brand_colors: Optional[BrandColors] = None
     typography: Optional[Typography] = None
+    deck_typography: Optional[DeckTypography] = None
     style_guidelines: Optional[StyleGuidelines] = None
     website_url: Optional[HttpUrl] = None
     social_media: Optional[SocialMedia] = None
@@ -140,6 +156,7 @@ class BrandResponse(BaseModel):
     logo_url: Optional[str]
     brand_colors: Optional[BrandColors]
     typography: Optional[Typography] = None
+    deck_typography: Optional[DeckTypography] = None
     style_guidelines: Optional[StyleGuidelines] = None
     website_url: Optional[str]
     social_media: Optional[SocialMedia]

@@ -17,6 +17,8 @@ import requests
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
+from pptx.util import Emu
+from pptx.dml.color import RGBColor
 
 from app.services.firebase_service import firebase_service
 from app.services.collection_service import collection_service
@@ -34,21 +36,28 @@ class PresentationGenerationService:
         self.blank_layout = None
         self.title_slide_layout = None
         self.title_content_layout = None
+        self._w_scale = 1.0  # Horizontal scale factor (1.0 for 4:3, 1.333 for 16:9)
+        self._h_offset = 0  # Horizontal offset in inches to center 10"-wide content in wider slides
+        self._typo = None  # Deck typography settings dict
     
     async def generate_presentation(
-        self, 
+        self,
         collection_id: str,
         user_id: str,
-        products_per_slide: int = 1
+        products_per_slide: int = 1,
+        slide_aspect_ratio: str = "16:9",
+        deck_typography: dict = None
     ) -> str:
         """
         Generate complete PowerPoint presentation for a collection.
-        
+
         Args:
             collection_id: ID of the collection
             user_id: ID of the user requesting generation
             products_per_slide: Number of products per slide (1, 2, or 4)
-            
+            slide_aspect_ratio: Slide aspect ratio ("4:3" or "16:9")
+            deck_typography: Optional dict with heading/body text style overrides
+
         Returns:
             Download URL for the generated presentation
         """
@@ -70,15 +79,40 @@ class PresentationGenerationService:
             
             # 2. Initialize presentation
             self.prs = Presentation()
+
+            # Set slide dimensions based on aspect ratio
+            if slide_aspect_ratio == "16:9":
+                self.prs.slide_width = Inches(13.333)
+                self.prs.slide_height = Inches(7.5)
+                self._w_scale = 13.333 / 10.0  # ~1.333
+                self._h_offset = (13.333 - 10.0) / 2.0  # ~1.667" per side
+            else:
+                # 4:3 (default python-pptx dimensions)
+                self.prs.slide_width = Inches(10)
+                self.prs.slide_height = Inches(7.5)
+                self._w_scale = 1.0
+                self._h_offset = 0
+
+            self._typo = deck_typography or {}
+            if self._typo:
+                logger.info(f"Deck typography loaded: {self._typo}")
+
             self.blank_layout = self.prs.slide_layouts[6]  # Blank layout
             self.title_slide_layout = self.prs.slide_layouts[0]  # Title Slide
             self.title_content_layout = self.prs.slide_layouts[1]  # Title and Content
-            
+
+            # Center intro layout placeholders for widescreen (no-op for 4:3)
+            self._center_layout_placeholders()
+
             # 3. Generate intro slides
             await self._generate_intro_slides(intro_slides)
             
             # 4. Generate product slides
-            await self._generate_product_slides(collection_id, products_per_slide)
+            category_order = {}
+            for cat in (collection.categories or []):
+                cat_dict = cat if isinstance(cat, dict) else cat.dict()
+                category_order[cat_dict['name']] = cat_dict.get('display_order', 0)
+            await self._generate_product_slides(collection_id, products_per_slide, category_order)
             
             # 5. Save and upload
             download_url = await self._save_and_upload(collection_id)
@@ -146,6 +180,89 @@ class PresentationGenerationService:
         
         logger.info(f"Generated {slides_generated} slides")
     
+    def _center_layout_placeholders(self):
+        """
+        Center title and content placeholders in the intro slide layouts
+        for widescreen. Modifies the LAYOUT-level placeholders so that
+        slide-level shapes inherit correct centered positions.
+
+        CRITICAL: Must read ALL four geometry properties (left, top, width,
+        height) BEFORE writing ANY of them. Setting just `ph.left` on a
+        placeholder that inherits its xfrm from the slide master creates a
+        new xfrm element with zeroed width/height, making it invisible.
+        """
+        if self._h_offset == 0:
+            return
+        slide_w = self.prs.slide_width
+        for layout in [self.title_slide_layout, self.title_content_layout]:
+            for ph in layout.placeholders:
+                if ph.placeholder_format.idx in (0, 1):
+                    # Read ALL inherited values BEFORE any setter triggers xfrm creation
+                    w = ph.width
+                    h = ph.height
+                    t = ph.top
+                    # Write all four to create a complete xfrm element
+                    ph.left = (slide_w - w) // 2
+                    ph.top = t
+                    ph.width = w
+                    ph.height = h
+
+    def _parse_hex_color(self, hex_str: str) -> RGBColor:
+        """Parse a hex color string like '#2C3528' into an RGBColor."""
+        hex_str = hex_str.lstrip('#')
+        return RGBColor(int(hex_str[0:2], 16), int(hex_str[2:4], 16), int(hex_str[4:6], 16))
+
+    def _apply_typo(self, font, group: str, default_size: int = None):
+        """
+        Apply deck typography overrides to a font object.
+
+        Args:
+            font: pptx font object (p.font or run.font)
+            group: 'heading' or 'body'
+            default_size: default Pt size to use if no override
+        """
+        style = self._typo.get(group) if self._typo else None
+        if style:
+            if style.get('font_family'):
+                font.name = style['font_family']
+            if style.get('font_size'):
+                font.size = Pt(style['font_size'])
+            elif default_size:
+                font.size = Pt(default_size)
+            if style.get('font_color'):
+                try:
+                    font.color.rgb = self._parse_hex_color(style['font_color'])
+                except (ValueError, IndexError):
+                    pass
+        elif default_size:
+            font.size = Pt(default_size)
+
+    def _apply_body_font(self, text_frame):
+        """
+        Apply body typography font family and color to all paragraphs in a text frame.
+        Preserves existing font sizes. Call after all text has been added.
+        """
+        style = self._typo.get('body') if self._typo else None
+        if not style:
+            return
+        for p in text_frame.paragraphs:
+            for run in p.runs:
+                if style.get('font_family'):
+                    run.font.name = style['font_family']
+                if style.get('font_color'):
+                    try:
+                        run.font.color.rgb = self._parse_hex_color(style['font_color'])
+                    except (ValueError, IndexError):
+                        pass
+            # Also apply to paragraph-level font (for text set via p.text)
+            if style.get('font_family'):
+                p.font.name = style['font_family']
+            if style.get('font_color'):
+                try:
+                    p.font.color.rgb = self._parse_hex_color(style['font_color'])
+                except (ValueError, IndexError):
+                    pass
+
     def _create_cover_slide(self, data: Dict[str, Any]):
         """
         Create cover page slide using Title Slide layout.
@@ -160,7 +277,7 @@ class PresentationGenerationService:
         """
         slide = self.prs.slides.add_slide(self.title_slide_layout)
         content = data.get('content', {})
-        
+
         # Use title placeholder
         title = slide.shapes.title
         title.text = content.get('title', data.get('title', 'Collection'))
@@ -168,25 +285,28 @@ class PresentationGenerationService:
         # Format title
         tf = title.text_frame
         p = tf.paragraphs[0]
-        p.font.size = Pt(44)
         p.font.bold = True
-        
+        self._apply_typo(p.font, 'heading', default_size=44)
+
         # Use subtitle placeholder (usually placeholders[1] in title slide)
         if len(slide.placeholders) > 1:
             subtitle = slide.placeholders[1]
             subtitle.text = content.get('subtitle', data.get('subtitle', ''))
-            
+
             # Format subtitle
             tf = subtitle.text_frame
             p = tf.paragraphs[0]
-            p.font.size = Pt(24)
+            self._apply_typo(p.font, 'heading', default_size=24)
         
-        # Tagline - add as manual textbox at bottom
+        # Tagline - add as manual textbox at bottom, centered across full slide width
         if content.get('tagline'):
+            tagline_width = 8.0  # inches
+            slide_w = 13.333 if self._w_scale > 1 else 10.0
+            tagline_left = (slide_w - tagline_width) / 2.0
             tagline_box = slide.shapes.add_textbox(
-                left=Inches(1),
+                left=Inches(tagline_left),
                 top=Inches(6.5),
-                width=Inches(8),
+                width=Inches(tagline_width),
                 height=Inches(0.5)
             )
             tf = tagline_box.text_frame
@@ -197,7 +317,8 @@ class PresentationGenerationService:
             p.font.size = Pt(18)
             p.font.italic = True
             p.alignment = PP_ALIGN.CENTER
-        
+            self._apply_body_font(tf)
+
         logger.info("Cover slide created (using Title Slide layout)")
     
     def _create_brand_history_slide(self, data: Dict[str, Any]):
@@ -213,13 +334,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Brand History')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Extract nested founding structure
         founding = content.get('founding', {})
         if founding and isinstance(founding, dict):
@@ -358,6 +480,7 @@ class PresentationGenerationService:
             p.font.italic = True
             p.level = 0
         
+        self._apply_body_font(tf)
         logger.info("Brand history slide created (using Title and Content layout)")
     
     def _create_brand_introduction_slide(self, data: Dict[str, Any]):
@@ -373,13 +496,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Brand Introduction')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Add overview section (nested object with summary and positioning)
         overview = content.get('overview', {})
         if isinstance(overview, dict):
@@ -485,6 +609,7 @@ class PresentationGenerationService:
                     p.font.size = Pt(13)
                     p.level = 0
         
+        self._apply_body_font(tf)
         logger.info("Brand introduction slide created (using Title and Content layout)")
     
     def _create_brand_values_slide(self, data: Dict[str, Any]):
@@ -500,11 +625,12 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Brand Values')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         # Add values - LLM returns {headline, explanation} for each value
         values = content.get('values', [])
         if values:
@@ -538,6 +664,7 @@ class PresentationGenerationService:
                     p.text = value_name
                     p.font.size = Pt(14)
         
+        self._apply_body_font(tf)
         logger.info("Brand values slide created (using Title and Content layout)")
     
     def _create_brand_personality_slide(self, data: Dict[str, Any]):
@@ -553,13 +680,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Brand Personality')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Add quote section if present
         quote = content.get('quote', {})
         if quote and isinstance(quote, dict):
@@ -620,6 +748,7 @@ class PresentationGenerationService:
                 
                 p.level = 1
         
+        self._apply_body_font(tf)
         logger.info("Brand personality slide created (using Title and Content layout)")
     
     def _create_flagship_stores_slide(self, data: Dict[str, Any]):
@@ -635,13 +764,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Flagship Stores & Experiences')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Add flagship stores - LLM returns nested structure with name, location, design_elements, etc.
         stores = content.get('flagship_stores', content.get('store_locations', content.get('stores', [])))
         alternative = content.get('alternative_experiences', '')
@@ -728,6 +858,7 @@ class PresentationGenerationService:
             p.font.size = Pt(14)
             p.level = 0
         
+        self._apply_body_font(tf)
         logger.info("Flagship stores slide created (using Title and Content layout)")
     
     def _create_core_collection_slide(self, data: Dict[str, Any]):
@@ -743,13 +874,14 @@ class PresentationGenerationService:
         # Use title placeholder
         title = slide.shapes.title
         title.text = data.get('title', 'Core Collection & Signature Categories')
-        
+        self._apply_typo(title.text_frame.paragraphs[0].font, 'heading')
+
         # Use content placeholder
         content_placeholder = slide.placeholders[1]
         tf = content_placeholder.text_frame
-        
+
         first_paragraph = True
-        
+
         # Add signature categories - LLM returns {headline, description, iconic_staple}
         categories = content.get('signature_categories', [])
         if categories:
@@ -804,6 +936,7 @@ class PresentationGenerationService:
                     p.font.size = Pt(13)
                     p.level = 1
         
+        self._apply_body_font(tf)
         logger.info("Core collection slide created (using Title and Content layout)")
     
     async def _fetch_collection_items(self, collection_id: str) -> list:
@@ -834,16 +967,20 @@ class PresentationGenerationService:
             logger.error(f"Error fetching items: {e}")
             return []
     
-    async def _generate_product_slides(self, collection_id: str, products_per_slide: int):
+    async def _generate_product_slides(self, collection_id: str, products_per_slide: int, category_order: dict = None):
         """
         Generate product slides based on collection items.
-        
+
         Args:
             collection_id: ID of the collection
             products_per_slide: Number of products per slide (1, 2, or 4)
+            category_order: Dict mapping category name -> display_order
         """
+        if category_order is None:
+            category_order = {}
+
         logger.info(f"Generating product slides ({products_per_slide} per slide)...")
-        
+
         # Fetch items
         items = await self._fetch_collection_items(collection_id)
 
@@ -862,13 +999,20 @@ class PresentationGenerationService:
             if category not in items_by_category:
                 items_by_category[category] = []
             items_by_category[category].append(item)
-        
+
         logger.info(f"Grouped {len(items)} items into {len(items_by_category)} categories")
-        
+
+        # Sort categories by display_order (falls back to alphabetical for unknown categories)
+        sorted_categories = sorted(
+            items_by_category.keys(),
+            key=lambda c: (category_order.get(c, 999), c)
+        )
+
         # Generate slides based on layout
         slides_generated = 0
-        
-        for category, category_items in items_by_category.items():
+
+        for category in sorted_categories:
+            category_items = items_by_category[category]
             logger.info(f"Generating slides for category: {category} ({len(category_items)} items)")
             
             # Create category divider slide
@@ -912,9 +1056,9 @@ class PresentationGenerationService:
         
         # Category title - centered
         title_box = slide.shapes.add_textbox(
-            left=Inches(1),
+            left=Inches(1 * self._w_scale),
             top=Inches(3.5),
-            width=Inches(8),
+            width=Inches(8 * self._w_scale),
             height=Inches(1)
         )
         tf = title_box.text_frame
@@ -922,10 +1066,10 @@ class PresentationGenerationService:
         
         # Format title
         p = tf.paragraphs[0]
-        p.font.size = Pt(48)
         p.font.bold = True
         p.alignment = PP_ALIGN.CENTER
-        
+        self._apply_typo(p.font, 'heading', default_size=48)
+
         logger.info(f"Category divider slide created: {category}")
     
     def _download_image_as_stream(self, image_dict: dict) -> Optional[BytesIO]:
@@ -1004,9 +1148,9 @@ class PresentationGenerationService:
         tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = title_text
-        p.font.size = Pt(11)
         p.font.bold = True
         p.font.italic = True
+        self._apply_typo(p.font, 'heading', default_size=11)
 
     def _create_1up_product_slide(self, item: dict):
         """
@@ -1048,10 +1192,10 @@ class PresentationGenerationService:
                     # Smaller width (3.5" instead of 4.5") and max height (5")
                     picture = slide.shapes.add_picture(
                         image_stream,
-                        left=Inches(0.75),  # Adjusted for smaller width
-                        top=Inches(1.5),    # More top padding
-                        width=Inches(3.5),  # Smaller width
-                        height=Inches(5)    # Max height constraint
+                        left=Inches(0.75 * self._w_scale),
+                        top=Inches(1.5),
+                        width=Inches(3.5),
+                        height=Inches(5)
                     )
                     image_added = True
                     logger.debug(f"Image added for product: {product_name}")
@@ -1061,7 +1205,7 @@ class PresentationGenerationService:
         # Show placeholder if no image was added
         if not image_added:
             image_box = slide.shapes.add_textbox(
-                left=Inches(0.5),
+                left=Inches(0.5 * self._w_scale),
                 top=Inches(1),
                 width=Inches(4.5),
                 height=Inches(6)
@@ -1080,9 +1224,9 @@ class PresentationGenerationService:
         
         # Right side: Product details
         details_box = slide.shapes.add_textbox(
-            left=Inches(5.5),
+            left=Inches(5.5 * self._w_scale),
             top=Inches(1),
-            width=Inches(4),
+            width=Inches(4 * self._w_scale),
             height=Inches(6)
         )
         tf = details_box.text_frame
@@ -1090,9 +1234,9 @@ class PresentationGenerationService:
         # Product name
         p = tf.paragraphs[0]
         p.text = product_name
-        p.font.size = Pt(24)
         p.font.bold = True
-        
+        self._apply_typo(p.font, 'heading', default_size=24)
+
         # SKU
         if sku:
             p = tf.add_paragraph()
@@ -1160,8 +1304,9 @@ class PresentationGenerationService:
             p.text = pricing_text
             p.font.size = Pt(11)
         
+        self._apply_body_font(tf)
         logger.info(f"1-up product slide created: {product_name}")
-    
+
     def _create_2up_product_slide(self, items: list):
         """
         Create a slide with 2 products (side by side).
@@ -1177,8 +1322,8 @@ class PresentationGenerationService:
         # Process up to 2 items
         for idx, item in enumerate(items[:2]):
             # Calculate position based on column (0 = left, 1 = right)
-            column_offset = idx * 5  # 5 inches between columns
-            
+            column_offset = idx * 5 * self._w_scale  # 5 inches between columns, scaled
+
             # Extract item data
             product_name = item.get('product_name', 'Unknown Product')
             sku = item.get('sku', '')
@@ -1194,7 +1339,7 @@ class PresentationGenerationService:
             
             # Product image or placeholder (left side of column)
             image_added = False
-            image_left = Inches(0.5 + column_offset)
+            image_left = Inches(0.5 * self._w_scale + column_offset)
             image_top = Inches(1.5)
             image_width = Inches(2)
             image_height = Inches(3)
@@ -1231,8 +1376,8 @@ class PresentationGenerationService:
                 p.alignment = PP_ALIGN.CENTER
             
             # Product details (right side of column)
-            details_left = Inches(2.75 + column_offset)
-            details_width = Inches(2)
+            details_left = Inches(2.75 * self._w_scale + column_offset)
+            details_width = Inches(2 * self._w_scale)
             
             details_box = slide.shapes.add_textbox(
                 left=details_left,
@@ -1246,9 +1391,9 @@ class PresentationGenerationService:
             # Product name
             p = tf.paragraphs[0]
             p.text = product_name
-            p.font.size = Pt(16)
             p.font.bold = True
-            
+            self._apply_typo(p.font, 'heading', default_size=16)
+
             # SKU
             if sku:
                 p = tf.add_paragraph()
@@ -1323,8 +1468,10 @@ class PresentationGenerationService:
                 p.text = pricing_text
                 p.font.size = Pt(9)
         
+            self._apply_body_font(tf)
+
         logger.info(f"2-up product slide created with {len(items)} item(s)")
-    
+
     def _create_3up_product_slide(self, items: list):
         """
         Create a slide with 3 products (line sheet style).
@@ -1338,8 +1485,8 @@ class PresentationGenerationService:
         self._add_slide_title(slide, items)
 
         # Column positions (left edge for each product) - 3 columns with more space
-        column_positions = [1.0, 4.0, 7.0]  # Inches - more centered and spaced
-        column_width = 2.5  # Width for each column (wider than 4-up)
+        column_positions = [1.0 * self._w_scale, 4.0 * self._w_scale, 7.0 * self._w_scale]
+        column_width = 2.5 * self._w_scale
         
         # Process up to 3 items
         for idx, item in enumerate(items[:3]):
@@ -1361,15 +1508,15 @@ class PresentationGenerationService:
             currency = item.get('currency', 'USD')
             images = item.get('images', [])
             
-            # Top row: Product image
+            # Top row: Product image (keep original size, don't stretch)
             image_added = False
-            image_width = Inches(2.5)  # Larger than 4-up
-            image_height = Inches(3.5)  # Larger than 4-up
+            image_width = Inches(2.5)  # Original 3-up image width
+            image_height = Inches(3.5)
             image_top = Inches(0.75)
-            
+
             if images and len(images) > 0:
                 image_stream = self._download_image_as_stream(images[0])
-                
+
                 if image_stream:
                     try:
                         slide.shapes.add_picture(
@@ -1382,7 +1529,7 @@ class PresentationGenerationService:
                         image_added = True
                     except Exception as e:
                         logger.warning(f"Failed to add image: {e}")
-            
+
             # Show placeholder if no image
             if not image_added:
                 image_box = slide.shapes.add_textbox(
@@ -1414,9 +1561,9 @@ class PresentationGenerationService:
             # Product name
             p = tf.paragraphs[0]
             p.text = product_name
-            p.font.size = Pt(11)
             p.font.bold = True
-            
+            self._apply_typo(p.font, 'heading', default_size=11)
+
             # SKU
             if sku:
                 p = tf.add_paragraph()
@@ -1486,8 +1633,10 @@ class PresentationGenerationService:
                 p.text = f"RRP: {currency} {rrp:.2f}"
                 p.font.size = Pt(8)
         
+            self._apply_body_font(tf)
+
         logger.info(f"3-up product slide created with {len(items)} item(s)")
-    
+
     def _create_4up_product_slide(self, items: list):
         """
         Create a slide with 4 products (line sheet style).
@@ -1501,8 +1650,8 @@ class PresentationGenerationService:
         self._add_slide_title(slide, items)
 
         # Column positions (left edge for each product)
-        column_positions = [0.5, 2.9, 5.3, 7.7]  # Inches
-        column_width = 2.1  # Width for each column
+        column_positions = [0.5 * self._w_scale, 2.9 * self._w_scale, 5.3 * self._w_scale, 7.7 * self._w_scale]
+        column_width = 2.1 * self._w_scale
         
         # Process up to 4 items
         for idx, item in enumerate(items[:4]):
@@ -1577,9 +1726,9 @@ class PresentationGenerationService:
             # Product name
             p = tf.paragraphs[0]
             p.text = product_name
-            p.font.size = Pt(9)
             p.font.bold = True
-            
+            self._apply_typo(p.font, 'heading', default_size=9)
+
             # SKU
             if sku:
                 p = tf.add_paragraph()
@@ -1649,8 +1798,10 @@ class PresentationGenerationService:
                 p.text = f"RRP: {currency} {rrp:.2f}"
                 p.font.size = Pt(7)
         
+            self._apply_body_font(tf)
+
         logger.info(f"4-up product slide created with {len(items)} item(s)")
-    
+
     async def _save_and_upload(self, collection_id: str) -> str:
         """
         Save presentation to temp file, upload to Firebase Storage, and clean up.

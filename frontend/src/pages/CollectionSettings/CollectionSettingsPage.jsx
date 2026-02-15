@@ -17,6 +17,7 @@ import PillCounter from '../../components/ui/PillCounter/PillCounter';
 import ViewToggle from '../../components/ui/ViewToggle/ViewToggle';
 import SearchBar from '../../components/ui/SearchBar/SearchBar';
 import LayoutOptions from '../../components/features/LayoutOptions/LayoutOptions';
+import AspectRatioOptions from '../../components/features/AspectRatioOptions/AspectRatioOptions';
 import Footer from '../../components/features/Footer/Footer';
 import { useBrands } from '../../hooks/useBrands';
 import { useCollection } from '../../hooks/useCollection';
@@ -33,6 +34,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import ProcessingProgress from '../../components/ui/ProcessingProgress/ProcessingProgress';
 import CategorySection from '../../components/ui/CategorySection/CategorySection';
+import ReorderCategoriesModal from '../../components/ui/ReorderCategoriesModal';
 import CollectionListItem from '../../components/ui/CollectionListItem/CollectionListItem';
 import InfoModal from '../../components/ui/InfoModal/InfoModal';
 import InputModal from '../../components/ui/InputModal/InputModal';
@@ -447,6 +449,8 @@ function CollectionSettingsPage() {
   const [activeSubcategoryFilters, setActiveSubcategoryFilters] = useState({});
   // Collection Items - Selected items for bulk actions
   const [selectedItems, setSelectedItems] = useState(new Set());
+  // Reorder Categories modal
+  const [isReorderCategoriesOpen, setIsReorderCategoriesOpen] = useState(false);
   
   // Deck Generation state
   const [deckGenerationStatus, setDeckGenerationStatus] = useState('idle'); // 'idle', 'processing', 'completed', 'failed'
@@ -659,6 +663,26 @@ function CollectionSettingsPage() {
     reorderItemsMutation.mutate({ collectionId, itemOrders });
   };
 
+  // Save reordered categories
+  const handleSaveCategoryOrder = async (updatedCategories) => {
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: {
+          categories: updatedCategories.map(cat => ({
+            name: cat.name,
+            product_count: cat.product_count || 0,
+            display_order: cat.display_order,
+            subcategories: cat.subcategories || []
+          }))
+        }
+      });
+      setIsReorderCategoriesOpen(false);
+    } catch (error) {
+      console.error('Failed to save category order:', error);
+    }
+  };
+
   // Deck generation phase tracking
   const [deckGenerationPhase, setDeckGenerationPhase] = useState('');
   
@@ -672,7 +696,8 @@ function CollectionSettingsPage() {
     try {
       const token = await import('../../utils/auth').then(m => m.getAuthToken());
       const productsPerSlide = collectionData?.settings?.products_per_slide || 1;
-      
+      const aspectRatio = collectionData?.settings?.slide_aspect_ratio || '16:9';
+
       // Step 1: Generate intro slides first
       const introResponse = await fetch(
         `${API_HOST}/collections/${collectionId}/intro-slides/generate`,
@@ -695,7 +720,7 @@ function CollectionSettingsPage() {
       
       // Step 2: Generate presentation
       const response = await fetch(
-        `${API_BASE_URL}/collections/${collectionId}/presentation/generate?products_per_slide=${productsPerSlide}`,
+        `${API_BASE_URL}/collections/${collectionId}/presentation/generate?products_per_slide=${productsPerSlide}&slide_aspect_ratio=${encodeURIComponent(aspectRatio)}`,
         {
           method: 'POST',
           headers: {
@@ -1097,6 +1122,39 @@ function CollectionSettingsPage() {
     }
   };
 
+  // Aspect ratio selection - synced with collection.settings.slide_aspect_ratio in DB
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState('16:9');
+
+  // Initialize aspect ratio from collection settings when data loads
+  useEffect(() => {
+    if (collectionData?.settings?.slide_aspect_ratio) {
+      setSelectedAspectRatio(collectionData.settings.slide_aspect_ratio);
+    }
+  }, [collectionData?.settings?.slide_aspect_ratio]);
+
+  // Handle aspect ratio change with optimistic update and DB save
+  const handleAspectRatioChange = async (ratio) => {
+    const previousRatio = selectedAspectRatio;
+
+    // Optimistic update
+    setSelectedAspectRatio(ratio);
+
+    try {
+      await updateCollectionMutation.mutateAsync({
+        collectionId,
+        updateData: {
+          settings: {
+            slide_aspect_ratio: ratio
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Failed to save aspect ratio setting:', error);
+      // Revert on error
+      setSelectedAspectRatio(previousRatio);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {/* Top Navigation */}
@@ -1121,6 +1179,7 @@ function CollectionSettingsPage() {
           onNewBrand={() => setIsNewBrandModalVisible(true)}
           onNewCollection={(brandId) => setNewCollectionBrandId(brandId)}
           onDeleteBrand={(brandId, brandName) => setDeleteModal({ isVisible: true, type: 'brand', id: brandId, name: brandName })}
+          onEditBrand={(brandId) => navigate('/brands/' + brandId + '/edit')}
           onDeleteCollection={(collectionId, collectionName) => setDeleteModal({ isVisible: true, type: 'collection', id: collectionId, name: collectionName })}
         />
         
@@ -1303,12 +1362,6 @@ function CollectionSettingsPage() {
               }}>
                 <SectionHeader
                   title="Upload Collection Assets"
-                  buttonText="Process Documents"
-                  onButtonClick={() => {
-                    console.log('[CollectionSettingsPage] Process Documents clicked');
-                    processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds });
-                  }}
-                  buttonDisabled={!shouldEnableProcessButton}
                 />
                 
                 {/* Processing Progress - shown during processing, failed, or cancelled */}
@@ -1514,6 +1567,20 @@ function CollectionSettingsPage() {
                         }
                       }}
                     />
+                  </div>
+
+                  {/* Process Documents - at bottom so users can see it after scrolling */}
+                  <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 'var(--spacing-2)' }}>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        console.log('[CollectionSettingsPage] Process Documents clicked');
+                        processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds });
+                      }}
+                      disabled={!shouldEnableProcessButton}
+                    >
+                      Process Documents
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -1849,6 +1916,12 @@ function CollectionSettingsPage() {
             </div>
           </div>
 
+          {/* Slide Aspect Ratio Section */}
+          <AspectRatioOptions
+            selectedRatio={selectedAspectRatio}
+            onRatioChange={handleAspectRatioChange}
+          />
+
           {/* Deck Layout Options Section */}
           <LayoutOptions
             selectedLayout={selectedLayout}
@@ -2058,6 +2131,33 @@ function CollectionSettingsPage() {
                     <option value="delete">Delete Selected</option>
                   </select>
                 </div>
+
+                {/* Reorder Categories Button */}
+                <button
+                  onClick={() => setIsReorderCategoriesOpen(true)}
+                  style={{
+                    height: '42px',
+                    padding: '4px 14px',
+                    fontFamily: 'var(--font-family-body)',
+                    fontSize: 'var(--font-size-sm)',
+                    fontWeight: 'var(--font-weight-medium)',
+                    lineHeight: 'var(--line-height-sm)',
+                    color: 'var(--text-brand)',
+                    backgroundColor: 'var(--background-white)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: 'var(--border-radius-md)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 4H12M2 7H9M2 10H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  Reorder
+                </button>
               </div>
 
               {/* Collection Items Content */}
@@ -2372,6 +2472,14 @@ function CollectionSettingsPage() {
           <Footer />
         </div>
       </div>
+
+      {/* Reorder Categories Modal */}
+      <ReorderCategoriesModal
+        categories={(collectionData?.categories || []).filter(cat => items.some(item => item.category === cat.name))}
+        isVisible={isReorderCategoriesOpen}
+        onSave={handleSaveCategoryOrder}
+        onClose={() => setIsReorderCategoriesOpen(false)}
+      />
 
       {/* Intro Slide Info Modal */}
       {activeInfoModal && introSlideInfo[activeInfoModal] && (
