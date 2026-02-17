@@ -8,6 +8,7 @@
   border: 1px solid var(--border-medium);
   border-radius: var(--border-radius-md);
   transition: border-color 0.2s ease;
+  overflow: hidden;
 }
 
 .searchBar:focus-within {

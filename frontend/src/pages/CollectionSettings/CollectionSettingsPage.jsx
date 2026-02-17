@@ -862,10 +862,17 @@ function CollectionSettingsPage() {
         setDeckGenerationStatus('completed');
         setDeckGenerationPhase('');
 
-        // Auto-trigger download via fetch+blob so filename is respected
+        // Auto-trigger download via the API endpoint so the filename
+        // uses the collection name (Content-Disposition header).
+        // Fetching the GCS download_url directly fails on production
+        // due to CORS, causing the browser to save as "presentation.pptx".
         const deckName = collectionData?.name || 'Training_Deck';
         try {
-          const dlResponse = await fetch(data.download_url);
+          const token = await import('../../utils/auth').then(m => m.getAuthToken());
+          const dlResponse = await fetch(
+            `${API_BASE_URL}/collections/${collectionId}/presentation/download`,
+            { headers: { 'Authorization': `Bearer ${token}` } }
+          );
           const blob = await dlResponse.blob();
           const blobUrl = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
@@ -876,7 +883,7 @@ function CollectionSettingsPage() {
           document.body.removeChild(link);
           window.URL.revokeObjectURL(blobUrl);
         } catch {
-          // Fallback: open the URL directly if blob download fails
+          // Fallback: open the GCS URL directly
           window.open(data.download_url, '_blank');
         }
       } else {
@@ -1289,12 +1296,12 @@ function CollectionSettingsPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* Top Navigation */}
       <TopNav links={navLinks} />
-      
+
       {/* Main Layout: Sidebar + Content */}
-      <div style={{ display: 'flex', flex: 1 }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Sidebar */}
         <Sidebar
           brands={brands}
