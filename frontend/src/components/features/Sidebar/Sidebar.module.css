@@ -5,8 +5,8 @@
   padding: var(--spacing-2);
   background-color: var(--background-white);
   border-right: 1px solid var(--border-light);
-  min-height: 100vh;
   width: 255px;
+  overflow-y: auto;
 }
 
 .sidebarInner {
