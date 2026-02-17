@@ -80,7 +80,21 @@ class PresentationGenerationService:
                 raise ValueError(f"Collection not found: {collection_id}")
             
             intro_slides = collection.intro_slides
-            
+
+            # Extract field visibility settings for product slides
+            s = collection.settings
+            self._show_fields = {
+                'product_name': getattr(s, 'show_product_name', True),
+                'sku': getattr(s, 'show_sku', True),
+                'description': getattr(s, 'show_descriptions', True),
+                'color': getattr(s, 'show_color', True),
+                'material': getattr(s, 'show_material', True),
+                'sizes': getattr(s, 'show_sizes', True),
+                'origin': getattr(s, 'show_origin', True),
+                'wholesale_price': getattr(s, 'show_wholesale_price', False),
+                'rrp': getattr(s, 'show_rrp', True),
+            }
+
             if not intro_slides or not intro_slides.get('slides'):
                 raise ValueError(f"No intro slides found for collection: {collection_id}")
             
@@ -1521,72 +1535,77 @@ Return ONLY valid JSON like:
         tf = details_box.text_frame
         
         # Product name
-        p = tf.paragraphs[0]
-        p.text = product_name
-        p.font.bold = True
-        self._apply_typo(p.font, 'heading', default_size=24)
+        if self._show_fields.get('product_name', True):
+            p = tf.paragraphs[0]
+            p.text = product_name
+            p.font.bold = True
+            self._apply_typo(p.font, 'heading', default_size=24)
 
         # SKU
-        if sku:
+        if sku and self._show_fields.get('sku', True):
             p = tf.add_paragraph()
             p.text = f"SKU: {sku}"
             p.font.size = Pt(12)
             p.font.italic = True
-        
+
         # Subcategory
         if subcategory:
             p = tf.add_paragraph()
             p.text = f"Subcategory: {subcategory}"
             p.font.size = Pt(13)
-        
+
         # Color
-        if color:
+        if color and self._show_fields.get('color', True):
             p = tf.add_paragraph()
             p.text = f"Color: {color}"
             p.font.size = Pt(14)
-        
+
         # Origin
-        if origin:
+        if origin and self._show_fields.get('origin', True):
             p = tf.add_paragraph()
             p.text = f"Origin: {origin}"
             p.font.size = Pt(13)
-        
+
         # Spacing
         p = tf.add_paragraph()
         p.text = ""
-        
+
         # Description
-        if description:
+        if description and self._show_fields.get('description', True):
             p = tf.add_paragraph()
             p.text = description
             p.font.size = Pt(12)
-        
+
         # Spacing
         p = tf.add_paragraph()
         p.text = ""
-        
+
         # Materials
-        if materials:
+        if materials and self._show_fields.get('material', True):
             p = tf.add_paragraph()
             p.text = "Materials:"
             p.font.size = Pt(12)
             p.font.bold = True
-            
+
             for material in materials:
                 p = tf.add_paragraph()
                 p.text = f"• {material}"
                 p.font.size = Pt(11)
-        
+
         # Pricing
-        if wholesale_price or rrp:
+        show_wp = self._show_fields.get('wholesale_price', False)
+        show_rrp = self._show_fields.get('rrp', True)
+        wp_val = wholesale_price if show_wp else None
+        rrp_val = rrp if show_rrp else None
+        if wp_val or rrp_val:
             p = tf.add_paragraph()
             p.text = ""
-            
+
             p = tf.add_paragraph()
             pricing_text = ""
-            if wholesale_price:
+            if wp_val:
                 pricing_text += f"Wholesale: {currency} {wholesale_price:.2f}"
-            if rrp:
+            if rrp_val:
                 if pricing_text:
                     pricing_text += " | "
                 pricing_text += f"RRP: {currency} {rrp:.2f}"
@@ -1691,42 +1710,43 @@ Return ONLY valid JSON like:
             tf.word_wrap = True
             
             # Product name
-            p = tf.paragraphs[0]
-            p.text = product_name
-            p.font.bold = True
-            self._apply_typo(p.font, 'heading', default_size=16)
+            if self._show_fields.get('product_name', True):
+                p = tf.paragraphs[0]
+                p.text = product_name
+                p.font.bold = True
+                self._apply_typo(p.font, 'heading', default_size=16)
 
             # SKU
-            if sku:
+            if sku and self._show_fields.get('sku', True):
                 p = tf.add_paragraph()
                 p.text = f"SKU: {sku}"
                 p.font.size = Pt(9)
                 p.font.italic = True
-            
+
             # Subcategory
             if subcategory:
                 p = tf.add_paragraph()
                 p.text = f"Subcat: {subcategory}"
                 p.font.size = Pt(9)
-            
+
             # Color
-            if color:
+            if color and self._show_fields.get('color', True):
                 p = tf.add_paragraph()
                 p.text = f"Color: {color}"
                 p.font.size = Pt(10)
-            
+
             # Origin
-            if origin:
+            if origin and self._show_fields.get('origin', True):
                 p = tf.add_paragraph()
                 p.text = f"Origin: {origin}"
                 p.font.size = Pt(9)
-            
+
             # Spacing
             p = tf.add_paragraph()
             p.text = ""
-            
+
             # Description (truncate if too long)
-            if description:
+            if description and self._show_fields.get('description', True):
                 p = tf.add_paragraph()
                 # Limit description to 150 chars for 2-up layout
                 if len(description) > 150:
@@ -1734,36 +1754,40 @@ Return ONLY valid JSON like:
                 else:
                     p.text = description
                 p.font.size = Pt(9)
-            
+
             # Materials (condensed)
-            if materials:
+            if materials and self._show_fields.get('material', True):
                 p = tf.add_paragraph()
                 p.text = "Materials:"
                 p.font.size = Pt(9)
                 p.font.bold = True
-                
+
                 # Show first 3 materials
                 for material in materials[:3]:
                     p = tf.add_paragraph()
                     p.text = f"• {material}"
                     p.font.size = Pt(8)
-                
+
                 if len(materials) > 3:
                     p = tf.add_paragraph()
                     p.text = f"+ {len(materials) - 3} more"
                     p.font.size = Pt(8)
                     p.font.italic = True
-            
+
             # Pricing
-            if wholesale_price or rrp:
+            show_wp = self._show_fields.get('wholesale_price', False)
+            show_rrp = self._show_fields.get('rrp', True)
+            wp_val = wholesale_price if show_wp else None
+            rrp_val = rrp if show_rrp else None
+            if wp_val or rrp_val:
                 p = tf.add_paragraph()
                 p.text = ""
-                
+
                 p = tf.add_paragraph()
                 pricing_text = ""
-                if wholesale_price:
+                if wp_val:
                     pricing_text += f"W: {currency} {wholesale_price:.2f}"
-                if rrp:
+                if rrp_val:
                     if pricing_text:
                         pricing_text += " | "
                     pricing_text += f"RRP: {currency} {rrp:.2f}"
@@ -1873,41 +1897,42 @@ Return ONLY valid JSON like:
             tf.word_wrap = True
             
             # Product name
-            p = tf.paragraphs[0]
-            p.text = product_name
-            p.font.bold = True
-            self._apply_typo(p.font, 'heading', default_size=11)
+            if self._show_fields.get('product_name', True):
+                p = tf.paragraphs[0]
+                p.text = product_name
+                p.font.bold = True
+                self._apply_typo(p.font, 'heading', default_size=11)
 
             # SKU
-            if sku:
+            if sku and self._show_fields.get('sku', True):
                 p = tf.add_paragraph()
                 p.text = f"SKU: {sku}"
                 p.font.size = Pt(8)
                 p.font.italic = True
-            
+
             # Color
-            if color:
+            if color and self._show_fields.get('color', True):
                 p = tf.add_paragraph()
                 p.text = f"Color: {color}"
                 p.font.size = Pt(8)
-            
+
             # Subcategory
             if subcategory:
                 p = tf.add_paragraph()
                 p.text = f"Subcat: {subcategory}"
                 p.font.size = Pt(8)
-            
+
             # Origin
-            if origin:
+            if origin and self._show_fields.get('origin', True):
                 p = tf.add_paragraph()
                 p.text = f"Origin: {origin}"
                 p.font.size = Pt(8)
-            
+
             # Description (dynamic font sizing, word wrap enabled)
-            if description:
+            if description and self._show_fields.get('description', True):
                 p = tf.add_paragraph()
                 p.text = description
-                
+
                 # Dynamic font size based on length
                 if len(description) <= 80:
                     p.font.size = Pt(8)
@@ -1915,34 +1940,34 @@ Return ONLY valid JSON like:
                     p.font.size = Pt(7)
                 else:
                     p.font.size = Pt(6)
-            
+
             # Materials (show first 4)
-            if materials:
+            if materials and self._show_fields.get('material', True):
                 p = tf.add_paragraph()
                 p.text = "Materials:"
                 p.font.size = Pt(8)
                 p.font.bold = True
-                
+
                 # Show first 4 materials
                 for material in materials[:4]:
                     p = tf.add_paragraph()
                     p.text = f"• {material}"
                     p.font.size = Pt(7)
-                
+
                 # If more than 4, show count
                 if len(materials) > 4:
                     p = tf.add_paragraph()
                     p.text = f"+ {len(materials) - 4} more"
                     p.font.size = Pt(7)
                     p.font.italic = True
-            
+
             # Pricing
-            if wholesale_price:
+            if wholesale_price and self._show_fields.get('wholesale_price', False):
                 p = tf.add_paragraph()
                 p.text = f"W: {currency} {wholesale_price:.2f}"
                 p.font.size = Pt(8)
-            
-            if rrp:
+
+            if rrp and self._show_fields.get('rrp', True):
                 p = tf.add_paragraph()
                 p.text = f"RRP: {currency} {rrp:.2f}"
                 p.font.size = Pt(8)
@@ -2050,41 +2075,42 @@ Return ONLY valid JSON like:
             tf.word_wrap = True
             
             # Product name
-            p = tf.paragraphs[0]
-            p.text = product_name
-            p.font.bold = True
-            self._apply_typo(p.font, 'heading', default_size=9)
+            if self._show_fields.get('product_name', True):
+                p = tf.paragraphs[0]
+                p.text = product_name
+                p.font.bold = True
+                self._apply_typo(p.font, 'heading', default_size=9)
 
             # SKU
-            if sku:
+            if sku and self._show_fields.get('sku', True):
                 p = tf.add_paragraph()
                 p.text = f"SKU: {sku}"
                 p.font.size = Pt(7)
                 p.font.italic = True
-            
+
             # Color
-            if color:
+            if color and self._show_fields.get('color', True):
                 p = tf.add_paragraph()
                 p.text = f"Color: {color}"
                 p.font.size = Pt(7)
-            
+
             # Subcategory
             if subcategory:
                 p = tf.add_paragraph()
                 p.text = f"Subcat: {subcategory}"
                 p.font.size = Pt(7)
-            
+
             # Origin
-            if origin:
+            if origin and self._show_fields.get('origin', True):
                 p = tf.add_paragraph()
                 p.text = f"Origin: {origin}"
                 p.font.size = Pt(7)
-            
+
             # Description (dynamic font sizing, word wrap enabled)
-            if description:
+            if description and self._show_fields.get('description', True):
                 p = tf.add_paragraph()
                 p.text = description
-                
+
                 # Dynamic font size based on length
                 if len(description) <= 60:
                     p.font.size = Pt(7)
@@ -2092,34 +2118,34 @@ Return ONLY valid JSON like:
                     p.font.size = Pt(6)
                 else:
                     p.font.size = Pt(5)
-            
+
             # Materials (show first 4)
-            if materials:
+            if materials and self._show_fields.get('material', True):
                 p = tf.add_paragraph()
                 p.text = "Materials:"
                 p.font.size = Pt(7)
                 p.font.bold = True
-                
+
                 # Show first 4 materials
                 for material in materials[:4]:
                     p = tf.add_paragraph()
                     p.text = f"• {material}"
                     p.font.size = Pt(6)
-                
+
                 # If more than 4, show count
                 if len(materials) > 4:
                     p = tf.add_paragraph()
                     p.text = f"+ {len(materials) - 4} more"
                     p.font.size = Pt(6)
                     p.font.italic = True
-            
+
             # Pricing
-            if wholesale_price:
+            if wholesale_price and self._show_fields.get('wholesale_price', False):
                 p = tf.add_paragraph()
                 p.text = f"W: {currency} {wholesale_price:.2f}"
                 p.font.size = Pt(7)
-            
-            if rrp:
+
+            if rrp and self._show_fields.get('rrp', True):
                 p = tf.add_paragraph()
                 p.text = f"RRP: {currency} {rrp:.2f}"
                 p.font.size = Pt(7)
