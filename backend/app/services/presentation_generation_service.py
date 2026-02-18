@@ -9,6 +9,7 @@ Generates PowerPoint presentations from collection data including:
 import logging
 import os
 import tempfile
+from collections import OrderedDict
 from datetime import datetime
 from typing import Dict, Any, Optional
 from io import BytesIO
@@ -1201,19 +1202,30 @@ Return ONLY valid JSON like:
             logger.warning("No items found for product slides")
             return
 
-        # Sort by category (alphabetical, nulls last) then display_order
-        # Matches item_service.get_collection_items sort order
-        items.sort(key=lambda x: (x.get('category') or 'zzz', x.get('display_order', 0)))
+        # Sort by category (alphabetical, nulls last), then subcategory
+        # (nulls last), then display_order
+        items.sort(key=lambda x: (
+            x.get('category') or 'zzz',
+            x.get('subcategory') or 'zzz',
+            x.get('display_order', 0)
+        ))
 
-        # Group items by category (preserves sort order within each group)
-        items_by_category = {}
+        # Group items by (category, subcategory) — only items sharing both
+        # category AND subcategory will appear on the same slide
+        items_by_cat_subcat = OrderedDict()
         for item in items:
             category = item.get('category', 'Uncategorized')
-            if category not in items_by_category:
-                items_by_category[category] = []
-            items_by_category[category].append(item)
+            subcategory = item.get('subcategory') or ''
+            key = (category, subcategory)
+            if key not in items_by_cat_subcat:
+                items_by_cat_subcat[key] = []
+            items_by_cat_subcat[key].append(item)
 
-        logger.info(f"Grouped {len(items)} items into {len(items_by_category)} categories")
+        unique_categories = list(dict.fromkeys(cat for cat, _ in items_by_cat_subcat))
+        logger.info(
+            f"Grouped {len(items)} items into {len(items_by_cat_subcat)} "
+            f"subcategory groups across {len(unique_categories)} categories"
+        )
 
         # Batch-translate categories, subcategories, and sales talk if non-English
         if self._language != "en":
@@ -1227,47 +1239,51 @@ Return ONLY valid JSON like:
                     translatable.append(item['sales_talk'].strip())
             self._translations = await self._translate_strings(translatable)
 
-        # Sort categories by display_order (falls back to alphabetical for unknown categories)
-        sorted_categories = sorted(
-            items_by_category.keys(),
-            key=lambda c: (category_order.get(c, 999), c)
+        # Sort groups: by category display_order first, then subcategory alpha
+        sorted_keys = sorted(
+            items_by_cat_subcat.keys(),
+            key=lambda k: (category_order.get(k[0], 999), k[0], k[1] or 'zzz')
         )
 
         # Generate slides based on layout
         slides_generated = 0
+        last_category = None
 
-        for category in sorted_categories:
-            category_items = items_by_category[category]
-            logger.info(f"Generating slides for category: {category} ({len(category_items)} items)")
-            
-            # Create category divider slide
-            self._create_category_divider_slide(category)
-            slides_generated += 1
-            
-            # Create product slides
+        for category, subcategory in sorted_keys:
+            group_items = items_by_cat_subcat[(category, subcategory)]
+            subcat_label = f" - {subcategory}" if subcategory else ""
+            logger.info(
+                f"Generating slides for {category}{subcat_label} "
+                f"({len(group_items)} items)"
+            )
+
+            # Create category divider slide once per category
+            if category != last_category:
+                self._create_category_divider_slide(category)
+                slides_generated += 1
+                last_category = category
+
+            # Create product slides — only matching items on each slide
             if products_per_slide == 1:
-                for item in category_items:
+                for item in group_items:
                     self._create_1up_product_slide(item)
                     slides_generated += 1
             elif products_per_slide == 2:
-                # Group items in pairs
-                for i in range(0, len(category_items), 2):
-                    items_group = category_items[i:i+2]
+                for i in range(0, len(group_items), 2):
+                    items_group = group_items[i:i+2]
                     self._create_2up_product_slide(items_group)
                     slides_generated += 1
             elif products_per_slide == 3:
-                # Group items in sets of 3
-                for i in range(0, len(category_items), 3):
-                    items_group = category_items[i:i+3]
+                for i in range(0, len(group_items), 3):
+                    items_group = group_items[i:i+3]
                     self._create_3up_product_slide(items_group)
                     slides_generated += 1
             elif products_per_slide == 4:
-                # Group items in sets of 4
-                for i in range(0, len(category_items), 4):
-                    items_group = category_items[i:i+4]
+                for i in range(0, len(group_items), 4):
+                    items_group = group_items[i:i+4]
                     self._create_4up_product_slide(items_group)
                     slides_generated += 1
-        
+
         logger.info(f"Generated {slides_generated} product slides")
     
     def _create_category_divider_slide(self, category: str):
