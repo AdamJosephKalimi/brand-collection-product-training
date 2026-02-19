@@ -44,11 +44,12 @@ export const useDownloadPresentation = () => {
     mutationFn: async ({ collectionId, deckName }) => {
       const token = await getAuthToken();
       const response = await fetch(
-        `${API_BASE_URL}/collections/${collectionId}/presentation/download`,
+        `${API_BASE_URL}/collections/${collectionId}/presentation/download?t=${Date.now()}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
-          }
+          },
+          cache: 'no-store'
         }
       );
 

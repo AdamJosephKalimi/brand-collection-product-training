@@ -2182,26 +2182,27 @@ Return ONLY valid JSON like:
             
             # Save presentation
             self.prs.save(temp_path)
-            
-            # Upload to Firebase Storage
-            blob = self.bucket.blob(
-                f"presentations/{collection_id}/presentation.pptx"
-            )
-            
+
+            # Upload to Firebase Storage with unique path per generation
+            # Using a unique filename prevents GCS/CDN from serving cached old versions
+            gen_ts = int(datetime.now().timestamp())
+            storage_path = f"presentations/{collection_id}/{gen_ts}_presentation.pptx"
+            blob = self.bucket.blob(storage_path)
+            blob.cache_control = 'no-cache, no-store, must-revalidate'
+
             logger.info(f"Uploading to Firebase Storage: {blob.name}")
-            blob.upload_from_filename(temp_path)
-            
-            # Make public and get URL with cache busting
+            blob.upload_from_filename(
+                temp_path,
+                content_type='application/vnd.openxmlformats-officedocument.presentationml.presentation'
+            )
+
+            # Make public and get URL
             blob.make_public()
-            cache_buster = datetime.now().timestamp()
-            download_url = f"{blob.public_url}?v={cache_buster}"
-            
+            download_url = blob.public_url
+
             # Clean up temp file
             os.remove(temp_path)
             logger.info(f"Temp file cleaned up: {temp_path}")
-            
-            # Update collection document with presentation metadata
-            storage_path = f"presentations/{collection_id}/presentation.pptx"
             collection_ref = self.db.collection('collections').document(collection_id)
             collection_ref.update({
                 'presentation': {
