@@ -870,8 +870,8 @@ function CollectionSettingsPage() {
         try {
           const token = await import('../../utils/auth').then(m => m.getAuthToken());
           const dlResponse = await fetch(
-            `${API_BASE_URL}/collections/${collectionId}/presentation/download`,
-            { headers: { 'Authorization': `Bearer ${token}` } }
+            `${API_BASE_URL}/collections/${collectionId}/presentation/download?t=${Date.now()}`,
+            { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' }
           );
           const blob = await dlResponse.blob();
           const blobUrl = window.URL.createObjectURL(blob);
@@ -2823,7 +2823,11 @@ function CollectionSettingsPage() {
                     <button
                       onClick={async () => {
                         try {
-                          const dlResponse = await fetch(deckDownloadUrl);
+                          const token = await import('../../utils/auth').then(m => m.getAuthToken());
+                          const dlResponse = await fetch(
+                            `${API_BASE_URL}/collections/${collectionId}/presentation/download?t=${Date.now()}`,
+                            { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' }
+                          );
                           const blob = await dlResponse.blob();
                           const blobUrl = window.URL.createObjectURL(blob);
                           const link = document.createElement('a');

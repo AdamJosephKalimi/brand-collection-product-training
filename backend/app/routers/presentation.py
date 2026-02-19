@@ -257,20 +257,20 @@ async def download_presentation(
         if not storage_path:
             # Fallback to default path
             storage_path = f"presentations/{collection_id}/presentation.pptx"
-        
+
         # Download from Firebase Storage
         bucket = firebase_service.bucket
         blob = bucket.blob(storage_path)
-        
+
         if not blob.exists():
             raise HTTPException(
                 status_code=404,
                 detail="Presentation file not found in storage"
             )
-        
+
         # Download to bytes
         file_bytes = blob.download_as_bytes()
-        
+
         # Create filename for download
         collection_name = collection.name.replace(" ", "_")
         filename = f"{collection_name}_Training_Deck.pptx"
@@ -280,7 +280,8 @@ async def download_presentation(
             BytesIO(file_bytes),
             media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-store",
             }
         )
         
