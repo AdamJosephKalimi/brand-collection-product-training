@@ -1630,13 +1630,24 @@ Return ONLY valid JSON like:
         
         self._apply_body_font(tf)
 
-        self._add_sales_talk_below(
-            slide, tf, item,
-            details_left=Inches(5.5 * self._w_scale),
-            details_top=1.0,
-            image_width=Inches(3.5),
-            font_size=16
-        )
+        # Sales talk — fixed near bottom of the details column (1-up only)
+        sales_talk = (item.get('sales_talk') or '').strip()
+        if sales_talk:
+            sales_talk = self._t(sales_talk)
+            box = slide.shapes.add_textbox(
+                left=Inches(5.5 * self._w_scale),
+                top=Inches(6.0),
+                width=Inches(4 * self._w_scale),
+                height=Inches(0.8)
+            )
+            stf = box.text_frame
+            stf.word_wrap = True
+            p = stf.paragraphs[0]
+            p.text = sales_talk
+            p.font.bold = True
+            p.font.size = Pt(16)
+            p.alignment = PP_ALIGN.CENTER
+            self._apply_body_font(stf)
 
         logger.info(f"1-up product slide created: {product_name}")
 
