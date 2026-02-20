@@ -1,21 +1,22 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styles from './Footer.module.css';
 
 /**
  * Footer Component
- * 
- * Page footer with links and copyright
- * 
- * @param {Array} links - Array of {label, href} objects for footer links
+ *
+ * Page footer with links and copyright.
+ * Uses React Router Link for internal navigation.
+ *
+ * @param {Array} links - Array of {label, path} objects for footer links
  * @param {string} copyrightText - Copyright text
  */
-function Footer({ 
+function Footer({
   links = [
-    { label: 'Help', href: '#' },
-    { label: 'Documentation', href: '#' },
-    { label: 'Support', href: '#' }
+    { label: 'Documentation', path: '/documentation' },
+    { label: 'Support', path: '/support' }
   ],
-  copyrightText = '© 2024 AI Brand Training Generator',
+  copyrightText = '© 2026 Proko Product Knowledge',
   className = ''
 }) {
   return (
@@ -24,16 +25,16 @@ function Footer({
         {/* Left: Links */}
         <div className={styles.footerLinks}>
           {links.map((link, index) => (
-            <a 
+            <Link
               key={index}
-              href={link.href}
+              to={link.path}
               className={styles.footerLink}
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </div>
-        
+
         {/* Right: Copyright */}
         <p className={styles.copyright}>{copyrightText}</p>
       </div>

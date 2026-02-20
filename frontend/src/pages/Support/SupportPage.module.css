@@ -1,0 +1,157 @@
+.pageContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--background-light, #f9fafb);
+}
+
+.mainContent {
+  flex: 1;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--spacing-4) var(--spacing-3);
+  width: 100%;
+}
+
+.header {
+  margin-bottom: var(--spacing-4);
+}
+
+.title {
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-bold);
+  font-size: 40px;
+  line-height: 1;
+  color: var(--text-brand);
+  margin: 0 0 var(--spacing-1) 0;
+}
+
+.subtitle {
+  font-family: var(--font-family-body);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Contact card */
+.contactCard {
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-3);
+  margin-bottom: var(--spacing-3);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.contactIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--background-active);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.contactBody {
+  flex: 1;
+}
+
+.contactLabel {
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-semi-bold);
+  font-size: var(--font-size-sm);
+  color: var(--text-brand);
+  margin: 0 0 2px 0;
+}
+
+.contactDetail {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.emailLink {
+  color: var(--text-brand);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}
+
+.emailLink:hover {
+  text-decoration: underline;
+}
+
+/* Section title */
+.sectionTitle {
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
+  color: var(--text-brand);
+  margin: 0 0 var(--spacing-2) 0;
+}
+
+/* FAQ cards */
+.faqGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: var(--spacing-4);
+}
+
+.faqCard {
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+.faqQuestion {
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-semi-bold);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-sm);
+  color: var(--text-brand);
+  margin: 0 0 6px 0;
+}
+
+.faqAnswer {
+  font-family: var(--font-family-body);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Feature request card */
+.featureCard {
+  background-color: var(--background-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-3);
+}
+
+.featureTitle {
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-semi-bold);
+  font-size: var(--font-size-sm);
+  color: var(--text-brand);
+  margin: 0 0 6px 0;
+}
+
+.text {
+  font-family: var(--font-family-body);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
