@@ -65,7 +65,7 @@ class CollectionSettings(BaseModel):
     show_material: bool = Field(default=True)
     show_sizes: bool = Field(default=True)
     show_origin: bool = Field(default=True)
-    show_wholesale_price: bool = Field(default=False)
+    show_wholesale_price: bool = Field(default=True)
     show_rrp: bool = Field(default=True)
     
     citation_style: CitationStyle = Field(default=CitationStyle.FOOTNOTES)
