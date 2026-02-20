@@ -12,6 +12,8 @@ import DeckSettingsPage from './pages/DeckSettings/DeckSettingsPage';
 import CollectionSettingsPage from './pages/CollectionSettings/CollectionSettingsPage';
 import GeneratedDecksPage from './pages/GeneratedDecks/GeneratedDecksPage';
 import SettingsPage from './pages/Settings/SettingsPage';
+import DocumentationPage from './pages/Documentation/DocumentationPage';
+import SupportPage from './pages/Support/SupportPage';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -88,7 +90,9 @@ function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/generated-decks" element={<GeneratedDecksPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            
+            <Route path="/documentation" element={<DocumentationPage />} />
+            <Route path="/support" element={<SupportPage />} />
+
             {/* Legacy routes with card layout (keeping for now) */}
             <Route path="/processing" element={
               <div className="container mt-5">
