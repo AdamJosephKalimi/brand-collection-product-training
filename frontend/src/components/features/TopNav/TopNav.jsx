@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../firebase/config';
-import { ReactComponent as ProkoIcon } from '../../../assets/proko-icon.svg';
+import AnimatedProkoIcon from '../AnimatedProkoIcon/AnimatedProkoIcon';
 import styles from './TopNav.module.css';
 
 /**
@@ -23,6 +23,7 @@ function TopNav({
   const location = useLocation();
   const [avatarError, setAvatarError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoSpinning, setLogoSpinning] = useState(false);
   const menuRef = useRef(null);
 
   const user = auth.currentUser;
@@ -57,8 +58,16 @@ function TopNav({
       {/* Left side: Logo + Links */}
       <div className={styles.navLeft}>
         {/* Logo */}
-        <Link to="/" className={styles.logo}>
-          <ProkoIcon className={styles.logoIcon} />
+        <Link
+          to="/"
+          className={styles.logo}
+          onMouseEnter={() => { if (!logoSpinning) setLogoSpinning(true); }}
+        >
+          <AnimatedProkoIcon
+            className={styles.logoIcon}
+            spinning={logoSpinning}
+            onSpinComplete={() => setLogoSpinning(false)}
+          />
           <span className={styles.logoText}>{logoText}</span>
         </Link>
 
