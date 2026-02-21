@@ -1,0 +1,25 @@
+.wrapper {
+  perspective: 800px;
+  display: inline-flex;
+}
+
+/*
+ * Keyframes matching our Remotion prototype timing:
+ * First 40% at 2x, middle 40% at 1x, last 20% at 0.75x
+ * Total: 720° (2 full rotations)
+ * Progress breakpoints: 0% → 0°, 40% → 427°, 80% → 640°, 100% → 720°
+ */
+@keyframes ringSpinY {
+  0% { transform: rotateY(0deg); }
+  40% { transform: rotateY(427deg); }
+  80% { transform: rotateY(640deg); }
+  100% { transform: rotateY(720deg); }
+}
+
+.ring {
+  transform-style: preserve-3d;
+}
+
+.spinning {
+  animation: ringSpinY 2.5s linear forwards;
+}
