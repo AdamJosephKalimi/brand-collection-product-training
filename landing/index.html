@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- SEO -->
+  <title>Proko — AI Product Training for Fashion Brands</title>
+  <meta name="description" content="Create polished product training decks in minutes. Upload line sheets and brand materials, and let AI generate PowerPoint presentations for your retail teams.">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Proko — AI Product Training for Fashion Brands">
+  <meta property="og:description" content="Create polished product training decks in minutes. Upload line sheets and brand materials, and let AI generate PowerPoint presentations for your retail teams.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://proko.ai">
+  <meta property="og:image" content="https://proko.ai/og-image.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Proko — AI Product Training for Fashion Brands">
+  <meta name="twitter:description" content="Create polished product training decks in minutes. Upload line sheets and brand materials, and let AI generate PowerPoint presentations for your retail teams.">
+  <meta name="twitter:image" content="https://proko.ai/og-image.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ========================================
+       RESET & BASE
+       ======================================== */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* ========================================
+       COLOR TOKENS
+       ======================================== */
+    :root {
+      --color-brand-forest: #2c3528;
+      --color-brand-lime: #a0f26e;
+      --color-grey-0: #ffffff;
+      --color-grey-30: #d1d5db;
+      --color-grey-40: #9ca3af;
+      --color-grey-50: #6b7280;
+      --color-grey-60: #4b5563;
+
+      --background-primary: #2c3528;
+      --background-white: #ffffff;
+      --background-light: #f9fafb;
+      --background-active: #ebf7e6;
+      --background-highlight: #a0f26e;
+
+      --text-brand: #2c3528;
+      --text-secondary: #4b5563;
+      --text-white: #ffffff;
+
+      --border-light: #e5e7eb;
+      --border-medium: #d1d5db;
+
+      /* Spacing scale (8px increments) */
+      --space-1: 8px;
+      --space-2: 16px;
+      --space-3: 24px;
+      --space-4: 32px;
+      --space-5: 40px;
+      --space-6: 48px;
+      --space-8: 64px;
+      --space-10: 80px;
+      --space-12: 96px;
+      --space-15: 120px;
+
+      /* Radii */
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    /* ========================================
+       TYPOGRAPHY & BODY
+       ======================================== */
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 400;
+      color: var(--text-brand);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    /* ========================================
+       LAYOUT UTILITIES
+       ======================================== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--space-8);
+    }
+
+    /* ========================================
+       ANIMATION BASE (scroll-in)
+       ======================================== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 600ms ease-out, transform 600ms ease-out;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Stagger children */
+    .stagger > .reveal:nth-child(1) { transition-delay: 0ms; }
+    .stagger > .reveal:nth-child(2) { transition-delay: 100ms; }
+    .stagger > .reveal:nth-child(3) { transition-delay: 200ms; }
+    .stagger > .reveal:nth-child(4) { transition-delay: 300ms; }
+    .stagger > .reveal:nth-child(5) { transition-delay: 400ms; }
+    .stagger > .reveal:nth-child(6) { transition-delay: 500ms; }
+
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .reveal {
+        opacity: 1;
+        transform: none;
+        transition: none;
+      }
+    }
+
+    /* ========================================
+       BUTTONS
+       ======================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 16px;
+      padding: 14px 32px;
+      border-radius: var(--radius-md);
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: background-color 200ms ease, transform 200ms ease, border-color 200ms ease;
+    }
+
+    .btn-primary {
+      background-color: var(--color-brand-lime);
+      color: var(--text-brand);
+    }
+
+    .btn-primary:hover {
+      background-color: #8ad95e;
+      transform: scale(1.02);
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      border: 1.5px solid var(--color-grey-30);
+      color: var(--text-white);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--text-white);
+    }
+
+    .btn-secondary--light {
+      color: var(--text-brand);
+    }
+
+    .btn-secondary--light:hover {
+      border-color: var(--text-brand);
+    }
+
+    .btn-large {
+      padding: 16px 48px;
+      font-size: 18px;
+    }
+
+    /* ========================================
+       1. NAVIGATION
+       ======================================== */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 72px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      transition: background-color 300ms ease, border-color 300ms ease, backdrop-filter 300ms ease;
+      border-bottom: 1px solid transparent;
+    }
+
+    .nav.scrolled {
+      background-color: var(--background-primary);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .nav__inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--space-8);
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav__brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      perspective: 400px;
+    }
+
+    /* Logo ring spin animation
+       Matches Remotion: 2.5s duration, 2 rotations, 167ms stagger
+       3-phase easing: fast start → normal middle → slow finish */
+    @keyframes ringSpin {
+      0%   { transform: rotateY(0deg); }
+      40%  { transform: rotateY(427deg); }   /* 59.3% of 720 — fast phase (2x speed) */
+      80%  { transform: rotateY(640deg); }   /* 88.9% of 720 — normal phase (1x speed) */
+      100% { transform: rotateY(720deg); }   /* 100% of 720 — slow phase (0.75x speed) */
+    }
+
+    .nav__logo-svg {
+      transform-style: preserve-3d;
+    }
+
+    .nav__ring {
+      transform-style: preserve-3d;
+    }
+
+    .nav__brand:hover .nav__ring--1 {
+      animation: ringSpin 2.5s linear forwards;
+      animation-delay: 0ms;
+    }
+
+    .nav__brand:hover .nav__ring--2 {
+      animation: ringSpin 2.5s linear forwards;
+      animation-delay: 167ms;
+    }
+
+    .nav__brand:hover .nav__ring--3 {
+      animation: ringSpin 2.5s linear forwards;
+      animation-delay: 334ms;
+    }
+
+    .nav__brand:hover .nav__ring--4 {
+      animation: ringSpin 2.5s linear forwards;
+      animation-delay: 501ms;
+    }
+
+    .nav__wordmark {
+      font-weight: 700;
+      font-size: 20px;
+      color: var(--text-white);
+    }
+
+    .nav__actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .nav__sign-in {
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--text-white);
+      text-decoration: none;
+      transition: opacity 200ms ease;
+    }
+
+    .nav__sign-in:hover {
+      opacity: 0.8;
+    }
+
+    .nav .btn-primary {
+      font-size: 14px;
+      padding: 10px 24px;
+    }
+
+    /* ========================================
+       2. HERO
+       ======================================== */
+    .hero {
+      background-color: var(--background-primary);
+      padding: var(--space-15) 0 var(--space-12);
+    }
+
+    .hero__inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-8);
+      align-items: center;
+    }
+
+    .hero__image-placeholder {
+      transform: scale(1.15);
+      transform-origin: center right;
+    }
+
+    .hero__eyebrow {
+      font-weight: 600;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--color-brand-lime);
+      margin-bottom: var(--space-3);
+    }
+
+    .hero__headline {
+      font-weight: 700;
+      font-size: 48px;
+      line-height: 1.1;
+      color: var(--text-white);
+      max-width: 520px;
+      margin-bottom: var(--space-3);
+    }
+
+    .hero__sub {
+      font-weight: 400;
+      font-size: 20px;
+      color: rgba(255, 255, 255, 0.75);
+      max-width: 480px;
+      margin-bottom: var(--space-4);
+      line-height: 1.5;
+    }
+
+    .hero__cta-group {
+      display: flex;
+      gap: var(--space-2);
+      margin-bottom: var(--space-3);
+    }
+
+    .hero__trust {
+      font-size: 14px;
+      color: var(--color-grey-40);
+    }
+
+    .hero__image-placeholder {
+      background-color: rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .hero__image-placeholder img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: var(--radius-lg);
+    }
+
+    .hero__image-placeholder p {
+      font-size: 14px;
+      color: var(--color-grey-40);
+      font-style: italic;
+      text-align: center;
+      max-width: 280px;
+    }
+
+    /* ========================================
+       3. SOCIAL PROOF STRIP
+       ======================================== */
+    .social-proof {
+      background-color: var(--background-white);
+      padding: var(--space-6) 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .social-proof__label {
+      font-weight: 500;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--color-grey-40);
+      text-align: center;
+      margin-bottom: var(--space-4);
+    }
+
+    .social-proof__logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-6);
+      flex-wrap: wrap;
+    }
+
+    .social-proof__logo {
+      width: 120px;
+      height: 32px;
+      background-color: var(--background-light);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--color-grey-40);
+    }
+
+    /* ========================================
+       4. PROBLEM / SOLUTION
+       ======================================== */
+    .problem-solution {
+      background-color: var(--background-light);
+      padding: var(--space-12) 0;
+    }
+
+    .problem-solution__headline {
+      font-weight: 700;
+      font-size: 36px;
+      color: var(--text-brand);
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto var(--space-3);
+      line-height: 1.2;
+    }
+
+    .problem-solution__body {
+      font-size: 18px;
+      color: var(--text-secondary);
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto var(--space-8);
+      line-height: 1.6;
+    }
+
+    .problem-solution__columns {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+    }
+
+    .problem-solution__col {
+      padding: var(--space-4);
+    }
+
+    .problem-solution__accent {
+      width: 40px;
+      height: 3px;
+      background-color: var(--color-brand-lime);
+      margin-bottom: var(--space-2);
+      border-radius: 2px;
+    }
+
+    .problem-solution__col-title {
+      font-weight: 600;
+      font-size: 20px;
+      color: var(--text-brand);
+      margin-bottom: var(--space-1);
+    }
+
+    .problem-solution__col-body {
+      font-size: 16px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ========================================
+       5. PRODUCT SHOWCASE
+       ======================================== */
+    .showcase {
+      background-color: var(--background-primary);
+      padding: var(--space-12) 0 var(--space-8);
+    }
+
+    .showcase__eyebrow {
+      font-weight: 600;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--color-brand-lime);
+      text-align: center;
+      margin-bottom: var(--space-2);
+    }
+
+    .showcase__headline {
+      font-weight: 700;
+      font-size: 36px;
+      color: var(--text-white);
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto var(--space-3);
+      line-height: 1.2;
+    }
+
+    .showcase__sub {
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.7);
+      text-align: center;
+      max-width: 500px;
+      margin: 0 auto var(--space-6);
+      line-height: 1.5;
+    }
+
+    .showcase__image {
+      background-color: rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 32px 64px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .showcase__image img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: var(--radius-lg);
+    }
+
+    .showcase__image p {
+      font-size: 14px;
+      color: var(--color-grey-40);
+      font-style: italic;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    /* ========================================
+       6. HOW IT WORKS
+       ======================================== */
+    .how-it-works {
+      background-color: var(--background-white);
+      padding: var(--space-12) 0;
+    }
+
+    .how-it-works__headline {
+      font-weight: 700;
+      font-size: 36px;
+      color: var(--text-brand);
+      text-align: center;
+      margin-bottom: var(--space-10);
+      line-height: 1.2;
+    }
+
+    .how-it-works__step {
+      display: grid;
+      grid-template-columns: 45% 55%;
+      gap: var(--space-8);
+      align-items: center;
+    }
+
+    .how-it-works__step + .how-it-works__step {
+      margin-top: var(--space-10);
+    }
+
+    .how-it-works__step--reversed {
+      direction: rtl;
+    }
+
+    .how-it-works__step--reversed > * {
+      direction: ltr;
+    }
+
+    .how-it-works__number {
+      font-weight: 700;
+      font-size: 64px;
+      color: var(--color-brand-lime);
+      opacity: 0.3;
+      line-height: 1;
+      margin-bottom: var(--space-2);
+    }
+
+    .how-it-works__step-title {
+      font-weight: 600;
+      font-size: 24px;
+      color: var(--text-brand);
+      margin-bottom: var(--space-2);
+    }
+
+    .how-it-works__step-body {
+      font-size: 16px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: var(--space-2);
+    }
+
+    .how-it-works__pill {
+      display: inline-flex;
+      align-items: center;
+      background-color: var(--background-active);
+      color: var(--text-brand);
+      font-weight: 500;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 999px;
+    }
+
+    .how-it-works__step-image {
+      background-color: var(--background-light);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      border: 1px solid var(--border-light);
+      overflow: hidden;
+    }
+
+    .how-it-works__step-image img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: var(--radius-lg);
+    }
+
+    .how-it-works__step-image p {
+      font-size: 14px;
+      color: var(--color-grey-40);
+      font-style: italic;
+      text-align: center;
+      max-width: 280px;
+    }
+
+    /* ========================================
+       7. FEATURES GRID
+       ======================================== */
+    .features {
+      background-color: var(--background-light);
+      padding: var(--space-12) 0;
+    }
+
+    .features__headline {
+      font-weight: 700;
+      font-size: 36px;
+      color: var(--text-brand);
+      text-align: center;
+      margin-bottom: var(--space-2);
+      line-height: 1.2;
+    }
+
+    .features__sub {
+      font-size: 18px;
+      color: var(--text-secondary);
+      text-align: center;
+      max-width: 500px;
+      margin: 0 auto var(--space-8);
+      line-height: 1.5;
+    }
+
+    .features__grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+    }
+
+    .feature-card {
+      background-color: var(--background-white);
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-light);
+      transition: box-shadow 200ms ease, transform 200ms ease;
+    }
+
+    .feature-card:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .feature-card__icon {
+      width: 48px;
+      height: 48px;
+      background-color: var(--background-active);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-2);
+    }
+
+    .feature-card__icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: var(--text-brand);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .feature-card__title {
+      font-weight: 600;
+      font-size: 18px;
+      color: var(--text-brand);
+      margin-bottom: var(--space-1);
+    }
+
+    .feature-card__body {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ========================================
+       8. TESTIMONIAL
+       ======================================== */
+    .testimonial {
+      background-color: var(--background-primary);
+      padding: var(--space-12) 0;
+    }
+
+    .testimonial__inner {
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+      position: relative;
+    }
+
+    .testimonial__mark {
+      font-size: 120px;
+      color: var(--color-brand-lime);
+      opacity: 0.3;
+      line-height: 1;
+      margin-bottom: -24px;
+      font-family: Georgia, serif;
+    }
+
+    .testimonial__quote {
+      font-size: 24px;
+      font-style: italic;
+      color: var(--text-white);
+      line-height: 1.5;
+      margin-bottom: var(--space-4);
+    }
+
+    .testimonial__name {
+      font-weight: 500;
+      font-size: 16px;
+      color: var(--color-grey-40);
+      margin-bottom: 4px;
+    }
+
+    .testimonial__role {
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--color-grey-40);
+    }
+
+    /* ========================================
+       9. FINAL CTA
+       ======================================== */
+    .final-cta {
+      background-color: var(--background-white);
+      padding: var(--space-12) 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .final-cta__inner {
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .final-cta__headline {
+      font-weight: 700;
+      font-size: 36px;
+      color: var(--text-brand);
+      margin-bottom: var(--space-3);
+      line-height: 1.2;
+    }
+
+    .final-cta__body {
+      font-size: 18px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-4);
+      line-height: 1.6;
+    }
+
+    .final-cta__note {
+      font-size: 14px;
+      color: var(--color-grey-40);
+      margin-top: var(--space-2);
+    }
+
+    .final-cta__decoration {
+      position: absolute;
+      bottom: -40px;
+      right: -40px;
+      width: 200px;
+      height: 200px;
+      opacity: 0.08;
+    }
+
+    /* ========================================
+       10. FOOTER
+       ======================================== */
+    .footer {
+      background-color: var(--background-primary);
+      padding: var(--space-6) 0 var(--space-4);
+    }
+
+    .footer__top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: var(--space-4);
+    }
+
+    .footer__brand {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .footer__brand-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer__wordmark {
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text-white);
+    }
+
+    .footer__tagline {
+      font-size: 14px;
+      color: var(--color-grey-40);
+    }
+
+    .footer__links {
+      display: flex;
+      gap: var(--space-4);
+      align-items: center;
+    }
+
+    .footer__link {
+      font-size: 14px;
+      color: var(--color-grey-40);
+      text-decoration: none;
+      transition: color 200ms ease;
+    }
+
+    .footer__link:hover {
+      color: var(--text-white);
+    }
+
+    .footer__bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: var(--space-3);
+    }
+
+    .footer__copyright {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* ========================================
+       RESPONSIVE: TABLET (768-1024px)
+       ======================================== */
+    @media (max-width: 1024px) {
+      .container {
+        padding: 0 var(--space-6);
+      }
+
+      .hero {
+        padding: var(--space-12) 0 var(--space-10);
+      }
+
+      .hero__inner {
+        grid-template-columns: 55% 45%;
+      }
+
+      .hero__headline {
+        font-size: 40px;
+      }
+
+      .hero__sub {
+        font-size: 18px;
+      }
+
+      .problem-solution,
+      .showcase,
+      .how-it-works,
+      .features,
+      .testimonial,
+      .final-cta {
+        padding: var(--space-10) 0;
+      }
+
+      .features__grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* ========================================
+       RESPONSIVE: MOBILE (0-767px)
+       ======================================== */
+    @media (max-width: 767px) {
+      .container {
+        padding: 0 var(--space-3);
+      }
+
+      .nav {
+        height: 64px;
+      }
+
+      .nav__inner {
+        padding: 0 var(--space-3);
+      }
+
+      .nav .btn-primary {
+        font-size: 13px;
+        padding: 8px 16px;
+      }
+
+      /* Hero */
+      .hero {
+        padding: var(--space-12) 0 var(--space-8);
+      }
+
+      .hero__inner {
+        grid-template-columns: 1fr;
+        gap: var(--space-5);
+      }
+
+      .hero__headline {
+        font-size: 32px;
+        max-width: none;
+      }
+
+      .hero__sub {
+        font-size: 18px;
+        max-width: none;
+      }
+
+      .hero__cta-group {
+        flex-direction: column;
+      }
+
+      .hero__cta-group .btn {
+        width: 100%;
+      }
+
+      /* Social proof */
+      .social-proof {
+        padding: var(--space-4) 0;
+      }
+
+      .social-proof__logos {
+        gap: var(--space-3);
+      }
+
+      .social-proof__logo {
+        width: 100px;
+      }
+
+      /* Problem/Solution */
+      .problem-solution {
+        padding: var(--space-8) 0;
+      }
+
+      .problem-solution__headline {
+        font-size: 28px;
+      }
+
+      .problem-solution__body {
+        font-size: 16px;
+      }
+
+      .problem-solution__columns {
+        grid-template-columns: 1fr;
+      }
+
+      /* Showcase */
+      .showcase {
+        padding: var(--space-8) 0;
+      }
+
+      .showcase__headline {
+        font-size: 28px;
+      }
+
+      .showcase__sub {
+        font-size: 16px;
+      }
+
+      /* How it works */
+      .how-it-works {
+        padding: var(--space-8) 0;
+      }
+
+      .how-it-works__headline {
+        font-size: 28px;
+        margin-bottom: var(--space-6);
+      }
+
+      .how-it-works__step,
+      .how-it-works__step--reversed {
+        grid-template-columns: 1fr;
+        direction: ltr;
+      }
+
+      .how-it-works__step-image {
+        order: -1;
+      }
+
+      .how-it-works__step + .how-it-works__step {
+        margin-top: var(--space-8);
+      }
+
+      /* Features */
+      .features {
+        padding: var(--space-8) 0;
+      }
+
+      .features__headline {
+        font-size: 28px;
+      }
+
+      .features__sub {
+        font-size: 16px;
+      }
+
+      .features__grid {
+        grid-template-columns: 1fr;
+      }
+
+      /* Testimonial */
+      .testimonial {
+        padding: var(--space-8) 0;
+      }
+
+      .testimonial__quote {
+        font-size: 20px;
+      }
+
+      .testimonial__mark {
+        font-size: 80px;
+      }
+
+      /* Final CTA */
+      .final-cta {
+        padding: var(--space-8) 0;
+      }
+
+      .final-cta__headline {
+        font-size: 28px;
+      }
+
+      .final-cta__body {
+        font-size: 16px;
+      }
+
+      /* Footer */
+      .footer__top {
+        flex-direction: column;
+        gap: var(--space-4);
+      }
+
+      .footer__links {
+        flex-wrap: wrap;
+        gap: var(--space-3);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =============================================
+       1. NAVIGATION (sticky)
+       ============================================= -->
+  <nav class="nav" id="nav">
+    <div class="nav__inner">
+      <a href="/" class="nav__brand">
+        <svg class="nav__logo-svg" width="28" height="28" viewBox="0 0 61 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">
+          <g class="nav__ring nav__ring--1" style="transform-origin:30.6px 10px;">
+            <path d="M6.43881 3.78435C7.13077 1.13452 18.507 1.77441 31.8602 5.21181C45.2134 8.64922 55.4775 13.5879 54.7855 16.246C54.0936 18.8958 42.7174 18.2559 29.3642 14.8185C16.011 11.3811 5.74685 6.44239 6.43881 3.78435Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+          </g>
+          <g class="nav__ring nav__ring--2" style="transform-origin:30.4px 23.1px;">
+            <path d="M6.25758 16.8694C6.94954 14.2196 18.3257 14.8595 31.6789 18.2969C45.0322 21.7343 55.2963 26.673 54.6043 29.3311C53.9123 31.9809 42.5362 31.341 29.1829 27.9036C15.8297 24.4662 5.56562 19.5275 6.25758 16.8694Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+          </g>
+          <g class="nav__ring nav__ring--3" style="transform-origin:30.3px 36.2px;">
+            <path d="M6.08459 29.9545C6.77655 27.3047 18.1527 27.9446 31.506 31.382C44.8592 34.8194 55.1233 39.7581 54.4313 42.4162C53.7393 45.066 42.3632 44.4261 29.0099 40.9887C15.6567 37.5513 5.39263 32.6126 6.08459 29.9545Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+          </g>
+          <g class="nav__ring nav__ring--4" style="transform-origin:30.1px 49.3px;">
+            <path d="M28.8287 54.0738C15.4755 50.6282 5.2114 45.6895 5.90336 43.0396C6.59532 40.3898 17.9715 41.0297 31.3247 44.4671C44.6779 47.9045 54.942 52.8432 54.2501 55.5013C53.5581 58.1511 42.1819 57.5112 28.8287 54.0738Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+          </g>
+        </svg>
+        <span class="nav__wordmark">Proko</span>
+      </a>
+      <div class="nav__actions">
+        <a href="https://app.proko.ai" class="nav__sign-in">Sign In</a>
+        <a href="https://app.proko.ai" class="btn btn-primary">Get Started Free</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =============================================
+       2. HERO
+       ============================================= -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero__inner">
+        <div class="hero__content">
+          <p class="hero__eyebrow reveal">AI-POWERED PRODUCT TRAINING</p>
+          <h1 class="hero__headline reveal">Product training decks in minutes, not days</h1>
+          <p class="hero__sub reveal">Upload your line sheets and brand materials. Proko uses AI to generate polished PowerPoint training decks your retail teams will actually use.</p>
+          <div class="hero__cta-group reveal">
+            <a href="https://app.proko.ai" class="btn btn-primary">Create Your First Deck</a>
+            <a href="#how-it-works" class="btn btn-secondary" id="see-how-btn">See How It Works</a>
+          </div>
+          <p class="hero__trust reveal">No credit card required. Free to start.</p>
+        </div>
+        <div class="hero__image-placeholder reveal">
+          <img src="images/hero-screenshot.png" alt="Proko dashboard showing brands and collections" >
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================================
+       3. SOCIAL PROOF STRIP
+       ============================================= -->
+  <section class="social-proof">
+    <div class="container">
+      <p class="social-proof__label reveal">TRUSTED BY FASHION BRANDS WORLDWIDE</p>
+      <div class="social-proof__logos stagger">
+        <div class="social-proof__logo reveal">Brand Logo</div>
+        <div class="social-proof__logo reveal">Brand Logo</div>
+        <div class="social-proof__logo reveal">Brand Logo</div>
+        <div class="social-proof__logo reveal">Brand Logo</div>
+        <div class="social-proof__logo reveal">Brand Logo</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================================
+       4. PROBLEM / SOLUTION
+       ============================================= -->
+  <section class="problem-solution">
+    <div class="container">
+      <h2 class="problem-solution__headline reveal">Creating product training is tedious. It shouldn't be.</h2>
+      <p class="problem-solution__body reveal">Fashion brands spend days manually building training decks &mdash; pulling product details from line sheets, writing descriptions, organizing by category, formatting slides. For every new collection, the process starts over.</p>
+      <div class="problem-solution__columns stagger">
+        <div class="problem-solution__col reveal">
+          <div class="problem-solution__accent"></div>
+          <h3 class="problem-solution__col-title">Upload anything</h3>
+          <p class="problem-solution__col-body">Line sheets, press releases, brand overviews, collection briefs, creative direction documents. Proko reads and understands them all.</p>
+        </div>
+        <div class="problem-solution__col reveal">
+          <div class="problem-solution__accent"></div>
+          <h3 class="problem-solution__col-title">AI does the work</h3>
+          <p class="problem-solution__col-body">Proko generates categories, sorts every product, writes descriptions, and builds a complete training deck. What took days now takes minutes.</p>
+        </div>
+        <div class="problem-solution__col reveal">
+          <div class="problem-solution__accent"></div>
+          <h3 class="problem-solution__col-title">You stay in control</h3>
+          <p class="problem-solution__col-body">Every slide is fully editable. Adjust categories, rewrite copy, reorder products. AI handles the heavy lifting. You make it perfect.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================================
+       5. PRODUCT SHOWCASE
+       ============================================= -->
+  <section class="showcase">
+    <div class="container">
+      <p class="showcase__eyebrow reveal">THE PROKO WORKFLOW</p>
+      <h2 class="showcase__headline reveal">From line sheet to training deck. Automatically.</h2>
+      <p class="showcase__sub reveal">Upload your product catalog. Choose a language. Proko handles the rest.</p>
+      <div class="showcase__image reveal">
+        <img src="images/organized-collection-items.png" alt="Collection items organized by category in Proko" >
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================================
+       6. HOW IT WORKS
+       ============================================= -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="container">
+      <h2 class="how-it-works__headline reveal">Three steps. Five minutes. Done.</h2>
+
+      <!-- Step 1: text left, image right -->
+      <div class="how-it-works__step">
+        <div class="how-it-works__step-text reveal">
+          <div class="how-it-works__number">01</div>
+          <h3 class="how-it-works__step-title">Upload your brand materials</h3>
+          <p class="how-it-works__step-body">Drop in line sheets, press releases, lookbooks, brand overviews, or creative direction briefs. Proko extracts product details, brand voice, and collection context from whatever you provide.</p>
+          <span class="how-it-works__pill">Supports PDF, XLSX, DOCX, images</span>
+        </div>
+        <div class="how-it-works__step-image reveal">
+          <img src="images/upload-interface-filled.png" alt="Upload interface showing line sheets, purchase orders, and context documents" >
+        </div>
+      </div>
+
+      <!-- Step 2: image left, text right -->
+      <div class="how-it-works__step how-it-works__step--reversed">
+        <div class="how-it-works__step-text reveal">
+          <div class="how-it-works__number">02</div>
+          <h3 class="how-it-works__step-title">AI organizes and writes everything</h3>
+          <p class="how-it-works__step-body">Proko reads your materials, generates categories and subcategories, sorts every product automatically, and writes training-ready descriptions. One item or a thousand &mdash; it scales without slowing down.</p>
+          <span class="how-it-works__pill">Works in any language</span>
+        </div>
+        <div class="how-it-works__step-image reveal">
+          <img src="images/category-view.png" alt="AI-generated categories with subcategories for shirts, jeans, footwear, and accessories" >
+        </div>
+      </div>
+
+      <!-- Step 3: text left, image right -->
+      <div class="how-it-works__step">
+        <div class="how-it-works__step-text reveal">
+          <div class="how-it-works__number">03</div>
+          <h3 class="how-it-works__step-title">Export your training deck</h3>
+          <p class="how-it-works__step-body">Download a polished PowerPoint presentation ready for your retail training sessions. Every slide is branded, every product is organized, and every detail is accurate.</p>
+          <span class="how-it-works__pill">Exports to .pptx</span>
+        </div>
+        <div class="how-it-works__step-image reveal">
+          <img src="images/generated-decks.png" alt="Generated training decks ready for download" >
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================================
+       7. FEATURES GRID
+       ============================================= -->
+  <section class="features">
+    <div class="container">
+      <h2 class="features__headline reveal">Built for fashion. Built for scale.</h2>
+      <p class="features__sub reveal">Every feature is designed around how fashion brands actually work.</p>
+      <div class="features__grid stagger">
+
+        <!-- Card 1: Globe -->
+        <div class="feature-card reveal">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M2 12h20"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </div>
+          <h3 class="feature-card__title">Any language, instantly</h3>
+          <p class="feature-card__body">Generate training decks in English, French, Italian, Japanese, Mandarin, or any language your retail teams speak. One click to switch.</p>
+        </div>
+
+        <!-- Card 2: Sparkles -->
+        <div class="feature-card reveal">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2l1.09 3.26L16 6l-2.91.74L12 10l-1.09-3.26L8 6l2.91-.74L12 2z"/>
+              <path d="M19 9l.54 1.63L21 11.17l-1.46.54L19 13.34l-.54-1.63L17 11.17l1.46-.54L19 9z"/>
+              <path d="M6 14l.72 2.17L9 16.89l-2.28.72L6 19.78l-.72-2.17L3 16.89l2.28-.72L6 14z"/>
+            </svg>
+          </div>
+          <h3 class="feature-card__title">Learns your brand</h3>
+          <p class="feature-card__body">Upload brand documents once. Proko remembers your brand voice, key messaging, and positioning across every deck you create.</p>
+        </div>
+
+        <!-- Card 3: Layers -->
+        <div class="feature-card reveal">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <h3 class="feature-card__title">1 product or 1,000</h3>
+          <p class="feature-card__body">Import entire collections at once. Proko processes every SKU, generates descriptions, and organizes them automatically.</p>
+        </div>
+
+        <!-- Card 4: Folder -->
+        <div class="feature-card reveal">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <h3 class="feature-card__title">Auto-categorization</h3>
+          <p class="feature-card__body">AI reads your products and generates logical categories and subcategories. Outerwear, knitwear, accessories &mdash; all sorted for you.</p>
+        </div>
+
+        <!-- Card 5: Sliders -->
+        <div class="feature-card reveal">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <line x1="4" y1="21" x2="4" y2="14"/>
+              <line x1="4" y1="10" x2="4" y2="3"/>
+              <line x1="12" y1="21" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12" y2="3"/>
+              <line x1="20" y1="21" x2="20" y2="16"/>
+              <line x1="20" y1="12" x2="20" y2="3"/>
+              <line x1="1" y1="14" x2="7" y2="14"/>
+              <line x1="9" y1="8" x2="15" y2="8"/>
+              <line x1="17" y1="16" x2="23" y2="16"/>
+            </svg>
+          </div>
+          <h3 class="feature-card__title">Fully editable output</h3>
+          <p class="feature-card__body">Every category, description, and slide is yours to customize. Proko provides the foundation. You make the final call.</p>
+        </div>
+
+        <!-- Card 6: Monitor -->
+        <div class="feature-card reveal">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </div>
+          <h3 class="feature-card__title">Presentation-ready</h3>
+          <p class="feature-card__body">Exports to PowerPoint with clean layouts, product imagery, and consistent formatting. Hand it directly to your retail teams.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================================
+       8. TESTIMONIAL
+       ============================================= -->
+  <section class="testimonial">
+    <div class="container">
+      <div class="testimonial__inner reveal">
+        <div class="testimonial__mark">&ldquo;</div>
+        <blockquote class="testimonial__quote">We used to spend two full days building training decks for each new collection. With Proko, the first draft is done before our morning coffee.</blockquote>
+        <p class="testimonial__name">Sarah Chen</p>
+        <p class="testimonial__role">Wholesale Director, [Brand Name]</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================================
+       9. FINAL CTA
+       ============================================= -->
+  <section class="final-cta">
+    <div class="container">
+      <div class="final-cta__inner reveal">
+        <h2 class="final-cta__headline">Start creating in minutes</h2>
+        <p class="final-cta__body">Upload your first line sheet and see what Proko can build for your brand. No credit card. No setup. Just results.</p>
+        <a href="https://app.proko.ai" class="btn btn-primary btn-large">Get Started Free</a>
+        <p class="final-cta__note">Free plan available. Upgrade anytime.</p>
+      </div>
+    </div>
+    <!-- Decorative rings -->
+    <div class="final-cta__decoration">
+      <svg width="200" height="200" viewBox="0 0 61 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6.43881 3.78435C7.13077 1.13452 18.507 1.77441 31.8602 5.21181C45.2134 8.64922 55.4775 13.5879 54.7855 16.246C54.0936 18.8958 42.7174 18.2559 29.3642 14.8185C16.011 11.3811 5.74685 6.44239 6.43881 3.78435Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+        <path d="M6.25758 16.8694C6.94954 14.2196 18.3257 14.8595 31.6789 18.2969C45.0322 21.7343 55.2963 26.673 54.6043 29.3311C53.9123 31.9809 42.5362 31.341 29.1829 27.9036C15.8297 24.4662 5.56562 19.5275 6.25758 16.8694Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+        <path d="M6.08459 29.9545C6.77655 27.3047 18.1527 27.9446 31.506 31.382C44.8592 34.8194 55.1233 39.7581 54.4313 42.4162C53.7393 45.066 42.3632 44.4261 29.0099 40.9887C15.6567 37.5513 5.39263 32.6126 6.08459 29.9545Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+        <path d="M28.8287 54.0738C15.4755 50.6282 5.2114 45.6895 5.90336 43.0396C6.59532 40.3898 17.9715 41.0297 31.3247 44.4671C44.6779 47.9045 54.942 52.8432 54.2501 55.5013C53.5581 58.1511 42.1819 57.5112 28.8287 54.0738Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- =============================================
+       10. FOOTER
+       ============================================= -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <div class="footer__brand-row">
+            <svg width="24" height="24" viewBox="0 0 61 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6.43881 3.78435C7.13077 1.13452 18.507 1.77441 31.8602 5.21181C45.2134 8.64922 55.4775 13.5879 54.7855 16.246C54.0936 18.8958 42.7174 18.2559 29.3642 14.8185C16.011 11.3811 5.74685 6.44239 6.43881 3.78435Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+              <path d="M6.25758 16.8694C6.94954 14.2196 18.3257 14.8595 31.6789 18.2969C45.0322 21.7343 55.2963 26.673 54.6043 29.3311C53.9123 31.9809 42.5362 31.341 29.1829 27.9036C15.8297 24.4662 5.56562 19.5275 6.25758 16.8694Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+              <path d="M6.08459 29.9545C6.77655 27.3047 18.1527 27.9446 31.506 31.382C44.8592 34.8194 55.1233 39.7581 54.4313 42.4162C53.7393 45.066 42.3632 44.4261 29.0099 40.9887C15.6567 37.5513 5.39263 32.6126 6.08459 29.9545Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+              <path d="M28.8287 54.0738C15.4755 50.6282 5.2114 45.6895 5.90336 43.0396C6.59532 40.3898 17.9715 41.0297 31.3247 44.4671C44.6779 47.9045 54.942 52.8432 54.2501 55.5013C53.5581 58.1511 42.1819 57.5112 28.8287 54.0738Z" fill="none" stroke="#A0F26E" stroke-width="2.5"/>
+            </svg>
+            <span class="footer__wordmark">Proko</span>
+          </div>
+          <p class="footer__tagline">AI-powered product training for fashion</p>
+        </div>
+        <div class="footer__links">
+          <a href="mailto:support@proko.ai" class="footer__link">Support</a>
+          <a href="/privacy" class="footer__link">Privacy</a>
+          <a href="/terms" class="footer__link">Terms</a>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p class="footer__copyright">&copy; 2026 Proko Product Knowledge. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- =============================================
+       JAVASCRIPT
+       ============================================= -->
+  <script>
+    (function () {
+      'use strict';
+
+      // Check for reduced motion preference
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // ---- 1. Nav scroll behavior ----
+      const nav = document.getElementById('nav');
+      function handleNavScroll() {
+        if (window.scrollY > 80) {
+          nav.classList.add('scrolled');
+        } else {
+          nav.classList.remove('scrolled');
+        }
+      }
+      window.addEventListener('scroll', handleNavScroll, { passive: true });
+      handleNavScroll(); // initial check
+
+      // ---- 2. Scroll-in animations via IntersectionObserver ----
+      if (!prefersReducedMotion) {
+        const revealElements = document.querySelectorAll('.reveal');
+        const observer = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.15 }
+        );
+        revealElements.forEach(function (el) {
+          observer.observe(el);
+        });
+      } else {
+        // If reduced motion, show everything immediately
+        document.querySelectorAll('.reveal').forEach(function (el) {
+          el.classList.add('visible');
+        });
+      }
+
+      // ---- 3. Smooth scroll for "See How It Works" ----
+      var seeHowBtn = document.getElementById('see-how-btn');
+      if (seeHowBtn) {
+        seeHowBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          var target = document.getElementById('how-it-works');
+          if (target) {
+            target.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
