@@ -600,31 +600,34 @@ class CollectionDocumentService:
                     logger.info("=" * 50)
             
             # Update document in Firestore
+            # Split into two writes to avoid 1MB document size limit:
+            # 1. Critical write: structured_products (with matched images) — used by item generation
+            # 2. Cache write: parsed/normalized text — used by category regen (can re-parse if missing)
+            # text_blocks and image_metadata are NOT persisted — only needed in-memory for Phase 6 matching
             doc_ref = self.db.collection(self.collections_collection).document(collection_id).collection('documents').document(document_id)
-            update_data = {
-                'parsed_text': parsed_text,
-                'normalized_text': normalized_text,
+
+            # Write 1: structured products with images (critical — must succeed)
+            critical_data = {
                 'parsed_at': datetime.utcnow(),
                 'updated_at': datetime.utcnow()
             }
-            
-            # Add structured products if extracted
             if structured_products is not None:
-                update_data['structured_products'] = structured_products
-            
-            # Add text blocks with positions if extracted (for Phase 4 image matching)
-            if 'text_blocks' in locals() and text_blocks:
-                update_data['text_blocks'] = text_blocks
-                logger.info(f"Stored {len(text_blocks)} text blocks for image matching")
-            
-            # Add image metadata with positions if extracted (for Phase 4 image matching)
-            if 'image_metadata' in locals() and image_metadata:
-                update_data['image_metadata'] = image_metadata
-                logger.info(f"Stored {len(image_metadata)} image metadata for image matching")
-            
-            doc_ref.update(update_data)
-            
-            logger.info(f"Successfully stored parsed text for document {document_id}")
+                critical_data['structured_products'] = structured_products
+
+            doc_ref.update(critical_data)
+            logger.info(f"Successfully stored structured products for document {document_id}")
+
+            # Write 2: parsed/normalized text cache (non-critical — category regen can re-parse PDF)
+            try:
+                doc_ref.update({
+                    'parsed_text': parsed_text,
+                    'normalized_text': normalized_text,
+                    'updated_at': datetime.utcnow()
+                })
+                logger.info(f"Successfully cached parsed text for document {document_id}")
+            except Exception as text_err:
+                logger.warning(f"Could not cache parsed text (document may be near 1MB limit): {text_err}")
+                logger.warning("Category regeneration will re-parse the PDF instead of using cached text")
             
         except Exception as e:
             logger.error(f"Error parsing and storing text for document {document_id}: {e}")
