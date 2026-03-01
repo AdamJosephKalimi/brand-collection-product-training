@@ -494,6 +494,7 @@ function CollectionSettingsPage() {
   };
   // Reorder Categories modal
   const [isReorderCategoriesOpen, setIsReorderCategoriesOpen] = useState(false);
+  const [initialExpandedCategory, setInitialExpandedCategory] = useState(null);
   
   // Deck Generation state
   const [deckGenerationStatus, setDeckGenerationStatus] = useState('idle'); // 'idle', 'processing', 'completed', 'failed'
@@ -780,19 +781,33 @@ function CollectionSettingsPage() {
 
   // Save reordered categories
   const handleSaveCategoryOrder = async (updatedCategories) => {
+    // Close modal immediately to avoid flash-revert when query invalidation
+    // triggers a re-render with stale categories prop before the modal unmounts
+    setIsReorderCategoriesOpen(false);
+    setInitialExpandedCategory(null);
+
     try {
+      // Merge with categories that weren't visible in the modal (no matching items)
+      const allCategories = collectionData?.categories || [];
+      const updatedNames = new Set(updatedCategories.map(c => c.name));
+      const preserved = allCategories.filter(c => !updatedNames.has(c.name));
+      const merged = [...updatedCategories, ...preserved];
+
       await updateCollectionMutation.mutateAsync({
         collectionId,
         updateData: {
-          categories: updatedCategories.map(cat => ({
+          categories: merged.map(cat => ({
             name: cat.name,
             product_count: cat.product_count || 0,
             display_order: cat.display_order,
-            subcategories: cat.subcategories || []
+            subcategories: (cat.subcategories || []).map(sub => ({
+              name: sub.name,
+              product_count: sub.product_count || 0,
+              display_order: sub.display_order ?? 0,
+            }))
           }))
         }
       });
-      setIsReorderCategoriesOpen(false);
     } catch (error) {
       console.error('Failed to save category order:', error);
     }
@@ -2650,14 +2665,22 @@ function CollectionSettingsPage() {
                   .filter(([, categoryData]) => categoryData.items.length > 0)  // Hide empty categories
                   .sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0))
                   .map(([categoryName, categoryData]) => {
-                  const subcategoryNames = Object.keys(categoryData.subcategories).filter(
-                    subName => categoryData.subcategories[subName].length > 0  // Hide empty subcategories
-                  );
+                  // Get subcategory display_order from collection data
+                  const catMeta = (collectionData?.categories || []).find(c => c.name === categoryName);
+                  const subOrderMap = {};
+                  (catMeta?.subcategories || []).forEach(sub => {
+                    subOrderMap[sub.name] = sub.display_order ?? 999;
+                  });
+                  const subcategoryNames = Object.keys(categoryData.subcategories)
+                    .filter(subName => categoryData.subcategories[subName].length > 0)
+                    .sort((a, b) => (subOrderMap[a] ?? 999) - (subOrderMap[b] ?? 999));
                   const filters = subcategoryNames.map(subName => ({
                     label: subName,
                     active: activeSubcategoryFilters[categoryName] === subName
                   }));
-                  const displayItems = getFilteredCategoryItems(categoryName, categoryData);
+                  const displayItems = getFilteredCategoryItems(categoryName, categoryData)
+                    .slice()
+                    .sort((a, b) => (subOrderMap[a.subcategory || 'Other'] ?? 999) - (subOrderMap[b.subcategory || 'Other'] ?? 999));
                   
                   // Get subcategory options for this category
                   const subcategoryOptions = ((collectionData?.categories || []).find(c => c.name === categoryName)?.subcategories || [])
@@ -2678,6 +2701,10 @@ function CollectionSettingsPage() {
                         filters={filters}
                         onFilterClick={(subName) => handleSubcategoryFilterClick(categoryName, subName)}
                         onGroupBySubcategory={() => handleGroupBySubcategory(categoryName, categoryData.items)}
+                        onReorderSubcategories={() => {
+                          setInitialExpandedCategory(categoryName);
+                          setIsReorderCategoriesOpen(true);
+                        }}
                         defaultExpanded={true}
                       >
                         <SortableContext
@@ -2912,7 +2939,11 @@ function CollectionSettingsPage() {
         categories={(collectionData?.categories || []).filter(cat => items.some(item => item.category === cat.name))}
         isVisible={isReorderCategoriesOpen}
         onSave={handleSaveCategoryOrder}
-        onClose={() => setIsReorderCategoriesOpen(false)}
+        onClose={() => {
+          setIsReorderCategoriesOpen(false);
+          setInitialExpandedCategory(null);
+        }}
+        initialExpandedCategory={initialExpandedCategory}
       />
 
       {/* Intro Slide Info Modal */}
