@@ -313,7 +313,19 @@ async def process_collection_documents(
         
         # Get document IDs
         document_ids = [doc.document_id for doc in documents]
-        
+
+        # Compute initial ETA from PO row count (stored at upload time)
+        po_row_count = 0
+        docs_ref = firebase_service.db.collection('collections').document(collection_id).collection('documents')
+        for doc_id in document_ids:
+            doc_snap = docs_ref.document(doc_id).get()
+            if doc_snap.exists:
+                rc = doc_snap.to_dict().get('row_count', 0)
+                if rc and rc > 0:
+                    po_row_count = rc
+                    break
+        eta_seconds = int(po_row_count * 2.6 + 60) if po_row_count > 0 else None
+
         # If reprocessing (status was 'completed'), clean up old data synchronously
         if current_status == 'completed':
             logger.info(f"Reprocessing detected - cleaning up previous data for collection {collection_id}")
@@ -344,6 +356,16 @@ async def process_collection_documents(
         
         logger.info(f"Background task started for collection {collection_id}")
         
+        # Build initial progress with optional ETA
+        initial_progress = {
+            "phase": 0,
+            "total_phases": 6,
+            "percentage": 0
+        }
+        if eta_seconds:
+            initial_progress["eta_seconds"] = eta_seconds
+            logger.info(f"[ETA] Initial ETA for collection {collection_id}: {eta_seconds}s (from PO row_count={po_row_count})")
+
         # Return the new processing status so frontend can update cache
         return {
             "message": "Document processing started",
@@ -353,11 +375,7 @@ async def process_collection_documents(
                 "document_processing": {
                     "status": "processing",
                     "current_phase": "Starting...",
-                    "progress": {
-                        "phase": 0,
-                        "total_phases": 6,
-                        "percentage": 0
-                    },
+                    "progress": initial_progress,
                     "error": None
                 }
             }

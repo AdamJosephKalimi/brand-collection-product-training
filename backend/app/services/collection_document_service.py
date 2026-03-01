@@ -128,7 +128,20 @@ class CollectionDocumentService:
             file.file.seek(0, 2)  # Seek to end
             file_size = file.file.tell()
             file.file.seek(0)  # Reset to beginning
-            
+
+            # For Excel files, extract row count at upload time for ETA estimation
+            row_count = None
+            if file_extension in ['.xlsx', '.xls']:
+                try:
+                    file.file.seek(0)
+                    file_bytes_temp = await file.read()
+                    file.file.seek(0)
+                    result = await self.parser_service.parse_excel(file_bytes_temp, file.filename)
+                    row_count = result.get('metadata', {}).get('total_rows', 0) or None
+                    logger.info(f"[ETA] Extracted row_count={row_count} at upload time")
+                except Exception as e:
+                    logger.warning(f"[ETA] Could not extract row count at upload: {e}")
+
             # Prepare document record
             document_doc = {
                 "document_id": document_id,
@@ -145,6 +158,7 @@ class CollectionDocumentService:
                 "parsed_at": None,
                 "structured_products": None,
                 "extraction_progress": None,
+                "row_count": row_count,
                 "uploaded_by": user_id,
                 "uploaded_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
@@ -550,7 +564,14 @@ class CollectionDocumentService:
                             sheets_text.append(sheet_text)
                     parsed_text = '\n\n'.join(sheets_text)
                     logger.info(f"Parsed Excel {filename}: {len(parsed_text)} characters")
-            
+
+                # Store row count on document record for ETA estimation
+                row_count = result.get('metadata', {}).get('total_rows', 0)
+                if row_count > 0:
+                    eta_doc_ref = self.db.collection(self.collections_collection).document(collection_id).collection('documents').document(document_id)
+                    eta_doc_ref.update({'row_count': row_count})
+                    logger.info(f"[ETA] Stored row_count={row_count} on document {document_id}")
+
             else:
                 logger.warning(f"Unsupported file type for parsing: {file_ext}")
                 return
@@ -573,15 +594,14 @@ class CollectionDocumentService:
                 )
                 
                 # PHASE 5: Extract structured products with category assignment
-                if progress_callback:
-                    await progress_callback(phase=5, message="Extracting structured products")
-                
+                # progress_callback passed through for per-chunk ETA recalibration
                 logger.info("Extracting structured products with category assignment...")
                 structured_products = await self._extract_structured_products(
                     normalized_text,
                     collection_id,
                     document_id,
-                    categories
+                    categories,
+                    progress_callback=progress_callback
                 )
                 
                 # PHASE 6: Match images to products
@@ -1031,27 +1051,29 @@ class CollectionDocumentService:
             return []
     
     async def _extract_structured_products(
-        self, 
+        self,
         normalized_text: str,
         collection_id: str,
         document_id: str,
-        categories: List[Dict[str, Any]] = None
+        categories: List[Dict[str, Any]] = None,
+        progress_callback=None
     ) -> List[Dict[str, Any]]:
         """
         Extract structured product data from line sheet using chunked LLM extraction.
-        
+
         Args:
             normalized_text: Normalized text from line sheet
             collection_id: Collection ID for Firestore updates
             document_id: Document ID for Firestore updates
             categories: Optional list of category objects for product categorization
-            
+            progress_callback: Optional async callback for progress/ETA updates
+
         Returns:
             List of unique structured product dictionaries
         """
         try:
             logger.info("Extracting structured products from line sheet using chunked approach")
-            
+
             # Step 1: Create large chunks using custom chunker
             chunks = self._create_large_chunks(
                 text=normalized_text,
@@ -1059,13 +1081,17 @@ class CollectionDocumentService:
                 overlap=1000
             )
             logger.info(f"Split text into {len(chunks)} chunks")
-            
+
+            # Signal Phase 5 start (ETA carried automatically by callback)
+            if progress_callback:
+                await progress_callback(phase=5, message="Extracting products")
+
             # Step 2: Process each chunk
             all_products = []
             doc_ref = self.db.collection(self.collections_collection).document(collection_id).collection('documents').document(document_id)
-            
+
             for i, chunk_text in enumerate(chunks):
-                
+
                 # Extract products from this chunk
                 chunk_products = await self._extract_products_from_chunk(
                     chunk_text,
@@ -1073,10 +1099,10 @@ class CollectionDocumentService:
                     len(chunks),
                     categories
                 )
-                
+
                 if chunk_products:
                     all_products.extend(chunk_products)
-                    
+
                     # Step 3: Update Firestore progressively
                     doc_ref.update({
                         'structured_products': all_products,
@@ -1087,7 +1113,7 @@ class CollectionDocumentService:
                         },
                         'updated_at': datetime.utcnow()
                     })
-                    
+
                     logger.info(f"Progress: {len(all_products)} products extracted from {i+1}/{len(chunks)} chunks")
             
             # Step 4: Deduplicate products

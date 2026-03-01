@@ -49,6 +49,16 @@
   white-space: nowrap;
 }
 
+/* ETA countdown badge - inline pill, matches wine color scheme */
+.etaBadge {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--color-brand-wine);
+  opacity: 0.65;
+  margin-left: 6px;
+}
+
 /* Progress bar container - light gray background */
 .progressBarContainer {
   width: 100%;

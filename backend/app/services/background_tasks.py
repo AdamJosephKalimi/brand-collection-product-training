@@ -10,6 +10,7 @@ This module provides:
 
 import logging
 import asyncio
+import time
 from typing import List, Dict, Any, Optional, Callable, Coroutine
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
@@ -548,6 +549,30 @@ async def process_collection_documents_task(
         collection_doc = collection_ref.get()
         brand_id = collection_doc.to_dict().get('brand_id') if collection_doc.exists else None
 
+        # Pre-scan: find PO row_count for ETA estimation
+        po_row_count = 0
+        docs_col = db.collection('collections').document(collection_id).collection('documents')
+        for doc_id in document_ids:
+            d = docs_col.document(doc_id).get()
+            if d.exists:
+                rc = d.to_dict().get('row_count', 0)
+                if rc and rc > 0:
+                    po_row_count = rc
+                    break
+
+        # Compute ETA: simple countdown from initial estimate, no recalibration
+        initial_eta = int(po_row_count * 2.6 + 60) if po_row_count > 0 else 0
+        eta_end_time = [time.time() + initial_eta if initial_eta > 0 else None]
+        if initial_eta > 0:
+            logger.info(f"[ETA] PO row_count={po_row_count}, initial ETA={initial_eta}s")
+            # Write initial ETA to Firestore immediately
+            update_progress(
+                db, collection_id, 'document_processing',
+                status='processing',
+                current_phase='Starting...',
+                progress={'phase': 0, 'total_phases': 6, 'percentage': 0, 'eta_seconds': initial_eta}
+            )
+
         # Process each document
         for idx, document_id in enumerate(document_ids):
             logger.info(f"Processing document {idx + 1} of {len(document_ids)}: {document_id}")
@@ -648,18 +673,24 @@ async def process_collection_documents_task(
                     logger.error(f"Failed to store chunks in Pinecone for {filename}")
             else:
                 # Standard pipeline: images, text, categories, products
-                # Define progress callback
-                async def progress_callback(phase: int, message: str):
-                    """Update progress in Firestore"""
+                async def progress_callback(phase: int, message: str, sub_progress: dict = None):
+                    """Update progress in Firestore with time-based ETA countdown."""
                     percentage = int((phase / 6) * 100)
+                    progress = {'phase': phase, 'total_phases': 6, 'percentage': percentage}
+
+                    # Carry ETA on every update (simple countdown, no recalibration)
+                    if eta_end_time[0] is not None:
+                        eta_seconds = max(0, int(eta_end_time[0] - time.time()))
+                        progress['eta_seconds'] = eta_seconds
+
                     update_progress(
                         db, collection_id, 'document_processing',
                         status='processing',
                         current_phase=message,
-                        progress={'phase': phase, 'total_phases': 6, 'percentage': percentage}
+                        progress=progress
                     )
 
-                    # Check for cancellation after each phase
+                    # Check for cancellation after each phase/chunk
                     if check_cancelled(db, collection_id, 'document_processing'):
                         raise Exception("Processing cancelled by user")
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styles from './ProcessingProgress.module.css';
 import Button from '../Button/Button';
 
@@ -42,6 +42,55 @@ function ProcessingProgress({
   // State for cancelled message fade-out
   const [showCancelled, setShowCancelled] = useState(false);
   const [isFading, setIsFading] = useState(false);
+
+  // ETA countdown state
+  const [localEta, setLocalEta] = useState(null);
+  const localEtaRef = useRef(null);
+  const etaInitializedRef = useRef(false);
+
+  // Keep ref in sync with state
+  useEffect(() => { localEtaRef.current = localEta; }, [localEta]);
+
+  // Sync server ETA (only accept first value or downward corrections)
+  const serverEta = progress?.eta_seconds;
+  useEffect(() => {
+    if (typeof serverEta === 'number' && serverEta > 0) {
+      if (!etaInitializedRef.current) {
+        setLocalEta(serverEta);
+        etaInitializedRef.current = true;
+      } else if (serverEta < (localEtaRef.current ?? Infinity)) {
+        setLocalEta(serverEta);
+      }
+    }
+  }, [serverEta]);
+
+  // Clear ETA when processing stops
+  useEffect(() => {
+    if (!isProcessing) {
+      setLocalEta(null);
+      etaInitializedRef.current = false;
+    }
+  }, [isProcessing]);
+
+  // 1-second countdown tick (stops at 0, doesn't go to null)
+  const hasEta = localEta !== null && localEta > 0;
+  useEffect(() => {
+    if (!hasEta) return;
+    const id = setInterval(() => {
+      setLocalEta(prev => (prev === null || prev <= 1) ? 0 : prev - 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [hasEta]);
+
+  // Format ETA for display
+  const formatEta = (seconds) => {
+    if (seconds === null) return null;
+    if (seconds <= 0) return 'Almost done...';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins > 0) return `~${mins}m ${secs}s remaining`;
+    return `~${secs}s remaining`;
+  };
 
   // Handle cancelled state - show for 5 seconds then fade out
   useEffect(() => {
@@ -144,10 +193,14 @@ function ProcessingProgress({
         
         {/* Right side: Status text and Cancel button */}
         <div className={styles.actionsSection}>
-          {/* Status text with step count */}
+          {/* Status text with ETA badge or step count */}
           <span className={styles.statusText}>
             {getProcessingText()}
-            {totalSteps > 0 && ` (${currentStep}/${totalSteps})`}
+            {localEta !== null ? (
+              <span className={styles.etaBadge}>{formatEta(localEta)}</span>
+            ) : (
+              totalSteps > 0 && ` (${currentStep}/${totalSteps})`
+            )}
           </span>
           
           {/* Cancel button */}
