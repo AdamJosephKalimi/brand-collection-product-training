@@ -2678,7 +2678,9 @@ function CollectionSettingsPage() {
                     label: subName,
                     active: activeSubcategoryFilters[categoryName] === subName
                   }));
-                  const displayItems = getFilteredCategoryItems(categoryName, categoryData);
+                  const displayItems = getFilteredCategoryItems(categoryName, categoryData)
+                    .slice()
+                    .sort((a, b) => (subOrderMap[a.subcategory || 'Other'] ?? 999) - (subOrderMap[b.subcategory || 'Other'] ?? 999));
                   
                   // Get subcategory options for this category
                   const subcategoryOptions = ((collectionData?.categories || []).find(c => c.name === categoryName)?.subcategories || [])
