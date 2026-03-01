@@ -133,10 +133,14 @@ class PresentationGenerationService:
             
             # 4. Generate product slides
             category_order = {}
+            subcategory_order = {}
             for cat in (collection.categories or []):
                 cat_dict = cat if isinstance(cat, dict) else cat.dict()
                 category_order[cat_dict['name']] = cat_dict.get('display_order', 0)
-            await self._generate_product_slides(collection_id, products_per_slide, category_order)
+                for sub in cat_dict.get('subcategories', []):
+                    sub_dict = sub if isinstance(sub, dict) else sub
+                    subcategory_order[(cat_dict['name'], sub_dict.get('name'))] = sub_dict.get('display_order', 0)
+            await self._generate_product_slides(collection_id, products_per_slide, category_order, subcategory_order)
             
             # 5. Save and upload
             download_url = await self._save_and_upload(collection_id)
@@ -1181,7 +1185,7 @@ Return ONLY valid JSON like:
             logger.error(f"Error fetching items: {e}")
             return []
     
-    async def _generate_product_slides(self, collection_id: str, products_per_slide: int, category_order: dict = None):
+    async def _generate_product_slides(self, collection_id: str, products_per_slide: int, category_order: dict = None, subcategory_order: dict = None):
         """
         Generate product slides based on collection items.
 
@@ -1189,9 +1193,12 @@ Return ONLY valid JSON like:
             collection_id: ID of the collection
             products_per_slide: Number of products per slide (1, 2, or 4)
             category_order: Dict mapping category name -> display_order
+            subcategory_order: Dict mapping (category_name, subcategory_name) -> display_order
         """
         if category_order is None:
             category_order = {}
+        if subcategory_order is None:
+            subcategory_order = {}
 
         logger.info(f"Generating product slides ({products_per_slide} per slide)...")
 
@@ -1239,10 +1246,10 @@ Return ONLY valid JSON like:
                     translatable.append(item['sales_talk'].strip())
             self._translations = await self._translate_strings(translatable)
 
-        # Sort groups: by category display_order first, then subcategory alpha
+        # Sort groups: by category display_order, then subcategory display_order
         sorted_keys = sorted(
             items_by_cat_subcat.keys(),
-            key=lambda k: (category_order.get(k[0], 999), k[0], k[1] or 'zzz')
+            key=lambda k: (category_order.get(k[0], 999), k[0], subcategory_order.get((k[0], k[1]), 999))
         )
 
         # Generate slides based on layout

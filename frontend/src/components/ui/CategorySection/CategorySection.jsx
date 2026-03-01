@@ -22,6 +22,7 @@ function CategorySection({
   filters = [],
   onFilterClick,
   onGroupBySubcategory,
+  onReorderSubcategories,
   defaultExpanded = true,
   onToggle,
   children,
@@ -95,8 +96,22 @@ function CategorySection({
         </div>
 
         {/* Right side - Filters and actions (categorized only) */}
-        {type === 'categorized' && (filters.length > 0 || onGroupBySubcategory) && (
+        {type === 'categorized' && (filters.length > 0 || onGroupBySubcategory || onReorderSubcategories) && (
           <div className={styles.filters}>
+            {/* Reorder Subcategories action */}
+            {onReorderSubcategories && filters.length > 1 && (
+              <button
+                className={`${styles.filterButton} ${styles.groupAction}`}
+                onClick={onReorderSubcategories}
+                title="Reorder subcategories"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: 4 }}>
+                  <path d="M2 3H10M2 6H10M2 9H10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  <path d="M4 1.5L2 3L4 4.5M8 7.5L10 9L8 10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Reorder
+              </button>
+            )}
             {/* Group by Subcategory action */}
             {onGroupBySubcategory && filters.length > 1 && (
               <button
