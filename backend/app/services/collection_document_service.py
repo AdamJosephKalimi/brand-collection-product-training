@@ -142,6 +142,14 @@ class CollectionDocumentService:
                 except Exception as e:
                     logger.warning(f"[ETA] Could not extract row count at upload: {e}")
 
+            # Reject purchase orders exceeding 1,300 rows
+            if document_data.type.value == 'purchase_order' and row_count and row_count > 1300:
+                await storage_service.delete_file(storage_path)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"This purchase order has {row_count:,} rows, which exceeds the maximum of 1,300. Please split your purchase order into 2 separate files."
+                )
+
             # Prepare document record
             document_doc = {
                 "document_id": document_id,
