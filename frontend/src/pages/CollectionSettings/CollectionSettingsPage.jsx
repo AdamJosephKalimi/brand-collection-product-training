@@ -2622,7 +2622,8 @@ function CollectionSettingsPage() {
                           });
                         }}
                         onAddDetails={() => console.log('Add details for', item.item_id)}
-                        onIgnore={() => handleItemUpdate(item.item_id, { included: false })}
+                        included={item.included !== false}
+                        onIncludeChange={(checked) => handleItemUpdate(item.item_id, { included: checked })}
                       />
                     ))}
                   </CategorySection>
