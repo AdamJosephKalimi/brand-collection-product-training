@@ -215,3 +215,137 @@ async def cancel_item_generation(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to cancel item generation"
         )
+
+
+@router.post("/collections/{collection_id}/items/re-enrich")
+async def re_enrich_items(
+    collection_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Re-enrich unmatched items using all available line sheets.
+
+    Finds items where product_name is null or equals the SKU (unmatched),
+    then attempts to match them against all processed line sheets.
+
+    Returns stats on how many items were matched.
+    """
+    try:
+        user_id = current_user["uid"]
+        logger.info(f"Re-enriching unmatched items for collection: {collection_id}")
+
+        # Verify collection exists
+        collection_ref = firebase_service.db.collection('collections').document(collection_id)
+        collection_doc = collection_ref.get()
+
+        if not collection_doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Collection not found"
+            )
+
+        # Fetch all items for the collection
+        items_ref = collection_ref.collection('items')
+        all_items = list(items_ref.stream())
+
+        # Filter to unmatched items (product_name is None or equals SKU)
+        unmatched_items = []
+        for item_doc in all_items:
+            item_data = item_doc.to_dict()
+            item_data['item_id'] = item_doc.id
+            product_name = item_data.get('product_name')
+            sku = item_data.get('sku')
+            if not product_name or product_name == sku:
+                unmatched_items.append(item_data)
+
+        if not unmatched_items:
+            return {
+                "items_checked": 0,
+                "items_matched": 0,
+                "items_still_unmatched": 0,
+                "message": "No unmatched items found"
+            }
+
+        # Fetch all line sheets and build lookup
+        linesheets = await item_generation_service.fetch_all_linesheets(collection_id)
+        if not linesheets:
+            return {
+                "items_checked": len(unmatched_items),
+                "items_matched": 0,
+                "items_still_unmatched": len(unmatched_items),
+                "message": "No line sheets available for matching"
+            }
+
+        linesheet_lookup = item_generation_service.merge_structured_products(linesheets)
+        if not linesheet_lookup:
+            return {
+                "items_checked": len(unmatched_items),
+                "items_matched": 0,
+                "items_still_unmatched": len(unmatched_items),
+                "message": "No structured products found in line sheets"
+            }
+
+        # Try to match each unmatched item
+        matched_count = 0
+        for item_data in unmatched_items:
+            sku = item_data.get('sku')
+            base_sku = item_data.get('base_sku')
+
+            # Try full SKU first, then base SKU
+            linesheet_data = linesheet_lookup.get(sku)
+            if not linesheet_data and base_sku:
+                linesheet_data = linesheet_lookup.get(base_sku)
+
+            if linesheet_data:
+                # Build update from linesheet data
+                ls_colors = linesheet_data.get('colors', [])
+                ls_color = ls_colors[0] if ls_colors else {}
+
+                update_fields = {
+                    'product_name': linesheet_data.get('product_name'),
+                    'wholesale_price': linesheet_data.get('wholesale_price'),
+                    'rrp': linesheet_data.get('rrp'),
+                    'currency': linesheet_data.get('currency'),
+                    'origin': linesheet_data.get('origin'),
+                    'materials': linesheet_data.get('materials', []),
+                    'category': linesheet_data.get('category'),
+                    'subcategory': linesheet_data.get('subcategory'),
+                    'color': ls_color.get('color_name') or item_data.get('color'),
+                    'color_code': ls_color.get('color_code') or item_data.get('color_code'),
+                    'source_document_id': linesheet_data.get('source_document_id'),
+                    'images': [
+                        {
+                            'url': url,
+                            'alt': f"{linesheet_data.get('product_name', 'Product')} - {ls_color.get('color_name', '')}"
+                        }
+                        for url in linesheet_data.get('images', [])
+                    ],
+                }
+
+                # Remove None values to avoid overwriting with null
+                update_fields = {k: v for k, v in update_fields.items() if v is not None}
+
+                # Update the item in Firestore
+                item_ref = items_ref.document(item_data['item_id'])
+                item_ref.update(update_fields)
+                matched_count += 1
+                logger.info(f"Re-enriched item {item_data['item_id']} (SKU: {sku}) with linesheet data")
+
+        still_unmatched = len(unmatched_items) - matched_count
+        logger.info(f"Re-enrichment complete: {matched_count}/{len(unmatched_items)} items matched")
+
+        return {
+            "items_checked": len(unmatched_items),
+            "items_matched": matched_count,
+            "items_still_unmatched": still_unmatched,
+            "message": f"Successfully matched {matched_count} item(s)"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error re-enriching items: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to re-enrich items: {str(e)}"
+        )

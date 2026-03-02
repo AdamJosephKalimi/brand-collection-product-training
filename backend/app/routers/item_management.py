@@ -1,10 +1,12 @@
 """
 Item Management API Router - CRUD operations for collection items.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile
 from typing import List, Dict, Any, Optional
 from ..models.item import ItemCreate, ItemUpdate, ItemResponse, ItemReorderRequest
 from ..services.item_service import item_service
+from ..services.storage_service import storage_service
+from ..services.firebase_service import firebase_service
 from ..utils.auth import get_current_user
 import logging
 
@@ -330,4 +332,65 @@ async def delete_item(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete item"
+        )
+
+
+@router.post("/{collection_id}/items/{item_id}/images", response_model=Dict[str, Any])
+async def upload_item_image(
+    collection_id: str,
+    item_id: str,
+    file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Upload a product image for an item.
+
+    Accepts image files, uploads to Firebase Storage, returns URL and path.
+    """
+    try:
+        user_id = current_user["uid"]
+
+        # Verify collection exists and get brand_id
+        collection_ref = firebase_service.db.collection('collections').document(collection_id)
+        collection_doc = collection_ref.get()
+
+        if not collection_doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Collection not found"
+            )
+
+        collection_data = collection_doc.to_dict()
+        brand_id = collection_data.get('brand_id')
+
+        # Verify item exists
+        item_ref = collection_ref.collection('items').document(item_id)
+        item_doc = item_ref.get()
+
+        if not item_doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found"
+            )
+
+        # Build storage path
+        filename = file.filename or 'image.jpg'
+        storage_path = f"brands/{brand_id}/collections/{collection_id}/items/{item_id}/{filename}"
+
+        # Upload to Firebase Storage
+        signed_url = await storage_service.upload_file(file, storage_path)
+
+        return {
+            "url": signed_url,
+            "storage_path": storage_path,
+            "alt": filename
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading item image: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload item image: {str(e)}"
         )
