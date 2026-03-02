@@ -23,6 +23,8 @@ function CategorySection({
   onFilterClick,
   onGroupBySubcategory,
   onReorderSubcategories,
+  onAction,
+  actionLabel,
   defaultExpanded = true,
   onToggle,
   children,
@@ -94,6 +96,18 @@ function CategorySection({
             </svg>
           )}
         </div>
+
+        {/* Right side - Action button (unmatched only) */}
+        {type === 'unmatched' && onAction && (
+          <div className={styles.filters}>
+            <button
+              className={`${styles.filterButton} ${styles.groupAction}`}
+              onClick={onAction}
+            >
+              {actionLabel || 'Upload Line Sheet'}
+            </button>
+          </div>
+        )}
 
         {/* Right side - Filters and actions (categorized only) */}
         {type === 'categorized' && (filters.length > 0 || onGroupBySubcategory || onReorderSubcategories) && (

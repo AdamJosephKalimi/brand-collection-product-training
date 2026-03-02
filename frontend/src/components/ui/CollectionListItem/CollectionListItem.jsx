@@ -24,7 +24,6 @@ function CollectionListItem({
   salesTalk = '',
   onSalesTalkChange,
   onAddDetails,
-  onIgnore,
   className = ''
 }) {
   const {
@@ -87,7 +86,7 @@ function CollectionListItem({
 
   return (
     <div className={styles.listItemWrapper}>
-      <div className={`${styles.listItem} ${styles[variant]} ${className}`}>
+      <div className={`${styles.listItem} ${styles[variant]} ${!included ? styles.notIncluded : ''} ${className}`}>
         {/* Left Content */}
         <div className={styles.leftContent}>
           {/* Drag Handle */}
@@ -136,14 +135,29 @@ function CollectionListItem({
         {/* Right Actions */}
         <div className={styles.rightActions}>
           {variant === 'unmatched' ? (
-            /* Unmatched: Show buttons */
+            /* Unmatched: Show Add Details + Include toggle */
             <div className={styles.unmatchedButtons}>
               <button className={styles.addDetailsButton} onClick={onAddDetails}>
                 Add Details
               </button>
-              <button className={styles.ignoreButton} onClick={onIgnore}>
-                Ignore
-              </button>
+              <div
+                className={styles.toggleGroup}
+                onClick={() => onIncludeChange(!included)}
+                style={{ cursor: 'pointer' }}
+                title="Include this item in the generated presentation"
+              >
+                <Toggle
+                  checked={included}
+                  onChange={(e) => { e.stopPropagation(); onIncludeChange(e.target.checked); }}
+                />
+                <div className={styles.toggleLabel}>
+                  <span>Include</span>
+                  <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
+                    <path d="M8 6.5C9.38071 6.5 10.5 5.38071 10.5 4C10.5 2.61929 9.38071 1.5 8 1.5C6.61929 1.5 5.5 2.61929 5.5 4C5.5 5.38071 6.61929 6.5 8 6.5Z" fill="currentColor"/>
+                    <path d="M15.5 4C15.5 4 12.5 9.5 8 9.5C3.5 9.5 0.5 4 0.5 4C0.5 4 3.5 -1.5 8 -1.5C12.5 -1.5 15.5 4 15.5 4Z" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                </div>
+              </div>
             </div>
           ) : variant === 'uncategorized' ? (
             /* Uncategorized: Show "Move to Category" dropdown */

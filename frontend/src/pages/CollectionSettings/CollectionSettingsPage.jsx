@@ -42,11 +42,15 @@ import InputModal from '../../components/ui/InputModal/InputModal';
 import NewBrandModal from '../../components/ui/NewBrandModal/NewBrandModal';
 import NewCollectionModal from '../../components/ui/NewCollectionModal/NewCollectionModal';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
+import UploadLineSheetModal from '../../components/ui/UploadLineSheetModal/UploadLineSheetModal';
+import ItemDetailsModal from '../../components/ui/ItemDetailsModal/ItemDetailsModal';
 import { introSlideInfo } from '../../data/introSlideInfo';
 import { useCreateBrand } from '../../hooks/useCreateBrand';
 import { useCreateCollection } from '../../hooks/useCreateCollection';
 import { useDeleteBrand } from '../../hooks/useDeleteBrand';
 import { useDeleteCollection } from '../../hooks/useDeleteCollection';
+import { useReEnrichItems } from '../../hooks/useReEnrichItems';
+import { useUploadItemImage } from '../../hooks/useUploadItemImage';
 
 // Stable empty array to prevent infinite re-renders from default value
 const EMPTY_ARRAY = [];
@@ -239,6 +243,30 @@ function CollectionSettingsPage() {
   const [poUploadKey, setPoUploadKey] = useState(0);
   const deleteBrandMutation = useDeleteBrand();
   const deleteCollectionMutation = useDeleteCollection();
+
+  // Upload Line Sheet Modal state
+  const [showUploadLineSheetModal, setShowUploadLineSheetModal] = useState(false);
+  const [uploadLineSheetLoading, setUploadLineSheetLoading] = useState(false);
+  const [uploadLineSheetError, setUploadLineSheetError] = useState(null);
+  const [uploadLineSheetSuccess, setUploadLineSheetSuccess] = useState(null);
+  const reEnrichItemsMutation = useReEnrichItems();
+
+  // Item Details Modal state
+  const [itemDetailsModalItem, setItemDetailsModalItem] = useState(null);
+  const [itemDetailsLoading, setItemDetailsLoading] = useState(false);
+  const [itemDetailsError, setItemDetailsError] = useState(null);
+  const [itemDetailsCategory, setItemDetailsCategory] = useState('');
+  const uploadItemImageMutation = useUploadItemImage();
+
+  // Subcategory options for item details modal (driven by selected category)
+  const itemDetailsSubcategoryOptions = React.useMemo(() => {
+    if (!itemDetailsCategory || !collectionData?.categories) return [];
+    const cat = collectionData.categories.find(c => c.name === itemDetailsCategory);
+    return (cat?.subcategories || []).map(sub => ({
+      value: sub.name,
+      label: sub.name
+    }));
+  }, [itemDetailsCategory, collectionData?.categories]);
   
   // Set activeCollection from URL and find parent brand
   useEffect(() => {
@@ -623,6 +651,99 @@ function CollectionSettingsPage() {
       itemId,
       updateData
     });
+  };
+
+  // Handle Upload Line Sheet modal - upload files, process, re-enrich
+  const handleUploadLineSheetAndProcess = async (files) => {
+    setUploadLineSheetLoading(true);
+    setUploadLineSheetError(null);
+    setUploadLineSheetSuccess(null);
+
+    try {
+      // Step 1: Upload each file as line_sheet
+      const uploadedDocIds = [];
+      for (const file of files) {
+        const result = await uploadDocumentMutation.mutateAsync({
+          collectionId,
+          file,
+          type: 'line_sheet',
+          process: false
+        });
+        if (result?.document_id) {
+          uploadedDocIds.push(result.document_id);
+        }
+      }
+
+      // Step 2: Process newly uploaded documents
+      if (uploadedDocIds.length > 0) {
+        await processDocumentsMutation.mutateAsync({
+          collectionId,
+          documentIds: uploadedDocIds
+        });
+
+        // Wait for processing to complete by polling
+        let attempts = 0;
+        const maxAttempts = 60; // 2 min max
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const statusResult = await refetchRef.current();
+          const docStatus = statusResult?.data?.document_processing?.status;
+          if (docStatus === 'completed') break;
+          if (docStatus === 'failed') {
+            throw new Error('Document processing failed');
+          }
+          attempts++;
+        }
+      }
+
+      // Step 3: Re-enrich unmatched items
+      const result = await reEnrichItemsMutation.mutateAsync({ collectionId });
+      setUploadLineSheetSuccess(
+        `${result.items_matched} item(s) matched. ${result.items_still_unmatched} still unmatched.`
+      );
+
+      // Auto-close after short delay on success
+      setTimeout(() => {
+        setShowUploadLineSheetModal(false);
+        setUploadLineSheetSuccess(null);
+        setUploadLineSheetLoading(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Upload line sheet flow error:', err);
+      setUploadLineSheetError(err.message || 'Failed to process line sheet');
+      setUploadLineSheetLoading(false);
+    }
+  };
+
+  // Handle Item Details modal - upload image for an item
+  const handleUploadItemImage = async (itemId, file) => {
+    const result = await uploadItemImageMutation.mutateAsync({
+      collectionId,
+      itemId,
+      file
+    });
+    return result;
+  };
+
+  // Handle Item Details modal - save details
+  const handleSaveItemDetails = async (itemId, updateData) => {
+    setItemDetailsLoading(true);
+    setItemDetailsError(null);
+    try {
+      await updateItemMutation.mutateAsync({
+        collectionId,
+        itemId,
+        updateData
+      });
+      // Invalidate to refetch items with updated data
+      queryClient.invalidateQueries({ queryKey: ['collectionItems', collectionId] });
+      setItemDetailsModalItem(null);
+      setItemDetailsLoading(false);
+    } catch (err) {
+      console.error('Save item details error:', err);
+      setItemDetailsError(err.message || 'Failed to save item details');
+      setItemDetailsLoading(false);
+    }
   };
 
   // Handle bulk action Apply button
@@ -2594,6 +2715,8 @@ function CollectionSettingsPage() {
                     title="Unmatched Purchase Order Items"
                     itemCount={groupedItems.unmatched.length}
                     defaultExpanded={true}
+                    onAction={() => setShowUploadLineSheetModal(true)}
+                    actionLabel="Upload Line Sheet"
                   >
                     {groupedItems.unmatched.map(item => (
                       <CollectionListItem
@@ -2621,8 +2744,9 @@ function CollectionSettingsPage() {
                             return next;
                           });
                         }}
-                        onAddDetails={() => console.log('Add details for', item.item_id)}
-                        onIgnore={() => handleItemUpdate(item.item_id, { included: false })}
+                        onAddDetails={() => setItemDetailsModalItem(item)}
+                        included={item.included !== false}
+                        onIncludeChange={(checked) => handleItemUpdate(item.item_id, { included: checked })}
                       />
                     ))}
                   </CategorySection>
@@ -3053,6 +3177,40 @@ function CollectionSettingsPage() {
             setCollectionLoadingMessage('Creating...');
           }
         }}
+      />
+
+      {/* Upload Line Sheet Modal */}
+      <UploadLineSheetModal
+        isVisible={showUploadLineSheetModal}
+        onClose={() => {
+          setShowUploadLineSheetModal(false);
+          setUploadLineSheetError(null);
+          setUploadLineSheetSuccess(null);
+          setUploadLineSheetLoading(false);
+        }}
+        onUploadAndProcess={handleUploadLineSheetAndProcess}
+        isLoading={uploadLineSheetLoading}
+        error={uploadLineSheetError}
+        successMessage={uploadLineSheetSuccess}
+      />
+
+      {/* Item Details Modal */}
+      <ItemDetailsModal
+        isVisible={!!itemDetailsModalItem}
+        item={itemDetailsModalItem}
+        onClose={() => {
+          setItemDetailsModalItem(null);
+          setItemDetailsError(null);
+          setItemDetailsLoading(false);
+          setItemDetailsCategory('');
+        }}
+        onSave={handleSaveItemDetails}
+        onUploadImage={handleUploadItemImage}
+        categoryOptions={categoryOptions}
+        subcategoryOptions={itemDetailsSubcategoryOptions}
+        onCategoryChange={setItemDetailsCategory}
+        isLoading={itemDetailsLoading}
+        error={itemDetailsError}
       />
 
       {/* Regenerate Items Confirmation Modal */}

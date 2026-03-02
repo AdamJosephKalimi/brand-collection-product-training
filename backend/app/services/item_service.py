@@ -456,7 +456,7 @@ class ItemService:
                 elif field == "currency" and value:
                     update_doc["currency"] = value.value
                 elif field == "images" and value:
-                    update_doc["images"] = [img.model_dump() for img in value]
+                    update_doc["images"] = [img if isinstance(img, dict) else img.model_dump() for img in value]
                 else:
                     update_doc[field] = value
             
