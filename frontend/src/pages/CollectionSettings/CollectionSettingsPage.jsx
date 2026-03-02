@@ -233,6 +233,10 @@ function CollectionSettingsPage() {
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   // Uncategorized items warning modal
   const [showUncategorizedWarning, setShowUncategorizedWarning] = useState(false);
+  // Too many items upload rejection warning
+  const [tooManyItemsMessage, setTooManyItemsMessage] = useState(null);
+  // Key to force POFileUpload remount after rejection (clears phantom file)
+  const [poUploadKey, setPoUploadKey] = useState(0);
   const deleteBrandMutation = useDeleteBrand();
   const deleteCollectionMutation = useDeleteCollection();
   
@@ -397,7 +401,7 @@ function CollectionSettingsPage() {
       console.log('Items available, Generate Deck tab enabled');
     }
   }, [processingStatus, collectionData, hasCategories, hasItems]);
-  
+
   // Invalidate queries when processing completes
   useEffect(() => {
     if (!processingStatus) return;
@@ -1687,7 +1691,7 @@ function CollectionSettingsPage() {
                       </div>
                     ) : (
                       <POFileUpload
-                        key={`po-${collectionId}`}
+                        key={`po-${collectionId}-${poUploadKey}`}
                         initialFiles={purchaseOrderDocuments}
                         onFilesSelected={async (files) => {
                           setUploadingSection('po');
@@ -1701,6 +1705,12 @@ function CollectionSettingsPage() {
                                 process: false
                               });
                             } catch (error) {
+                              if (error.message && error.message.includes('exceeds the maximum')) {
+                                setTooManyItemsMessage(error.message);
+                                setPoUploadKey(k => k + 1);
+                                setUploadingSection(null);
+                                return;
+                              }
                               console.error('Failed to upload purchase order:', error);
                             }
                           }
@@ -2955,6 +2965,14 @@ function CollectionSettingsPage() {
           onClose={() => setActiveInfoModal(null)}
         />
       )}
+
+      {/* Too Many Items Upload Rejection Modal */}
+      <InfoModal
+        title="Too Many Items"
+        description={tooManyItemsMessage || ''}
+        isVisible={!!tooManyItemsMessage}
+        onClose={() => setTooManyItemsMessage(null)}
+      />
 
       {/* Uncategorized Items Warning Modal */}
       <InfoModal
