@@ -509,8 +509,21 @@ function CollectionSettingsPage() {
   const [activeSubcategoryFilters, setActiveSubcategoryFilters] = useState({});
   // Collection Items - Selected items for bulk actions
   const [selectedItems, setSelectedItems] = useState(new Set());
-  // Shift-click: track last checked item ID for range selection
+  // Shift-click: track last checked item ID and shift key state
   const lastCheckedItemRef = useRef(null);
+  const shiftHeldRef = useRef(false);
+
+  // Track shift key globally for reliable detection
+  useEffect(() => {
+    const handleKeyDown = (e) => { if (e.key === 'Shift') shiftHeldRef.current = true; };
+    const handleKeyUp = (e) => { if (e.key === 'Shift') shiftHeldRef.current = false; };
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
   // Bulk category modal state
   const [bulkCategoryModalOpen, setBulkCategoryModalOpen] = useState(false);
   const [bulkCategory, setBulkCategory] = useState('');
@@ -707,9 +720,10 @@ function CollectionSettingsPage() {
   };
 
   // Handle item checkbox with shift-click support
-  const handleItemCheck = (itemId, event) => {
-    if (event?.nativeEvent?.shiftKey && lastCheckedItemRef.current) {
-      // Shift-click: select range
+  const handleItemCheck = (itemId) => {
+    if (shiftHeldRef.current && lastCheckedItemRef.current) {
+      // Shift-click: select range and clear accidental text selection
+      window.getSelection()?.removeAllRanges();
       const lastIdx = flatItemIds.indexOf(lastCheckedItemRef.current);
       const currentIdx = flatItemIds.indexOf(itemId);
       if (lastIdx !== -1 && currentIdx !== -1) {
@@ -2821,7 +2835,7 @@ function CollectionSettingsPage() {
                           image: item.images?.[0]?.url || null
                         }}
                         checked={selectedItems.has(item.item_id)}
-                        onCheckChange={(e) => handleItemCheck(item.item_id, e)}
+                        onCheckChange={() => handleItemCheck(item.item_id)}
                         onAddDetails={() => setItemDetailsModalItem(item)}
                         included={item.included !== false}
                         onIncludeChange={(checked) => handleItemUpdate(item.item_id, { included: checked })}
@@ -2856,7 +2870,7 @@ function CollectionSettingsPage() {
                           image: item.images?.[0]?.url || null
                         }}
                         checked={selectedItems.has(item.item_id)}
-                        onCheckChange={(e) => handleItemCheck(item.item_id, e)}
+                        onCheckChange={() => handleItemCheck(item.item_id)}
                         category=""
                         categoryOptions={categoryOptions}
                         onCategoryChange={(newCategory) => handleItemUpdate(item.item_id, { category: newCategory })}
@@ -2934,7 +2948,7 @@ function CollectionSettingsPage() {
                                   image: item.images?.[0]?.url || null
                                 }}
                                 checked={selectedItems.has(item.item_id)}
-                                onCheckChange={(e) => handleItemCheck(item.item_id, e)}
+                                onCheckChange={() => handleItemCheck(item.item_id)}
                                 category={item.subcategory || ''}
                                 categoryOptions={subcategoryOptions}
                                 onCategoryChange={(newSubcategory) => handleItemUpdate(item.item_id, { subcategory: newSubcategory })}
