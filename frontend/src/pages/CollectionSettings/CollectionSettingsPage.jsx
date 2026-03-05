@@ -669,19 +669,33 @@ function CollectionSettingsPage() {
   };
 
   // Build flat ordered list of all visible item IDs (for shift-click range selection)
+  // Must match the exact render order: unmatched → uncategorized → categorized (sorted by category display_order, then subcategory display_order)
   const flatItemIds = React.useMemo(() => {
     const ids = [];
-    // Order: unmatched → uncategorized → categorized (sorted by display_order)
+    const categories = collectionData?.categories || [];
     (groupedItems.unmatched || []).forEach(item => ids.push(item.item_id));
     (groupedItems.uncategorized || []).forEach(item => ids.push(item.item_id));
     Object.entries(groupedItems.categorized || {})
       .filter(([, data]) => data.items.length > 0)
       .sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0))
-      .forEach(([, data]) => {
-        data.items.forEach(item => ids.push(item.item_id));
+      .forEach(([categoryName, data]) => {
+        // Replicate the sort used in render: sort by subcategory display_order
+        const catMeta = categories.find(c => c.name === categoryName);
+        const subOrderMap = {};
+        (catMeta?.subcategories || []).forEach(sub => {
+          subOrderMap[sub.name] = sub.display_order ?? 999;
+        });
+        const activeFilter = activeSubcategoryFilters[categoryName];
+        const filtered = activeFilter
+          ? (data.subcategories[activeFilter] || [])
+          : data.items;
+        const sorted = filtered
+          .slice()
+          .sort((a, b) => (subOrderMap[a.subcategory || 'Other'] ?? 999) - (subOrderMap[b.subcategory || 'Other'] ?? 999));
+        sorted.forEach(item => ids.push(item.item_id));
       });
     return ids;
-  }, [groupedItems]);
+  }, [groupedItems, collectionData?.categories, activeSubcategoryFilters]);
 
   // Get item IDs for a specific section
   const getSectionItemIds = (sectionType, categoryName) => {
