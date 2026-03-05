@@ -10,12 +10,13 @@ import styles from './SimpleCheckbox.module.css';
  * @param {function} onChange - Change handler
  * @param {boolean} disabled - Whether checkbox is disabled
  */
-function SimpleCheckbox({ 
+function SimpleCheckbox({
   checked = false,
+  indeterminate = false,
   onChange,
   disabled = false,
   className = '',
-  ...props 
+  ...props
 }) {
   return (
     <label className={`${styles.checkboxWrapper} ${className}`}>
@@ -27,24 +28,39 @@ function SimpleCheckbox({
         className={styles.checkboxInput}
         {...props}
       />
-      <div className={`${styles.checkboxBox} ${checked ? styles.checked : ''} ${disabled ? styles.disabled : ''}`}>
-        {checked && (
-          <svg 
+      <div className={`${styles.checkboxBox} ${checked || indeterminate ? styles.checked : ''} ${disabled ? styles.disabled : ''}`}>
+        {indeterminate ? (
+          <svg
             className={styles.checkIcon}
-            width="9" 
-            height="8" 
-            viewBox="0 0 9 8" 
+            width="8"
+            height="2"
+            viewBox="0 0 8 2"
             fill="none"
           >
-            <path 
-              d="M1 4L3.5 6.5L8 1" 
-              stroke="white" 
-              strokeWidth="1.5" 
-              strokeLinecap="round" 
+            <path
+              d="M1 1H7"
+              stroke="white"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        ) : checked ? (
+          <svg
+            className={styles.checkIcon}
+            width="9"
+            height="8"
+            viewBox="0 0 9 8"
+            fill="none"
+          >
+            <path
+              d="M1 4L3.5 6.5L8 1"
+              stroke="white"
+              strokeWidth="1.5"
+              strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
-        )}
+        ) : null}
       </div>
     </label>
   );
