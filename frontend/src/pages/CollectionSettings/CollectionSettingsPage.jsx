@@ -2816,11 +2816,17 @@ function CollectionSettingsPage() {
               </div>
 
               {/* Collection Items Content */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0
+                }}
+                onMouseDown={(e) => {
+                  // Prevent browser text selection when shift-clicking checkboxes
+                  if (e.shiftKey) e.preventDefault();
+                }}
+              >
                 {/* Unmatched PO Items Section */}
                 {groupedItems.unmatched.length > 0 && (
                   <CategorySection
