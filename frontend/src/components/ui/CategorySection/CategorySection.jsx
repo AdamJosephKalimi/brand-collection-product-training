@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styles from './CategorySection.module.css';
 import PillCounter from '../PillCounter/PillCounter';
+import SimpleCheckbox from '../SimpleCheckbox/SimpleCheckbox';
 
 /**
  * CategorySection Component
@@ -25,6 +26,9 @@ function CategorySection({
   onReorderSubcategories,
   onAction,
   actionLabel,
+  onSelectAll,
+  isAllSelected = false,
+  isIndeterminate = false,
   defaultExpanded = true,
   onToggle,
   children,
@@ -61,6 +65,15 @@ function CategorySection({
               />
             </svg>
           </button>
+
+          {/* Select All Checkbox */}
+          {onSelectAll && (
+            <SimpleCheckbox
+              checked={isAllSelected}
+              indeterminate={isIndeterminate}
+              onChange={onSelectAll}
+            />
+          )}
 
           {/* Title */}
           <h3 className={styles.title}>{title}</h3>

@@ -509,6 +509,21 @@ function CollectionSettingsPage() {
   const [activeSubcategoryFilters, setActiveSubcategoryFilters] = useState({});
   // Collection Items - Selected items for bulk actions
   const [selectedItems, setSelectedItems] = useState(new Set());
+  // Shift-click: track last checked item ID and shift key state
+  const lastCheckedItemRef = useRef(null);
+  const shiftHeldRef = useRef(false);
+
+  // Track shift key globally for reliable detection
+  useEffect(() => {
+    const handleKeyDown = (e) => { if (e.key === 'Shift') shiftHeldRef.current = true; };
+    const handleKeyUp = (e) => { if (e.key === 'Shift') shiftHeldRef.current = false; };
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
   // Bulk category modal state
   const [bulkCategoryModalOpen, setBulkCategoryModalOpen] = useState(false);
   const [bulkCategory, setBulkCategory] = useState('');
@@ -651,6 +666,104 @@ function CollectionSettingsPage() {
       itemId,
       updateData
     });
+  };
+
+  // Build flat ordered list of all visible item IDs (for shift-click range selection)
+  // Must match the exact render order: unmatched → uncategorized → categorized (sorted by category display_order, then subcategory display_order)
+  const flatItemIds = React.useMemo(() => {
+    const ids = [];
+    const categories = collectionData?.categories || [];
+    (groupedItems.unmatched || []).forEach(item => ids.push(item.item_id));
+    (groupedItems.uncategorized || []).forEach(item => ids.push(item.item_id));
+    Object.entries(groupedItems.categorized || {})
+      .filter(([, data]) => data.items.length > 0)
+      .sort(([, a], [, b]) => (a.display_order || 0) - (b.display_order || 0))
+      .forEach(([categoryName, data]) => {
+        // Replicate the sort used in render: sort by subcategory display_order
+        const catMeta = categories.find(c => c.name === categoryName);
+        const subOrderMap = {};
+        (catMeta?.subcategories || []).forEach(sub => {
+          subOrderMap[sub.name] = sub.display_order ?? 999;
+        });
+        const activeFilter = activeSubcategoryFilters[categoryName];
+        const filtered = activeFilter
+          ? (data.subcategories[activeFilter] || [])
+          : data.items;
+        const sorted = filtered
+          .slice()
+          .sort((a, b) => (subOrderMap[a.subcategory || 'Other'] ?? 999) - (subOrderMap[b.subcategory || 'Other'] ?? 999));
+        sorted.forEach(item => ids.push(item.item_id));
+      });
+    return ids;
+  }, [groupedItems, collectionData?.categories, activeSubcategoryFilters]);
+
+  // Get item IDs for a specific section
+  const getSectionItemIds = (sectionType, categoryName) => {
+    if (sectionType === 'unmatched') return (groupedItems.unmatched || []).map(i => i.item_id);
+    if (sectionType === 'uncategorized') return (groupedItems.uncategorized || []).map(i => i.item_id);
+    if (sectionType === 'categorized' && categoryName) {
+      return (groupedItems.categorized[categoryName]?.items || []).map(i => i.item_id);
+    }
+    return [];
+  };
+
+  // Compute selection state for a section
+  const getSectionSelectionState = (sectionType, categoryName) => {
+    const sectionIds = getSectionItemIds(sectionType, categoryName);
+    if (sectionIds.length === 0) return { isAllSelected: false, isIndeterminate: false };
+    const selectedCount = sectionIds.filter(id => selectedItems.has(id)).length;
+    return {
+      isAllSelected: selectedCount === sectionIds.length,
+      isIndeterminate: selectedCount > 0 && selectedCount < sectionIds.length
+    };
+  };
+
+  // Handle select-all for a section
+  const handleSelectAll = (sectionType, categoryName) => {
+    const sectionIds = getSectionItemIds(sectionType, categoryName);
+    const { isAllSelected } = getSectionSelectionState(sectionType, categoryName);
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (isAllSelected) {
+        sectionIds.forEach(id => next.delete(id));
+      } else {
+        sectionIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  // Handle item checkbox with shift-click support
+  const handleItemCheck = (itemId) => {
+    if (shiftHeldRef.current && lastCheckedItemRef.current) {
+      // Shift-click: select range and clear accidental text selection
+      window.getSelection()?.removeAllRanges();
+      const lastIdx = flatItemIds.indexOf(lastCheckedItemRef.current);
+      const currentIdx = flatItemIds.indexOf(itemId);
+      if (lastIdx !== -1 && currentIdx !== -1) {
+        const start = Math.min(lastIdx, currentIdx);
+        const end = Math.max(lastIdx, currentIdx);
+        const rangeIds = flatItemIds.slice(start, end + 1);
+        setSelectedItems(prev => {
+          const next = new Set(prev);
+          rangeIds.forEach(id => next.add(id));
+          return next;
+        });
+        lastCheckedItemRef.current = itemId;
+        return;
+      }
+    }
+    // Normal click: toggle single item
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+    lastCheckedItemRef.current = itemId;
   };
 
   // Handle Upload Line Sheet modal - upload files, process, re-enrich
@@ -2703,11 +2816,17 @@ function CollectionSettingsPage() {
               </div>
 
               {/* Collection Items Content */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0
+                }}
+                onMouseDown={(e) => {
+                  // Prevent browser text selection when shift-clicking checkboxes
+                  if (e.shiftKey) e.preventDefault();
+                }}
+              >
                 {/* Unmatched PO Items Section */}
                 {groupedItems.unmatched.length > 0 && (
                   <CategorySection
@@ -2717,6 +2836,9 @@ function CollectionSettingsPage() {
                     defaultExpanded={true}
                     onAction={() => setShowUploadLineSheetModal(true)}
                     actionLabel="Upload Line Sheet"
+                    onSelectAll={() => handleSelectAll('unmatched')}
+                    isAllSelected={getSectionSelectionState('unmatched').isAllSelected}
+                    isIndeterminate={getSectionSelectionState('unmatched').isIndeterminate}
                   >
                     {groupedItems.unmatched.map(item => (
                       <CollectionListItem
@@ -2733,17 +2855,7 @@ function CollectionSettingsPage() {
                           image: item.images?.[0]?.url || null
                         }}
                         checked={selectedItems.has(item.item_id)}
-                        onCheckChange={() => {
-                          setSelectedItems(prev => {
-                            const next = new Set(prev);
-                            if (next.has(item.item_id)) {
-                              next.delete(item.item_id);
-                            } else {
-                              next.add(item.item_id);
-                            }
-                            return next;
-                          });
-                        }}
+                        onCheckChange={() => handleItemCheck(item.item_id)}
                         onAddDetails={() => setItemDetailsModalItem(item)}
                         included={item.included !== false}
                         onIncludeChange={(checked) => handleItemUpdate(item.item_id, { included: checked })}
@@ -2759,6 +2871,9 @@ function CollectionSettingsPage() {
                     title="Uncategorized"
                     itemCount={groupedItems.uncategorized.length}
                     defaultExpanded={true}
+                    onSelectAll={() => handleSelectAll('uncategorized')}
+                    isAllSelected={getSectionSelectionState('uncategorized').isAllSelected}
+                    isIndeterminate={getSectionSelectionState('uncategorized').isIndeterminate}
                   >
                     {groupedItems.uncategorized.map(item => (
                       <CollectionListItem
@@ -2775,17 +2890,7 @@ function CollectionSettingsPage() {
                           image: item.images?.[0]?.url || null
                         }}
                         checked={selectedItems.has(item.item_id)}
-                        onCheckChange={() => {
-                          setSelectedItems(prev => {
-                            const next = new Set(prev);
-                            if (next.has(item.item_id)) {
-                              next.delete(item.item_id);
-                            } else {
-                              next.add(item.item_id);
-                            }
-                            return next;
-                          });
-                        }}
+                        onCheckChange={() => handleItemCheck(item.item_id)}
                         category=""
                         categoryOptions={categoryOptions}
                         onCategoryChange={(newCategory) => handleItemUpdate(item.item_id, { category: newCategory })}
@@ -2839,6 +2944,9 @@ function CollectionSettingsPage() {
                           setInitialExpandedCategory(categoryName);
                           setIsReorderCategoriesOpen(true);
                         }}
+                        onSelectAll={() => handleSelectAll('categorized', categoryName)}
+                        isAllSelected={getSectionSelectionState('categorized', categoryName).isAllSelected}
+                        isIndeterminate={getSectionSelectionState('categorized', categoryName).isIndeterminate}
                         defaultExpanded={true}
                       >
                         <SortableContext
@@ -2860,17 +2968,7 @@ function CollectionSettingsPage() {
                                   image: item.images?.[0]?.url || null
                                 }}
                                 checked={selectedItems.has(item.item_id)}
-                                onCheckChange={() => {
-                                  setSelectedItems(prev => {
-                                    const next = new Set(prev);
-                                    if (next.has(item.item_id)) {
-                                      next.delete(item.item_id);
-                                    } else {
-                                      next.add(item.item_id);
-                                    }
-                                    return next;
-                                  });
-                                }}
+                                onCheckChange={() => handleItemCheck(item.item_id)}
                                 category={item.subcategory || ''}
                                 categoryOptions={subcategoryOptions}
                                 onCategoryChange={(newSubcategory) => handleItemUpdate(item.item_id, { subcategory: newSubcategory })}
