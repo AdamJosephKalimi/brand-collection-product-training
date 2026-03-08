@@ -646,21 +646,76 @@ Rules:
         except Exception as e:
             logger.error(f"Error enriching from line sheets: {e}")
             raise
-    
+
+    def convert_linesheets_to_items(
+        self,
+        linesheets: List[Dict[str, Any]]
+    ) -> tuple[List[Dict[str, Any]], List[str]]:
+        """
+        Convert structured_products from line sheets directly to item format (no PO).
+
+        Used for "full collection" / master deck mode where all line sheet items
+        are included without filtering by a purchase order.
+
+        Args:
+            linesheets: List of line sheet documents with structured_products
+
+        Returns:
+            Tuple of (items in enriched format, list of line sheet document IDs)
+        """
+        linesheet_lookup = self.merge_structured_products(linesheets)
+        linesheet_document_ids = [ls.get('document_id') for ls in linesheets if ls.get('document_id')]
+
+        items = []
+        for sku, product in linesheet_lookup.items():
+            ls_colors = product.get('colors', [])
+            ls_color = ls_colors[0] if ls_colors else {}
+
+            items.append({
+                'sku': sku,
+                'base_sku': sku,
+                'product_name': product.get('product_name'),
+                'wholesale_price': product.get('wholesale_price'),
+                'rrp': product.get('rrp'),
+                'currency': product.get('currency'),
+                'origin': product.get('origin'),
+                'materials': product.get('materials', []),
+                'images': [
+                    {
+                        'url': url,
+                        'alt': f"{product.get('product_name', 'Product')} - {ls_color.get('color_name', '')}"
+                    }
+                    for url in product.get('images', [])
+                ],
+                'category': product.get('category'),
+                'subcategory': product.get('subcategory'),
+                'color': ls_color.get('color_name'),
+                'color_code': ls_color.get('color_code'),
+                'source_document_id': product.get('source_document_id'),
+                'source_filename': product.get('source_filename'),
+                'sizes': {},
+                'quantity': None,
+                'enriched': True,
+                'source': 'linesheet_only'
+            })
+
+        logger.info(f"Converted {len(items)} items from {len(linesheets)} line sheet(s) (no PO)")
+        return items, linesheet_document_ids
+
     def generate_item_objects(
         self,
         enriched_items: List[Dict[str, Any]],
         collection_id: str,
-        po_document_id: str,
+        po_document_id: Optional[str],
         linesheet_document_ids: List[str]
     ) -> List[Dict[str, Any]]:
         """
         Transform enriched items into final Item model format.
-        
+
         Args:
             enriched_items: Items from Step 5 (enrichment)
             collection_id: Collection ID
-            po_document_id: Purchase order document ID
+            po_document_id: Purchase order document ID (None for linesheet-only)
             linesheet_document_ids: List of all line sheet document IDs used
             
         Returns:

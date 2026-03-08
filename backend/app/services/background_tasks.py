@@ -549,19 +549,28 @@ async def process_collection_documents_task(
         collection_doc = collection_ref.get()
         brand_id = collection_doc.to_dict().get('brand_id') if collection_doc.exists else None
 
-        # Pre-scan: find PO row_count for ETA estimation
+        # Pre-scan: find PO row_count or linesheet page_count for ETA estimation
         po_row_count = 0
+        linesheet_total_pages = 0
         docs_col = db.collection('collections').document(collection_id).collection('documents')
         for doc_id in document_ids:
             d = docs_col.document(doc_id).get()
             if d.exists:
-                rc = d.to_dict().get('row_count', 0)
-                if rc and rc > 0:
-                    po_row_count = rc
-                    break
+                doc_data = d.to_dict()
+                if doc_data.get('type') == 'purchase_order':
+                    rc = doc_data.get('row_count', 0)
+                    if rc and rc > 0 and po_row_count == 0:
+                        po_row_count = rc
+                if doc_data.get('type') == 'line_sheet':
+                    linesheet_total_pages += doc_data.get('page_count', 0) or 0
 
-        # Compute ETA: simple countdown from initial estimate, no recalibration
-        initial_eta = int(po_row_count * 2.6 + 60) if po_row_count > 0 else 0
+        # Compute ETA: PO row_count if available, otherwise linesheet page count
+        if po_row_count > 0:
+            initial_eta = int(po_row_count * 2.6 + 60)
+        elif linesheet_total_pages > 0:
+            initial_eta = int(linesheet_total_pages * 8 + 60)
+        else:
+            initial_eta = 0
         eta_end_time = [time.time() + initial_eta if initial_eta > 0 else None]
         if initial_eta > 0:
             logger.info(f"[ETA] PO row_count={po_row_count}, initial ETA={initial_eta}s")
@@ -753,121 +762,182 @@ async def generate_collection_items_task(
     
     try:
         logger.info(f"Starting item generation for collection {collection_id}")
-        
+
         # NOTE: Cleanup and status initialization are now done in the API endpoint
         # before this background task starts. This ensures the frontend sees
         # 'processing' status immediately without race conditions.
-        
-        # Step 1: Fetch PO
+
+        # Step 1: Check for PO to determine pipeline
         update_progress(
             db, collection_id, 'item_generation',
             status='processing',
-            current_step='Fetching purchase order',
-            progress={'step': 1, 'total_steps': 7, 'percentage': 14}
+            current_step='Checking collection documents',
+            progress={'step': 1, 'total_steps': 7, 'percentage': 5}
         )
         if check_cancelled(db, collection_id, 'item_generation'):
             await cleanup_partial_items(db, collection_id)
             mark_cancelled(db, collection_id, 'item_generation')
             return
-        
+
         po_doc = await item_generation_service.fetch_purchase_order(collection_id)
-        if not po_doc:
-            raise ValueError(f"No purchase order found for collection {collection_id}")
-        
-        # Step 2: Parse PO
-        update_progress(
-            db, collection_id, 'item_generation',
-            status='processing',
-            current_step='Parsing purchase order',
-            progress={'step': 2, 'total_steps': 7, 'percentage': 29}
-        )
-        if check_cancelled(db, collection_id, 'item_generation'):
-            await cleanup_partial_items(db, collection_id)
-            mark_cancelled(db, collection_id, 'item_generation')
-            return
-        
-        file_bytes = await storage_service.download_file(po_doc['storage_path'])
-        parsed_data = await item_generation_service.parse_purchase_order(file_bytes, po_doc['name'])
-        
-        # Step 3: Identify columns
-        update_progress(
-            db, collection_id, 'item_generation',
-            status='processing',
-            current_step='Identifying columns with AI',
-            progress={'step': 3, 'total_steps': 7, 'percentage': 43}
-        )
-        if check_cancelled(db, collection_id, 'item_generation'):
-            await cleanup_partial_items(db, collection_id)
-            mark_cancelled(db, collection_id, 'item_generation')
-            return
-        
-        column_mapping = await item_generation_service.identify_columns_with_llm(
-            parsed_data['headers'],
-            parsed_data['rows'][:5]
-        )
-        
-        # Step 4: Extract SKU data
-        update_progress(
-            db, collection_id, 'item_generation',
-            status='processing',
-            current_step='Extracting SKU data',
-            progress={'step': 4, 'total_steps': 7, 'percentage': 57}
-        )
-        if check_cancelled(db, collection_id, 'item_generation'):
-            await cleanup_partial_items(db, collection_id)
-            mark_cancelled(db, collection_id, 'item_generation')
-            return
-        
-        po_items = await item_generation_service.extract_sku_data(parsed_data, column_mapping)
-        
-        # Step 5: Enrich from linesheet (TODO: Support multiple linesheets)
-        update_progress(
-            db, collection_id, 'item_generation',
-            status='processing',
-            current_step='Enriching from linesheet',
-            progress={'step': 5, 'total_steps': 7, 'percentage': 71}
-        )
-        if check_cancelled(db, collection_id, 'item_generation'):
-            await cleanup_partial_items(db, collection_id)
-            mark_cancelled(db, collection_id, 'item_generation')
-            return
-        
-        # Fetch ALL linesheets and merge structured_products
-        enriched_items, linesheet_document_ids = await item_generation_service.enrich_from_linesheet(collection_id, po_items)
-        
-        # Step 6: Generate items
-        update_progress(
-            db, collection_id, 'item_generation',
-            status='processing',
-            current_step='Generating Collection Items',
-            progress={'step': 6, 'total_steps': 7, 'percentage': 86}
-        )
-        if check_cancelled(db, collection_id, 'item_generation'):
-            await cleanup_partial_items(db, collection_id)
-            mark_cancelled(db, collection_id, 'item_generation')
-            return
-        
-        final_items = item_generation_service.generate_item_objects(
-            enriched_items=enriched_items,
-            collection_id=collection_id,
-            po_document_id=po_doc['document_id'],
-            linesheet_document_ids=linesheet_document_ids
-        )
-        
-        # Step 7: Save
-        update_progress(
-            db, collection_id, 'item_generation',
-            status='processing',
-            current_step='Saving',
-            progress={'step': 7, 'total_steps': 7, 'percentage': 100}
-        )
-        if check_cancelled(db, collection_id, 'item_generation'):
-            await cleanup_partial_items(db, collection_id)
-            mark_cancelled(db, collection_id, 'item_generation')
-            return
-        
-        save_stats = await item_generation_service.save_items_to_firestore(collection_id, final_items)
-        
+
+        if po_doc:
+            # ═══════════════════════════════════════════════════════════════
+            # PO + LINE SHEET PIPELINE (existing 7-step flow)
+            # ═══════════════════════════════════════════════════════════════
+            logger.info(f"PO found — running PO + line sheet pipeline")
+
+            # Step 2: Parse PO
+            update_progress(
+                db, collection_id, 'item_generation',
+                status='processing',
+                current_step='Parsing purchase order',
+                progress={'step': 2, 'total_steps': 7, 'percentage': 29}
+            )
+            if check_cancelled(db, collection_id, 'item_generation'):
+                await cleanup_partial_items(db, collection_id)
+                mark_cancelled(db, collection_id, 'item_generation')
+                return
+
+            file_bytes = await storage_service.download_file(po_doc['storage_path'])
+            parsed_data = await item_generation_service.parse_purchase_order(file_bytes, po_doc['name'])
+
+            # Step 3: Identify columns
+            update_progress(
+                db, collection_id, 'item_generation',
+                status='processing',
+                current_step='Identifying columns with AI',
+                progress={'step': 3, 'total_steps': 7, 'percentage': 43}
+            )
+            if check_cancelled(db, collection_id, 'item_generation'):
+                await cleanup_partial_items(db, collection_id)
+                mark_cancelled(db, collection_id, 'item_generation')
+                return
+
+            column_mapping = await item_generation_service.identify_columns_with_llm(
+                parsed_data['headers'],
+                parsed_data['rows'][:5]
+            )
+
+            # Step 4: Extract SKU data
+            update_progress(
+                db, collection_id, 'item_generation',
+                status='processing',
+                current_step='Extracting SKU data',
+                progress={'step': 4, 'total_steps': 7, 'percentage': 57}
+            )
+            if check_cancelled(db, collection_id, 'item_generation'):
+                await cleanup_partial_items(db, collection_id)
+                mark_cancelled(db, collection_id, 'item_generation')
+                return
+
+            po_items = await item_generation_service.extract_sku_data(parsed_data, column_mapping)
+
+            # Step 5: Enrich from linesheet
+            update_progress(
+                db, collection_id, 'item_generation',
+                status='processing',
+                current_step='Enriching from linesheet',
+                progress={'step': 5, 'total_steps': 7, 'percentage': 71}
+            )
+            if check_cancelled(db, collection_id, 'item_generation'):
+                await cleanup_partial_items(db, collection_id)
+                mark_cancelled(db, collection_id, 'item_generation')
+                return
+
+            enriched_items, linesheet_document_ids = await item_generation_service.enrich_from_linesheet(collection_id, po_items)
+
+            # Step 6: Generate items
+            update_progress(
+                db, collection_id, 'item_generation',
+                status='processing',
+                current_step='Generating Collection Items',
+                progress={'step': 6, 'total_steps': 7, 'percentage': 86}
+            )
+            if check_cancelled(db, collection_id, 'item_generation'):
+                await cleanup_partial_items(db, collection_id)
+                mark_cancelled(db, collection_id, 'item_generation')
+                return
+
+            final_items = item_generation_service.generate_item_objects(
+                enriched_items=enriched_items,
+                collection_id=collection_id,
+                po_document_id=po_doc['document_id'],
+                linesheet_document_ids=linesheet_document_ids
+            )
+
+            # Step 7: Save
+            update_progress(
+                db, collection_id, 'item_generation',
+                status='processing',
+                current_step='Saving',
+                progress={'step': 7, 'total_steps': 7, 'percentage': 100}
+            )
+            if check_cancelled(db, collection_id, 'item_generation'):
+                await cleanup_partial_items(db, collection_id)
+                mark_cancelled(db, collection_id, 'item_generation')
+                return
+
+            save_stats = await item_generation_service.save_items_to_firestore(collection_id, final_items)
+
+        else:
+            # ═══════════════════════════════════════════════════════════════
+            # LINE SHEET ONLY PIPELINE (full collection / master deck)
+            # ═══════════════════════════════════════════════════════════════
+            logger.info(f"No PO found — running line sheet only pipeline (full collection)")
+
+            # Step 2: Fetch and convert line sheet products
+            update_progress(
+                db, collection_id, 'item_generation',
+                status='processing',
+                current_step='Reading products from line sheet',
+                progress={'step': 2, 'total_steps': 4, 'percentage': 25}
+            )
+            if check_cancelled(db, collection_id, 'item_generation'):
+                await cleanup_partial_items(db, collection_id)
+                mark_cancelled(db, collection_id, 'item_generation')
+                return
+
+            linesheets = await item_generation_service.fetch_all_linesheets(collection_id)
+            if not linesheets:
+                raise ValueError(f"No line sheets found for collection {collection_id}")
+
+            enriched_items, linesheet_document_ids = item_generation_service.convert_linesheets_to_items(linesheets)
+            logger.info(f"Converted {len(enriched_items)} items from {len(linesheets)} line sheet(s)")
+
+            # Step 3: Generate item objects
+            update_progress(
+                db, collection_id, 'item_generation',
+                status='processing',
+                current_step='Generating Collection Items',
+                progress={'step': 3, 'total_steps': 4, 'percentage': 50}
+            )
+            if check_cancelled(db, collection_id, 'item_generation'):
+                await cleanup_partial_items(db, collection_id)
+                mark_cancelled(db, collection_id, 'item_generation')
+                return
+
+            final_items = item_generation_service.generate_item_objects(
+                enriched_items=enriched_items,
+                collection_id=collection_id,
+                po_document_id=None,
+                linesheet_document_ids=linesheet_document_ids
+            )
+
+            # Step 4: Save
+            update_progress(
+                db, collection_id, 'item_generation',
+                status='processing',
+                current_step='Saving',
+                progress={'step': 4, 'total_steps': 4, 'percentage': 100}
+            )
+            if check_cancelled(db, collection_id, 'item_generation'):
+                await cleanup_partial_items(db, collection_id)
+                mark_cancelled(db, collection_id, 'item_generation')
+                return
+
+            save_stats = await item_generation_service.save_items_to_firestore(collection_id, final_items)
+
         # Mark as completed
         mark_completed(db, collection_id, 'item_generation')
         logger.info(f"Item generation completed: {save_stats['items_created']} created, {save_stats['items_skipped']} skipped")

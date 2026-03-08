@@ -196,7 +196,7 @@ function CollectionSettingsPage() {
   const hasLineSheet = linesheetDocuments.length > 0;
   const hasPurchaseOrder = purchaseOrderDocuments.length > 0;
   const hasContextDocs = contextDocuments.length > 0;
-  const hasRequiredDocuments = (hasLineSheet && hasPurchaseOrder) || hasContextDocs;
+  const hasRequiredDocuments = hasLineSheet || hasContextDocs;
   const isProcessing = docProcessingStatus?.status === 'processing';
   const isCompleted = docProcessingStatus?.status === 'completed';
   const isFailed = docProcessingStatus?.status === 'failed';
@@ -235,6 +235,8 @@ function CollectionSettingsPage() {
   const [deleteModal, setDeleteModal] = useState({ isVisible: false, type: null, id: null, name: '' });
   // Regenerate Items confirmation modal
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  // No-PO confirmation modal
+  const [showNoPOConfirm, setShowNoPOConfirm] = useState(false);
   // Uncategorized items warning modal
   const [showUncategorizedWarning, setShowUncategorizedWarning] = useState(false);
   // Too many items upload rejection warning
@@ -1875,7 +1877,7 @@ function CollectionSettingsPage() {
                     flexDirection: 'column',
                     gap: '16px'
                   }}>
-                    {/* Title with Required Tag */}
+                    {/* Title with Optional Tag */}
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -1892,15 +1894,15 @@ function CollectionSettingsPage() {
                         Purchase Order Files
                       </h3>
                       <span style={{
-                        backgroundColor: 'rgba(125, 59, 81, 0.1)',
-                        color: 'var(--color-brand-wine)',
+                        backgroundColor: 'rgba(107, 114, 128, 0.1)',
+                        color: '#6b7280',
                         padding: '4px 8px',
                         borderRadius: '4px',
                         fontSize: '12px',
                         fontWeight: 'var(--font-weight-regular)',
                         lineHeight: '16px'
                       }}>
-                        Required
+                        Optional
                       </span>
                     </div>
                     
@@ -2159,8 +2161,12 @@ function CollectionSettingsPage() {
                     <Button
                       variant="primary"
                       onClick={() => {
-                        console.log('[CollectionSettingsPage] Process Documents clicked');
-                        processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds });
+                        if (hasLineSheet && !hasPurchaseOrder) {
+                          setShowNoPOConfirm(true);
+                        } else {
+                          console.log('[CollectionSettingsPage] Process Documents clicked');
+                          processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds });
+                        }
                       }}
                       disabled={!shouldEnableProcessButton}
                     >
@@ -3309,6 +3315,22 @@ function CollectionSettingsPage() {
         onCategoryChange={setItemDetailsCategory}
         isLoading={itemDetailsLoading}
         error={itemDetailsError}
+      />
+
+      {/* No Purchase Order Confirmation Modal */}
+      <ConfirmModal
+        isVisible={showNoPOConfirm}
+        onClose={() => setShowNoPOConfirm(false)}
+        onConfirm={() => {
+          setShowNoPOConfirm(false);
+          console.log('[CollectionSettingsPage] Proceeding without PO - full collection deck');
+          processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds });
+        }}
+        title="No Purchase Order Uploaded"
+        message="Without a PO, your training deck will include all items from the line sheet. If you only want items from a specific order, upload a PO first."
+        confirmText="Continue with all items"
+        cancelText="Upload PO"
+        isDangerous={false}
       />
 
       {/* Regenerate Items Confirmation Modal */}

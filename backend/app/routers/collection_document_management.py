@@ -314,17 +314,26 @@ async def process_collection_documents(
         # Get document IDs
         document_ids = [doc.document_id for doc in documents]
 
-        # Compute initial ETA from PO row count (stored at upload time)
+        # Compute initial ETA from PO row count or linesheet page count
         po_row_count = 0
+        linesheet_total_pages = 0
         docs_ref = firebase_service.db.collection('collections').document(collection_id).collection('documents')
         for doc_id in document_ids:
             doc_snap = docs_ref.document(doc_id).get()
             if doc_snap.exists:
-                rc = doc_snap.to_dict().get('row_count', 0)
-                if rc and rc > 0:
-                    po_row_count = rc
-                    break
-        eta_seconds = int(po_row_count * 2.6 + 60) if po_row_count > 0 else None
+                doc_data = doc_snap.to_dict()
+                if doc_data.get('type') == 'purchase_order':
+                    rc = doc_data.get('row_count', 0)
+                    if rc and rc > 0 and po_row_count == 0:
+                        po_row_count = rc
+                if doc_data.get('type') == 'line_sheet':
+                    linesheet_total_pages += doc_data.get('page_count', 0) or 0
+        if po_row_count > 0:
+            eta_seconds = int(po_row_count * 2.6 + 60)
+        elif linesheet_total_pages > 0:
+            eta_seconds = int(linesheet_total_pages * 8 + 60)
+        else:
+            eta_seconds = None
 
         # If reprocessing (status was 'completed'), clean up old data synchronously
         if current_status == 'completed':
