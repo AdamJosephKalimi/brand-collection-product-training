@@ -322,9 +322,11 @@ async def process_collection_documents(
             doc_snap = docs_ref.document(doc_id).get()
             if doc_snap.exists:
                 doc_data = doc_snap.to_dict()
-                rc = doc_data.get('row_count', 0)
-                if rc and rc > 0 and po_row_count == 0:
-                    po_row_count = rc
+                # Only use row_count from purchase orders (not line sheets which also store it)
+                if doc_data.get('type') == 'purchase_order':
+                    rc = doc_data.get('row_count', 0)
+                    if rc and rc > 0 and po_row_count == 0:
+                        po_row_count = rc
                 if doc_data.get('type') == 'line_sheet':
                     linesheet_total_bytes += doc_data.get('file_size_bytes', 0)
         if po_row_count > 0:

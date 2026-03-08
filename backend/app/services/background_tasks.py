@@ -557,9 +557,11 @@ async def process_collection_documents_task(
             d = docs_col.document(doc_id).get()
             if d.exists:
                 doc_data = d.to_dict()
-                rc = doc_data.get('row_count', 0)
-                if rc and rc > 0 and po_row_count == 0:
-                    po_row_count = rc
+                # Only use row_count from purchase orders (not line sheets which also store it)
+                if doc_data.get('type') == 'purchase_order':
+                    rc = doc_data.get('row_count', 0)
+                    if rc and rc > 0 and po_row_count == 0:
+                        po_row_count = rc
                 if doc_data.get('type') == 'line_sheet':
                     linesheet_total_bytes += doc_data.get('file_size_bytes', 0)
 
@@ -574,7 +576,8 @@ async def process_collection_documents_task(
             initial_eta = 0
         eta_end_time = [time.time() + initial_eta if initial_eta > 0 else None]
         if initial_eta > 0:
-            logger.info(f"[ETA] PO row_count={po_row_count}, initial ETA={initial_eta}s")
+            linesheet_mb = linesheet_total_bytes / (1024 * 1024) if linesheet_total_bytes > 0 else 0
+            logger.info(f"[ETA] PO row_count={po_row_count}, linesheet_mb={linesheet_mb:.1f}, initial ETA={initial_eta}s")
             # Write initial ETA to Firestore immediately
             update_progress(
                 db, collection_id, 'document_processing',
