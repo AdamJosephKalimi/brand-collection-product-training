@@ -549,9 +549,9 @@ async def process_collection_documents_task(
         collection_doc = collection_ref.get()
         brand_id = collection_doc.to_dict().get('brand_id') if collection_doc.exists else None
 
-        # Pre-scan: find PO row_count for ETA estimation
+        # Pre-scan: find PO row_count and linesheet file sizes for ETA estimation
         po_row_count = 0
-        linesheet_count = 0
+        linesheet_total_bytes = 0
         docs_col = db.collection('collections').document(collection_id).collection('documents')
         for doc_id in document_ids:
             d = docs_col.document(doc_id).get()
@@ -561,13 +561,15 @@ async def process_collection_documents_task(
                 if rc and rc > 0 and po_row_count == 0:
                     po_row_count = rc
                 if doc_data.get('type') == 'line_sheet':
-                    linesheet_count += 1
+                    linesheet_total_bytes += doc_data.get('file_size_bytes', 0)
 
-        # Compute ETA: PO-based if available, otherwise fallback to linesheet count
+        # Compute ETA: PO row_count if available, otherwise linesheet file size
         if po_row_count > 0:
             initial_eta = int(po_row_count * 2.6 + 60)
-        elif linesheet_count > 0:
-            initial_eta = int(linesheet_count * 45 + 30)
+        elif linesheet_total_bytes > 0:
+            # ~10 seconds per MB of line sheet (image extraction + LLM processing)
+            linesheet_mb = linesheet_total_bytes / (1024 * 1024)
+            initial_eta = int(linesheet_mb * 10 + 60)
         else:
             initial_eta = 0
         eta_end_time = [time.time() + initial_eta if initial_eta > 0 else None]
