@@ -130,7 +130,9 @@ class CollectionDocumentService:
             file.file.seek(0)  # Reset to beginning
 
             # For Excel files, extract row count at upload time for ETA estimation
+            # For PDFs, extract page count at upload time for ETA estimation
             row_count = None
+            page_count = None
             if file_extension in ['.xlsx', '.xls']:
                 try:
                     file.file.seek(0)
@@ -141,6 +143,18 @@ class CollectionDocumentService:
                     logger.info(f"[ETA] Extracted row_count={row_count} at upload time")
                 except Exception as e:
                     logger.warning(f"[ETA] Could not extract row count at upload: {e}")
+            elif file_extension == '.pdf':
+                try:
+                    import fitz
+                    file.file.seek(0)
+                    file_bytes_temp = await file.read()
+                    file.file.seek(0)
+                    doc = fitz.open(stream=file_bytes_temp, filetype="pdf")
+                    page_count = len(doc)
+                    doc.close()
+                    logger.info(f"[ETA] Extracted page_count={page_count} at upload time")
+                except Exception as e:
+                    logger.warning(f"[ETA] Could not extract page count at upload: {e}")
 
             # Reject purchase orders exceeding 1,300 rows
             if document_data.type.value == 'purchase_order' and row_count and row_count > 1300:
@@ -167,6 +181,7 @@ class CollectionDocumentService:
                 "structured_products": None,
                 "extraction_progress": None,
                 "row_count": row_count,
+                "page_count": page_count,
                 "uploaded_by": user_id,
                 "uploaded_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
