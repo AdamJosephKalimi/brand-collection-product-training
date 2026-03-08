@@ -549,35 +549,30 @@ async def process_collection_documents_task(
         collection_doc = collection_ref.get()
         brand_id = collection_doc.to_dict().get('brand_id') if collection_doc.exists else None
 
-        # Pre-scan: find PO row_count and linesheet file sizes for ETA estimation
+        # Pre-scan: find PO row_count for ETA estimation
         po_row_count = 0
-        linesheet_total_bytes = 0
+        linesheet_count = 0
         docs_col = db.collection('collections').document(collection_id).collection('documents')
         for doc_id in document_ids:
             d = docs_col.document(doc_id).get()
             if d.exists:
                 doc_data = d.to_dict()
-                # Only use row_count from purchase orders (not line sheets which also store it)
-                if doc_data.get('type') == 'purchase_order':
-                    rc = doc_data.get('row_count', 0)
-                    if rc and rc > 0 and po_row_count == 0:
-                        po_row_count = rc
+                rc = doc_data.get('row_count', 0)
+                if rc and rc > 0 and po_row_count == 0:
+                    po_row_count = rc
                 if doc_data.get('type') == 'line_sheet':
-                    linesheet_total_bytes += doc_data.get('file_size_bytes', 0)
+                    linesheet_count += 1
 
-        # Compute ETA: PO row_count if available, otherwise linesheet file size
+        # Compute ETA: PO-based if available, otherwise fallback to linesheet count
         if po_row_count > 0:
             initial_eta = int(po_row_count * 2.6 + 60)
-        elif linesheet_total_bytes > 0:
-            # ~10 seconds per MB of line sheet (image extraction + LLM processing)
-            linesheet_mb = linesheet_total_bytes / (1024 * 1024)
-            initial_eta = int(linesheet_mb * 10 + 60)
+        elif linesheet_count > 0:
+            initial_eta = int(linesheet_count * 45 + 30)
         else:
             initial_eta = 0
         eta_end_time = [time.time() + initial_eta if initial_eta > 0 else None]
         if initial_eta > 0:
-            linesheet_mb = linesheet_total_bytes / (1024 * 1024) if linesheet_total_bytes > 0 else 0
-            logger.info(f"[ETA] PO row_count={po_row_count}, linesheet_mb={linesheet_mb:.1f}, initial ETA={initial_eta}s")
+            logger.info(f"[ETA] PO row_count={po_row_count}, initial ETA={initial_eta}s")
             # Write initial ETA to Firestore immediately
             update_progress(
                 db, collection_id, 'document_processing',

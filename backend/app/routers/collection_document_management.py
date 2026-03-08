@@ -314,26 +314,23 @@ async def process_collection_documents(
         # Get document IDs
         document_ids = [doc.document_id for doc in documents]
 
-        # Compute initial ETA from PO row count or linesheet file size
+        # Compute initial ETA from PO row count or linesheet count
         po_row_count = 0
-        linesheet_total_bytes = 0
+        linesheet_count = 0
         docs_ref = firebase_service.db.collection('collections').document(collection_id).collection('documents')
         for doc_id in document_ids:
             doc_snap = docs_ref.document(doc_id).get()
             if doc_snap.exists:
                 doc_data = doc_snap.to_dict()
-                # Only use row_count from purchase orders (not line sheets which also store it)
-                if doc_data.get('type') == 'purchase_order':
-                    rc = doc_data.get('row_count', 0)
-                    if rc and rc > 0 and po_row_count == 0:
-                        po_row_count = rc
+                rc = doc_data.get('row_count', 0)
+                if rc and rc > 0 and po_row_count == 0:
+                    po_row_count = rc
                 if doc_data.get('type') == 'line_sheet':
-                    linesheet_total_bytes += doc_data.get('file_size_bytes', 0)
+                    linesheet_count += 1
         if po_row_count > 0:
             eta_seconds = int(po_row_count * 2.6 + 60)
-        elif linesheet_total_bytes > 0:
-            linesheet_mb = linesheet_total_bytes / (1024 * 1024)
-            eta_seconds = int(linesheet_mb * 10 + 60)
+        elif linesheet_count > 0:
+            eta_seconds = int(linesheet_count * 45 + 30)
         else:
             eta_seconds = None
 
