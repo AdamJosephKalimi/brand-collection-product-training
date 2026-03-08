@@ -331,7 +331,7 @@ async def process_collection_documents(
         if po_row_count > 0:
             eta_seconds = int(po_row_count * 2.6 + 60)
         elif linesheet_total_pages > 0:
-            eta_seconds = int(linesheet_total_pages * 4 + 60)
+            eta_seconds = int(linesheet_total_pages * 8 + 60)
         else:
             eta_seconds = None
 

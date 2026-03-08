@@ -568,7 +568,7 @@ async def process_collection_documents_task(
         if po_row_count > 0:
             initial_eta = int(po_row_count * 2.6 + 60)
         elif linesheet_total_pages > 0:
-            initial_eta = int(linesheet_total_pages * 4 + 60)
+            initial_eta = int(linesheet_total_pages * 8 + 60)
         else:
             initial_eta = 0
         eta_end_time = [time.time() + initial_eta if initial_eta > 0 else None]
