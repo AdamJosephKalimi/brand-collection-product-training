@@ -1916,7 +1916,7 @@ function CollectionSettingsPage() {
                       margin: 0,
                       textAlign: 'left'
                     }}>
-                      Uploading a purchase order will match it against your linesheet and automatically include only the items you've ordered in your training deck. Items not ordered will be hidden by default, but you can still view and manage all items anytime in the Collection Items tab.
+                      Uploading a purchase order will match it against your line sheet and only generate items for the SKUs in your order. Without a PO, all items from the line sheet will be included.
                     </p>
                     
                     {/* POFileUpload Component (or loading spinner while docs fetch) */}
