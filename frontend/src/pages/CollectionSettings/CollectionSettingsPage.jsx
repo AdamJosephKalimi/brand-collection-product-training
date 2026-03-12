@@ -237,6 +237,8 @@ function CollectionSettingsPage() {
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   // No-PO confirmation modal
   const [showNoPOConfirm, setShowNoPOConfirm] = useState(false);
+  // Linesheet item count estimate for ETA (upper bound of selected range)
+  const [linesheetItemEstimate, setLinesheetItemEstimate] = useState(null);
   // Uncategorized items warning modal
   const [showUncategorizedWarning, setShowUncategorizedWarning] = useState(false);
   // Too many items upload rejection warning
@@ -3320,18 +3322,67 @@ function CollectionSettingsPage() {
       {/* No Purchase Order Confirmation Modal */}
       <ConfirmModal
         isVisible={showNoPOConfirm}
-        onClose={() => setShowNoPOConfirm(false)}
+        onClose={() => {
+          setShowNoPOConfirm(false);
+          setLinesheetItemEstimate(null);
+        }}
         onConfirm={() => {
           setShowNoPOConfirm(false);
-          console.log('[CollectionSettingsPage] Proceeding without PO - full collection deck');
-          processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds });
+          console.log('[CollectionSettingsPage] Proceeding without PO - full collection deck, estimated items:', linesheetItemEstimate);
+          processDocumentsMutation.mutate({ collectionId, documentIds: stagedDocIds, estimatedItems: linesheetItemEstimate });
+          setLinesheetItemEstimate(null);
         }}
         title="No Purchase Order Uploaded"
         message="Without a PO, your training deck will include all items from the line sheet. If you only want items from a specific order, upload a PO first."
         confirmText="Continue with all items"
         cancelText="Upload PO"
         isDangerous={false}
-      />
+        confirmDisabled={!linesheetItemEstimate}
+      >
+        <div style={{ marginTop: '16px' }}>
+          <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#d1d5db' }}>
+            Approximately how many items are in this line sheet?
+          </label>
+          <select
+            value={linesheetItemEstimate || ''}
+            onChange={(e) => setLinesheetItemEstimate(e.target.value ? parseInt(e.target.value, 10) : null)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              backgroundColor: '#2a2f26',
+              border: '1px solid #4a5244',
+              borderRadius: '8px',
+              color: 'white',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="">Select a range...</option>
+            <option value="50">1 - 50 items</option>
+            <option value="100">51 - 100 items</option>
+            <option value="200">101 - 200 items</option>
+            <option value="300">201 - 300 items</option>
+            <option value="500">301 - 500 items</option>
+            <option value="700">501 - 700 items</option>
+            <option value="1000">701 - 1,000 items</option>
+            <option value="1300">1,001 - 1,300 items</option>
+          </select>
+          <div style={{
+            marginTop: '12px',
+            padding: '10px 12px',
+            backgroundColor: 'rgba(174, 201, 163, 0.1)',
+            border: '1px solid rgba(174, 201, 163, 0.3)',
+            borderRadius: '6px'
+          }}>
+            <p style={{ margin: 0, fontSize: '13px', color: '#aec9a3', fontWeight: 500 }}>
+              Select an accurate range for a reliable time estimate.
+            </p>
+            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#9ca3af' }}>
+              Processing large line sheets can take 30+ minutes.
+            </p>
+          </div>
+        </div>
+      </ConfirmModal>
 
       {/* Regenerate Items Confirmation Modal */}
       <ConfirmModal

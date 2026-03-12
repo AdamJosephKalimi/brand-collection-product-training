@@ -549,9 +549,8 @@ async def process_collection_documents_task(
         collection_doc = collection_ref.get()
         brand_id = collection_doc.to_dict().get('brand_id') if collection_doc.exists else None
 
-        # Pre-scan: find PO row_count or linesheet page_count for ETA estimation
+        # Pre-scan: find PO row_count for ETA estimation (linesheet-only uses user-provided estimate from router)
         po_row_count = 0
-        linesheet_total_pages = 0
         docs_col = db.collection('collections').document(collection_id).collection('documents')
         for doc_id in document_ids:
             d = docs_col.document(doc_id).get()
@@ -561,18 +560,11 @@ async def process_collection_documents_task(
                     rc = doc_data.get('row_count', 0)
                     if rc and rc > 0 and po_row_count == 0:
                         po_row_count = rc
-                if doc_data.get('type') == 'line_sheet':
-                    linesheet_total_pages += doc_data.get('page_count', 0) or 0
 
-        # Compute ETA: PO row_count if available, otherwise linesheet page count
+        # Compute ETA only from PO row_count (linesheet-only ETA is set by router using user's estimate)
         if po_row_count > 0:
             initial_eta = int(po_row_count * 2.6 + 60)
-        elif linesheet_total_pages > 0:
-            initial_eta = int(linesheet_total_pages * 8 + 60)
-        else:
-            initial_eta = 0
-        eta_end_time = [time.time() + initial_eta if initial_eta > 0 else None]
-        if initial_eta > 0:
+            eta_end_time = [time.time() + initial_eta]
             logger.info(f"[ETA] PO row_count={po_row_count}, initial ETA={initial_eta}s")
             # Write initial ETA to Firestore immediately
             update_progress(
@@ -581,6 +573,9 @@ async def process_collection_documents_task(
                 current_phase='Starting...',
                 progress={'phase': 0, 'total_phases': 6, 'percentage': 0, 'eta_seconds': initial_eta}
             )
+        else:
+            # Linesheet-only: ETA already set by router from user's estimate, don't overwrite
+            eta_end_time = [None]
 
         # Process each document
         for idx, document_id in enumerate(document_ids):

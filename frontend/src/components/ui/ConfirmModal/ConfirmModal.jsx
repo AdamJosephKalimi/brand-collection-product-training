@@ -11,21 +11,25 @@ import styles from './ConfirmModal.module.css';
  * @param {function} onConfirm - Confirm button handler
  * @param {string} title - Modal title
  * @param {string} message - Confirmation message
+ * @param {React.ReactNode} children - Optional custom content below message
  * @param {string} confirmText - Text for confirm button (default: "Delete")
  * @param {string} cancelText - Text for cancel button (default: "Cancel")
  * @param {boolean} isLoading - Whether the action is in progress
  * @param {boolean} isDangerous - Whether to style as dangerous action (default: true)
+ * @param {boolean} confirmDisabled - Whether confirm button is disabled (default: false)
  */
-function ConfirmModal({ 
+function ConfirmModal({
   isVisible = false,
   onClose,
   onConfirm,
   title = 'Confirm Action',
   message = 'Are you sure you want to proceed?',
+  children,
   confirmText = 'Delete',
   cancelText = 'Cancel',
   isLoading = false,
-  isDangerous = true
+  isDangerous = true,
+  confirmDisabled = false
 }) {
   if (!isVisible) return null;
 
@@ -54,6 +58,7 @@ function ConfirmModal({
         {/* Content */}
         <div className={styles.content}>
           <p className={styles.message}>{message}</p>
+          {children}
         </div>
         
         {/* Actions */}
@@ -65,10 +70,10 @@ function ConfirmModal({
           >
             {cancelText}
           </button>
-          <button 
+          <button
             className={`${styles.confirmButton} ${isDangerous ? styles.dangerous : ''}`}
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || confirmDisabled}
           >
             {isLoading ? (
               <>

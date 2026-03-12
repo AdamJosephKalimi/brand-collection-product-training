@@ -4,20 +4,25 @@ import { API_BASE_URL } from '../config/api';
 
 /**
  * Start processing documents for a collection
- * 
+ *
  * @param {string} collectionId - The collection ID
  * @param {string[]} documentIds - Array of document IDs to process
+ * @param {number} estimatedItems - Optional estimated item count for ETA (linesheet-only)
  * @returns {Promise<Object>} Processing start response
  */
-const processDocuments = async (collectionId, documentIds) => {
+const processDocuments = async (collectionId, documentIds, estimatedItems = null) => {
   const token = await getAuthToken();
+  const body = { document_ids: documentIds };
+  if (estimatedItems) {
+    body.estimated_items = estimatedItems;
+  }
   const response = await fetch(`${API_BASE_URL}/collections/${collectionId}/documents/process`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ document_ids: documentIds })
+    body: JSON.stringify(body)
   });
   
   if (!response.ok) {
@@ -92,9 +97,9 @@ const markDocumentsStale = async (collectionId) => {
  */
 export const useProcessDocuments = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ collectionId, documentIds }) => processDocuments(collectionId, documentIds),
+    mutationFn: ({ collectionId, documentIds, estimatedItems }) => processDocuments(collectionId, documentIds, estimatedItems),
     onMutate: async (variables) => {
       console.log('[useProcessDocuments] onMutate - optimistically setting status to processing');
       

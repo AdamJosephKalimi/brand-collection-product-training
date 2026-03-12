@@ -2,8 +2,15 @@
 Collection Document Management API Router - CRUD operations for collection documents.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
+from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from ..models.collection_document import CollectionDocumentCreate, CollectionDocumentUpdate, CollectionDocumentResponse, CollectionDocumentType
+
+
+class ProcessDocumentsRequest(BaseModel):
+    """Request body for processing documents."""
+    document_ids: Optional[List[str]] = None  # Optional list of document IDs to process
+    estimated_items: Optional[int] = None  # User-provided item count estimate for ETA (linesheet-only)
 from ..services.collection_document_service import collection_document_service
 from ..services.firebase_service import FirebaseService
 from ..services.background_tasks import (
@@ -250,6 +257,7 @@ async def delete_collection_document(
 async def process_collection_documents(
     collection_id: str,
     background_tasks: BackgroundTasks,
+    request: ProcessDocumentsRequest = None,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
@@ -314,9 +322,8 @@ async def process_collection_documents(
         # Get document IDs
         document_ids = [doc.document_id for doc in documents]
 
-        # Compute initial ETA from PO row count or linesheet page count
+        # Compute initial ETA from PO row count or user-provided estimate
         po_row_count = 0
-        linesheet_total_pages = 0
         docs_ref = firebase_service.db.collection('collections').document(collection_id).collection('documents')
         for doc_id in document_ids:
             doc_snap = docs_ref.document(doc_id).get()
@@ -326,12 +333,15 @@ async def process_collection_documents(
                     rc = doc_data.get('row_count', 0)
                     if rc and rc > 0 and po_row_count == 0:
                         po_row_count = rc
-                if doc_data.get('type') == 'line_sheet':
-                    linesheet_total_pages += doc_data.get('page_count', 0) or 0
+
+        # ETA priority: PO row_count (if PO exists), then user-provided estimate (linesheet-only)
+        estimated_items = request.estimated_items if request else None
         if po_row_count > 0:
             eta_seconds = int(po_row_count * 2.6 + 60)
-        elif linesheet_total_pages > 0:
-            eta_seconds = int(linesheet_total_pages * 8 + 60)
+        elif estimated_items and estimated_items > 0:
+            # User-provided estimate for linesheet-only: 4 seconds per item + 60s buffer
+            eta_seconds = int(estimated_items * 4 + 60)
+            logger.info(f"[ETA] Using user-provided estimate: {estimated_items} items")
         else:
             eta_seconds = None
 
@@ -344,12 +354,23 @@ async def process_collection_documents(
         # This ensures frontend sees 'processing' status immediately
         # Pass document_ids so we can track which documents were processed
         initialize_processing_status(
-            firebase_service.db, 
-            collection_id, 
+            firebase_service.db,
+            collection_id,
             'document_processing',
             document_ids=document_ids
         )
         logger.info(f"Initialized processing status for collection {collection_id}")
+
+        # For linesheet-only with user-provided estimate, write ETA to Firestore immediately
+        # (PO cases will have ETA written by the background task)
+        if eta_seconds and po_row_count == 0 and estimated_items:
+            update_progress(
+                firebase_service.db, collection_id, 'document_processing',
+                status='processing',
+                current_phase='Starting...',
+                progress={'phase': 0, 'total_phases': 6, 'percentage': 0, 'eta_seconds': eta_seconds}
+            )
+            logger.info(f"[ETA] Wrote linesheet-only ETA to Firestore: {eta_seconds}s")
         
         # Start background task in thread pool (cleanup already done, status already set)
         # Using run_in_executor with wrapper to run async task in separate thread/event loop
