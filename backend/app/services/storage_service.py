@@ -494,6 +494,48 @@ class StorageService:
         
         return processed_images
     
+    async def upload_single_image(
+        self,
+        image: Dict[str, Any],
+        brand_id: str,
+        collection_id: str,
+        document_id: str
+    ) -> Dict[str, Any] | None:
+        """
+        Upload a single image for a collection document.
+
+        Used by streaming extraction to upload images one at a time,
+        releasing memory before the next image is extracted.
+
+        Returns:
+            Image metadata with URL, or None if upload failed
+        """
+        try:
+            raw_bytes = image.pop("_raw_bytes", None)
+            if not raw_bytes:
+                return None
+
+            filename = image.get("filename", f"page_{image['page']}_img_{image['index']}.{image.get('format', 'png').lower()}")
+            storage_path = f"brands/{brand_id}/collections/{collection_id}/documents/{document_id}/{filename}"
+
+            blob = self._bucket.blob(storage_path)
+            content_type = image.get("content_type", "image/png")
+            blob.content_type = content_type
+            blob.upload_from_string(raw_bytes, content_type=content_type)
+            blob.make_public()
+
+            image["storage_path"] = storage_path
+            image["url"] = blob.public_url
+            image["size"] = len(raw_bytes)
+
+            return image
+
+        except Exception as e:
+            print(f"Warning: Failed to upload image {image.get('filename')}: {str(e)}")
+            image.pop("_raw_bytes", None)
+            image["upload_error"] = str(e)
+            return None
+
     async def upload_document_images(
         self,
         images: List[Dict[str, Any]],
