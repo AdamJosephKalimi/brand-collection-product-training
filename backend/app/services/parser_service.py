@@ -241,7 +241,92 @@ class ParserService:
             print(f"Warning: PyMuPDF image extraction failed: {str(e)}")
         
         return images
-    
+
+    def _extract_images_streaming(self, file_bytes: bytes, page_num: int = None):
+        """
+        Generator that yields images one at a time for memory efficiency.
+
+        Instead of collecting all images in memory (which can exhaust RAM on
+        large PDFs with many images), this yields each image immediately after
+        extraction. The caller can upload/process each image and release the
+        memory before the next image is extracted.
+
+        Args:
+            file_bytes: PDF file content as bytes
+            page_num: Specific page number to extract from (1-indexed), or None for all pages
+
+        Yields:
+            Dict with image metadata and _raw_bytes for upload
+        """
+        try:
+            # Open PDF with PyMuPDF
+            pdf_document = fitz.open(stream=file_bytes, filetype="pdf")
+
+            # Determine which pages to process
+            if page_num is not None:
+                pages_to_process = [page_num - 1] if page_num - 1 < len(pdf_document) else []
+            else:
+                pages_to_process = range(len(pdf_document))
+
+            for page_idx in pages_to_process:
+                page = pdf_document[page_idx]
+                current_page_num = page_idx + 1
+
+                image_list = page.get_images()
+
+                for img_idx, img in enumerate(image_list):
+                    try:
+                        xref = img[0]
+                        base_image = pdf_document.extract_image(xref)
+                        image_bytes = base_image["image"]
+                        image_ext = base_image["ext"]
+
+                        sha256_hash = hashlib.sha256(image_bytes).hexdigest()
+
+                        content_type_map = {
+                            "png": "image/png",
+                            "jpg": "image/jpeg",
+                            "jpeg": "image/jpeg",
+                            "bmp": "image/bmp",
+                            "tiff": "image/tiff",
+                            "webp": "image/webp"
+                        }
+                        content_type = content_type_map.get(image_ext.lower(), "image/png")
+
+                        img_rect = page.get_image_rects(img)[0] if page.get_image_rects(img) else fitz.Rect(0, 0, 0, 0)
+
+                        image_id = str(uuid.uuid4())
+                        storage_key = f"pdf-images/{sha256_hash}.{image_ext}"
+
+                        image_info = {
+                            "image_id": image_id,
+                            "page": current_page_num,
+                            "index": img_idx,
+                            "bbox": [img_rect.x0, img_rect.y0, img_rect.x1, img_rect.y1],
+                            "width": int(img_rect.width),
+                            "height": int(img_rect.height),
+                            "filename": f"page_{current_page_num}_image_{img_idx + 1}.{image_ext}",
+                            "content_type": content_type,
+                            "size": len(image_bytes),
+                            "format": image_ext.upper(),
+                            "colorspace": base_image.get("colorspace", "unknown"),
+                            "sha256": sha256_hash,
+                            "storage_key": storage_key,
+                            "_raw_bytes": image_bytes
+                        }
+
+                        # Yield immediately - caller uploads and releases memory
+                        yield image_info
+
+                    except Exception as img_error:
+                        print(f"Warning: Could not extract image {img_idx} from page {current_page_num}: {str(img_error)}")
+                        continue
+
+            pdf_document.close()
+
+        except Exception as e:
+            print(f"Warning: PyMuPDF streaming extraction failed: {str(e)}")
+
     async def parse_txt(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
         """
         Parse plain text document.

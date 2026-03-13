@@ -530,7 +530,10 @@ class CollectionDocumentService:
                 logger.info("=" * 50)
                 logger.info("PHASE 1: Extracting images from PDF")
                 logger.info("=" * 50)
-                all_images = await self._extract_images_from_pdf(file_bytes, collection_id, document_id)
+                all_images = await self._extract_images_from_pdf(
+                    file_bytes, collection_id, document_id,
+                    progress_callback=progress_callback
+                )
                 logger.info(f"✅ PHASE 1: Extracted {len(all_images)} images")
                 for i, img in enumerate(all_images[:5]):  # Log first 5 images
                     logger.info(f"  Image {i+1}: Page {img['page_number']}, Size {img['bbox']['width']}x{img['bbox']['height']}")
@@ -986,16 +989,21 @@ class CollectionDocumentService:
         self,
         file_bytes: bytes,
         collection_id: str,
-        document_id: str
+        document_id: str,
+        progress_callback=None
     ) -> List[Dict[str, Any]]:
         """
         Extract images from PDF and upload to Firebase Storage.
-        
+
+        Uses streaming extraction to avoid memory exhaustion on large PDFs.
+        Each image is extracted, uploaded, and released before the next.
+
         Args:
             file_bytes: PDF file content as bytes
             collection_id: Collection ID
             document_id: Document ID
-            
+            progress_callback: Optional async callback for progress updates
+
         Returns:
             List of image metadata with URLs, positions, and bounding boxes
         """
@@ -1020,24 +1028,36 @@ class CollectionDocumentService:
                 )
             
             logger.info(f"Extracting images from PDF for collection {collection_id}, document {document_id}")
-            
-            # Extract images using PyMuPDF (reuse existing parser method)
-            images = self.parser_service._extract_images_with_pymupdf(file_bytes)
-            logger.info(f"Extracted {len(images)} images from PDF")
-            
-            if not images:
-                logger.warning("No images found in PDF")
-                return []
-            
-            # Upload images to Firebase Storage with proper path structure
-            uploaded_images = await self.storage_service.upload_document_images(
-                images=images,
-                brand_id=brand_id,
-                collection_id=collection_id,
-                document_id=document_id
-            )
-            
-            logger.info(f"Uploaded {len(uploaded_images)} images to Firebase Storage")
+
+            # Stream images one at a time to avoid memory exhaustion on large PDFs
+            # Each image is extracted, uploaded, and released before the next
+            uploaded_images = []
+            image_count = 0
+
+            for image_info in self.parser_service._extract_images_streaming(file_bytes):
+                image_count += 1
+
+                # Upload immediately - memory released after this call
+                result = await self.storage_service.upload_single_image(
+                    image=image_info,
+                    brand_id=brand_id,
+                    collection_id=collection_id,
+                    document_id=document_id
+                )
+
+                if result:
+                    uploaded_images.append(result)
+
+                # Log and update progress every 10 images (keeps last_updated fresh for stale detection)
+                if image_count % 10 == 0:
+                    logger.info(f"Streamed {image_count} images so far...")
+                    if progress_callback:
+                        await progress_callback(
+                            phase=1,
+                            message=f"Extracting images ({image_count} processed)"
+                        )
+
+            logger.info(f"Extracted {image_count} images, uploaded {len(uploaded_images)} to Firebase Storage")
             
             # Format images for our use (add center point, clean up metadata)
             formatted_images = []
