@@ -549,6 +549,13 @@ async def process_collection_documents_task(
         collection_doc = collection_ref.get()
         brand_id = collection_doc.to_dict().get('brand_id') if collection_doc.exists else None
 
+        # Get owner_id (user_id) from brand for memory metrics
+        user_id = None
+        if brand_id:
+            brand_doc = db.collection('brands').document(brand_id).get()
+            if brand_doc.exists:
+                user_id = brand_doc.to_dict().get('owner_id')
+
         # Pre-scan: find PO row_count for ETA estimation (linesheet-only uses user-provided estimate from router)
         po_row_count = 0
         docs_col = db.collection('collections').document(collection_id).collection('documents')
@@ -705,7 +712,8 @@ async def process_collection_documents_task(
                     file_bytes=file_bytes,
                     filename=filename,
                     document_type=document_type,
-                    progress_callback=progress_callback
+                    progress_callback=progress_callback,
+                    user_id=user_id
                 )
 
             logger.info(f"Completed processing document {idx + 1} of {len(document_ids)}")

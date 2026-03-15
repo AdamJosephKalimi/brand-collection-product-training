@@ -16,8 +16,73 @@ from .category_generation_service import category_generation_service
 from .llm_service import llm_service
 import logging
 import fitz  # PyMuPDF
+import psutil
+import gc
 
 logger = logging.getLogger(__name__)
+
+
+class MemoryTracker:
+    """Tracks memory usage across phases and persists to Firestore."""
+
+    def __init__(self, collection_id: str, document_id: str, filename: str, file_size_bytes: int, user_id: str = None):
+        self.collection_id = collection_id
+        self.document_id = document_id
+        self.filename = filename
+        self.file_size_mb = round(file_size_bytes / 1024 / 1024, 2)
+        self.user_id = user_id
+        self.page_count = None
+        self.metrics = []
+        self.start_time = datetime.utcnow()
+
+    def log(self, phase: str, context: dict = None):
+        """Log memory usage for a phase."""
+        process = psutil.Process()
+        rss_mb = round(process.memory_info().rss / 1024 / 1024, 1)
+        timestamp = datetime.utcnow()
+        elapsed_sec = (timestamp - self.start_time).total_seconds()
+
+        # Log to console
+        context_str = f" | {context}" if context else ""
+        logger.info(f"[MEMORY] {phase}: {rss_mb:.1f} MB RSS | elapsed: {elapsed_sec:.1f}s{context_str}")
+
+        # Collect metric
+        self.metrics.append({
+            'phase': phase,
+            'rss_mb': rss_mb,
+            'elapsed_sec': round(elapsed_sec, 1),
+            'context': context or {}
+        })
+
+    def set_page_count(self, page_count: int):
+        """Set page count after PDF is opened."""
+        self.page_count = page_count
+
+    def persist(self):
+        """Persist all metrics to Firestore."""
+        try:
+            db = firebase_service.db
+            doc_ref = db.collection('processing_metrics').document()
+
+            # Calculate peak memory
+            peak_rss = max(m['rss_mb'] for m in self.metrics) if self.metrics else 0
+
+            doc_ref.set({
+                'collection_id': self.collection_id,
+                'document_id': self.document_id,
+                'user_id': self.user_id,
+                'filename': self.filename,
+                'file_size_mb': self.file_size_mb,
+                'page_count': self.page_count,
+                'peak_rss_mb': peak_rss,
+                'total_duration_sec': round((datetime.utcnow() - self.start_time).total_seconds(), 1),
+                'started_at': self.start_time,
+                'completed_at': datetime.utcnow(),
+                'phases': self.metrics
+            })
+            logger.info(f"[MEMORY] Persisted metrics: peak={peak_rss} MB, phases={len(self.metrics)}")
+        except Exception as e:
+            logger.warning(f"Failed to persist memory metrics: {e}")
 
 
 class CollectionDocumentService:
@@ -492,13 +557,14 @@ class CollectionDocumentService:
             )
     
     async def _parse_and_store_text(
-        self, 
-        collection_id: str, 
-        document_id: str, 
-        file_bytes: bytes, 
+        self,
+        collection_id: str,
+        document_id: str,
+        file_bytes: bytes,
         filename: str,
         document_type: str,
-        progress_callback=None
+        progress_callback=None,
+        user_id: str = None
     ):
         """
         Parse document and store extracted/normalized text in Firestore.
@@ -512,43 +578,54 @@ class CollectionDocumentService:
             document_type: Document type (line_sheet, purchase_order, etc.)
             progress_callback: Optional async callback function(phase, message) for progress updates
         """
+        # Initialize memory tracker
+        mem_tracker = MemoryTracker(collection_id, document_id, filename, len(file_bytes), user_id)
+
         try:
             logger.info(f"Parsing document: {filename}")
-            
+            mem_tracker.log("PROCESS START")
+
             # Extract text based on file type
             file_ext = os.path.splitext(filename)[1].lower()
             parsed_text = ""
-            
+
             if file_ext == '.pdf':
                 # Open PDF with PyMuPDF
                 pdf = fitz.open(stream=file_bytes, filetype="pdf")
-                
+                page_count = len(pdf)
+                mem_tracker.set_page_count(page_count)
+                mem_tracker.log("PDF OPENED", {"pages": page_count})
+
                 # PHASE 1: Extract images from PDF
                 if progress_callback:
                     await progress_callback(phase=1, message="Extracting images")
-                
+
                 logger.info("=" * 50)
                 logger.info("PHASE 1: Extracting images from PDF")
                 logger.info("=" * 50)
+                mem_tracker.log("Phase 1 START")
                 all_images = await self._extract_images_from_pdf(
                     file_bytes, collection_id, document_id,
                     progress_callback=progress_callback
                 )
                 logger.info(f"✅ PHASE 1: Extracted {len(all_images)} images")
+                mem_tracker.log("Phase 1 END", {"images_extracted": len(all_images)})
                 for i, img in enumerate(all_images[:5]):  # Log first 5 images
                     logger.info(f"  Image {i+1}: Page {img['page_number']}, Size {img['bbox']['width']}x{img['bbox']['height']}")
                     logger.info(f"    Full URL: {img['url']}")
                 logger.info("=" * 50)
-                
+
                 # PHASE 3: Filter product images (remove small images like swatches/logos)
                 if progress_callback:
                     await progress_callback(phase=3, message="Filtering product images")
-                
+
                 logger.info("=" * 50)
                 logger.info("PHASE 3: Filtering product images")
                 logger.info("=" * 50)
+                mem_tracker.log("Phase 3 START")
                 product_images = self._filter_product_images(all_images, min_width=50, min_height=50)
                 logger.info(f"✅ PHASE 3: Kept {len(product_images)} product images")
+                mem_tracker.log("Phase 3 END", {"product_images": len(product_images)})
                 for i, img in enumerate(product_images[:5]):  # Log first 5 filtered images
                     logger.info(f"  Product Image {i+1}: Page {img['page_number']}, Size {img['bbox']['width']}x{img['bbox']['height']}")
                 logger.info("=" * 50)
@@ -559,17 +636,20 @@ class CollectionDocumentService:
                 # PHASE 2: Extract text blocks with positions (for image matching)
                 if progress_callback:
                     await progress_callback(phase=2, message="Extracting text")
-                
+
+                logger.info("=" * 50)
+                logger.info("PHASE 2: Extracting text blocks with positions")
+                logger.info("=" * 50)
+                mem_tracker.log("Phase 2 START")
+
                 # Extract text using parser_service (for LLM processing)
                 result = await self.parser_service.parse_pdf(file_bytes, filename)
                 parsed_text = result.get('extracted_text', '')
                 logger.info(f"Parsed PDF {filename}: {len(parsed_text)} characters")
-                
-                logger.info("=" * 50)
-                logger.info("PHASE 2: Extracting text blocks with positions")
-                logger.info("=" * 50)
+
                 _, text_blocks = self._extract_text_with_positions(pdf)
                 logger.info(f"✅ PHASE 2: Extracted {len(text_blocks)} text blocks for image matching")
+                mem_tracker.log("Phase 2 END", {"text_blocks": len(text_blocks), "parsed_text_chars": len(parsed_text)})
                 for i, block in enumerate(text_blocks[:5]):  # Log first 5 blocks
                     logger.info(f"  Block {i+1}: Page {block['page_number']}, Text: {block['text'][:50]}...")
                     logger.info(f"    Position: ({block['center']['x']:.1f}, {block['center']['y']:.1f})")
@@ -612,15 +692,26 @@ class CollectionDocumentService:
                 # PHASE 4: Generate and save categories first
                 if progress_callback:
                     await progress_callback(phase=4, message="Generating categories")
-                
+
+                logger.info("=" * 50)
+                logger.info("PHASE 4: Generating categories")
+                logger.info("=" * 50)
+                mem_tracker.log("Phase 4 START", {"normalized_text_chars": len(normalized_text)})
+
                 logger.info("Document is a line sheet, generating categories first...")
                 categories = await self._generate_and_save_categories(
                     normalized_text,
                     collection_id
                 )
-                
+                mem_tracker.log("Phase 4 END", {"categories": len(categories)})
+
                 # PHASE 5: Extract structured products with category assignment
                 # progress_callback passed through for per-chunk ETA recalibration
+                logger.info("=" * 50)
+                logger.info("PHASE 5: Extracting structured products")
+                logger.info("=" * 50)
+                mem_tracker.log("Phase 5 START")
+
                 logger.info("Extracting structured products with category assignment...")
                 structured_products = await self._extract_structured_products(
                     normalized_text,
@@ -629,20 +720,27 @@ class CollectionDocumentService:
                     categories,
                     progress_callback=progress_callback
                 )
+                mem_tracker.log("Phase 5 END", {"products_extracted": len(structured_products) if structured_products else 0})
                 
                 # PHASE 6: Match images to products
                 if structured_products and 'text_blocks' in locals() and 'image_metadata' in locals():
                     if progress_callback:
                         await progress_callback(phase=6, message="Matching images to products")
-                    
+
                     logger.info("=" * 50)
                     logger.info("PHASE 6: Matching images to products")
                     logger.info("=" * 50)
+                    mem_tracker.log("Phase 6 START", {
+                        "products": len(structured_products),
+                        "text_blocks": len(text_blocks),
+                        "image_metadata": len(image_metadata)
+                    })
                     structured_products = self._match_images_to_products(
                         structured_products,
                         text_blocks,
                         image_metadata
                     )
+                    mem_tracker.log("Phase 6 END")
                     logger.info("=" * 50)
             
             # Update document in Firestore
@@ -674,8 +772,13 @@ class CollectionDocumentService:
             except Exception as text_err:
                 logger.warning(f"Could not cache parsed text (document may be near 1MB limit): {text_err}")
                 logger.warning("Category regeneration will re-parse the PDF instead of using cached text")
-            
+
+            mem_tracker.log("PROCESS COMPLETE")
+            mem_tracker.persist()
+
         except Exception as e:
+            mem_tracker.log("PROCESS FAILED")
+            mem_tracker.persist()
             logger.error(f"Error parsing and storing text for document {document_id}: {e}")
             # Don't raise - parsing failure shouldn't block document upload
     
